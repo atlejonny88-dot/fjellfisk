@@ -1,16 +1,71 @@
-# fjellfisk
+# Fjellfisk
 
-A new Flutter project.
+Fjellfisk er en Flutter- og Firebase-app for intern registrering og oppfølging av
+produksjon hos Hardanger Fjellfisk. Appen inneholder blant annet oversikt over
+anlegg og kar, driftslogg, fôring, dødelighet, vekst, rapporter og roller.
 
-## Getting Started
+## Kom i gang
 
-This project is a starting point for a Flutter application.
+Du trenger Flutter SDK, Git og Visual Studio Code med Flutter-utvidelsen.
 
-A few resources to get you started if this is your first Flutter project:
+1. Klon prosjektet og åpne prosjektmappen i Visual Studio Code.
+2. Installer avhengighetene:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+   ```powershell
+   flutter pub get
+   ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+3. Kontroller koden:
+
+   ```powershell
+   flutter analyze
+   ```
+
+4. Kjør appen lokalt i Chrome:
+
+   ```powershell
+   flutter run -d chrome
+   ```
+
+## Arbeidsflyt for elever
+
+Elever skal aldri arbeide direkte på `main`. Oppdater `develop`, og lag en egen
+branch for hver oppgave:
+
+```powershell
+git switch develop
+git pull
+git switch -c student/navn-oppgave
+```
+
+Eksempler på branch-navn:
+
+- `student/ola-sprakvalg`
+- `student/kari-faq`
+- `student/per-mobilvisning`
+
+Etter at endringen er testet:
+
+```powershell
+dart format .
+flutter analyze
+flutter test
+git add .
+git commit -m "Kort forklaring av endringen"
+git push -u origin student/navn-oppgave
+```
+
+Opprett deretter en Pull Request mot `develop`. Beskriv hva som er endret og
+hvordan det er testet. Max eller Codex må godkjenne endringen før den flettes.
+Bare godkjente endringer flyttes senere fra `develop` til `main`.
+
+Les [CONTRIBUTING_STUDENTS.md](CONTRIBUTING_STUDENTS.md) for alle reglene.
+
+## Dette skal elever ikke gjore
+
+- Ikke push passord, API-nøkler, signeringsnøkler eller andre sensitive filer.
+- Ikke deploy Firebase eller webappen.
+- Ikke bygg eller last opp APK/AAB til Google Play.
+- Ikke endre produksjonsdata eller Firestore-regler uten avtale.
+- Ikke rør eller koble til OxyGuard/Vigo.
+- Ikke push direkte til `main` eller merge egne Pull Requests.
