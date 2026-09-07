@@ -1,0 +1,98 @@
+{
+    "flutter":  {
+                    "platforms":  {
+                                      "android":  {
+                                                      "default":  {
+                                                                      "projectId":  "trolltungaarctictrout",
+                                                                      "appId":  "1:337001769164:android:d0837f6ddc3fa670d2fa69",
+                                                                      "fileOutput":  "android/app/google-services.json"
+                                                                  }
+                                                  },
+                                      "dart":  {
+                                                   "lib/firebase_options.dart":  {
+                                                                                     "projectId":  "trolltungaarctictrout",
+                                                                                     "configurations":  {
+                                                                                                            "android":  "1:337001769164:android:d0837f6ddc3fa670d2fa69",
+                                                                                                            "ios":  "1:337001769164:ios:aded299647b86784d2fa69",
+                                                                                                            "macos":  "1:337001769164:ios:aded299647b86784d2fa69",
+                                                                                                            "web":  "1:337001769164:web:a70a0aa32e045840d2fa69",
+                                                                                                            "windows":  "1:337001769164:web:6c7cbec241fa2016d2fa69"
+                                                                                                        }
+                                                                                 }
+                                               }
+                                  }
+                },
+    "hosting":  {
+                    "public":  "build/web",
+                    "ignore":  [
+                                   "firebase.json",
+                                   "**/.*",
+                                   "**/node_modules/**"
+                               ],
+                    "rewrites":  [
+                                     {
+                                         "source":  "**",
+                                         "destination":  "/index.html"
+                                     }
+                                 ],
+                    "headers":  [
+                                    {
+                                        "source":  "/",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "no-cache, no-store, must-revalidate"
+                                                        }
+                                                    ]
+                                    },
+                                    {
+                                        "source":  "/index.html",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "no-cache, no-store, must-revalidate"
+                                                        }
+                                                    ]
+                                    },
+                                    {
+                                        "source":  "/main.dart.js",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "no-cache, no-store, must-revalidate"
+                                                        }
+                                                    ]
+                                    },
+                                    {
+                                        "source":  "/flutter_bootstrap.js",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "no-cache, no-store, must-revalidate"
+                                                        }
+                                                    ]
+                                    },
+                                    {
+                                        "source":  "/flutter_service_worker.js",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "no-cache, no-store, must-revalidate"
+                                                        }
+                                                    ]
+                                    },
+                                    {
+                                        "source":  "/version.json",
+                                        "headers":  [
+                                                        {
+                                                            "key":  "Cache-Control",
+                                                            "value":  "no-cache, no-store, must-revalidate"
+                                                        }
+                                                    ]
+                                    }
+                                ]
+                },
+    "firestore":  {
+                      "rules":  "firestore.rules"
+                  }
+}

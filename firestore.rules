@@ -1,0 +1,291 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function activeUser() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userData().disabled != true;
+    }
+
+    function role() {
+      return activeUser() ? userData().role : 'leser';
+    }
+
+    function isAdmin() {
+      return role() == 'admin';
+    }
+
+    function isEmployee() {
+      return role() == 'ansatt';
+    }
+
+    function canWriteProduction() {
+      return isAdmin() || isEmployee();
+    }
+
+    function authEmail() {
+      return request.auth.token.email == null
+        ? ''
+        : request.auth.token.email;
+    }
+
+    function validRole(value) {
+      return value in ['admin', 'ansatt', 'leser'];
+    }
+
+    function validInviteCreate(inviteId, data) {
+      return data.keys().hasAll([
+          'email', 'emailLower', 'displayName', 'role', 'status',
+          'createdAt', 'createdByUid', 'createdByEmail', 'updatedAt',
+          'acceptedAt', 'acceptedByUid', 'disabled', 'inviteToken',
+          'expiresAt'
+        ])
+        && data.keys().hasOnly([
+          'email', 'emailLower', 'displayName', 'role', 'status',
+          'createdAt', 'createdByUid', 'createdByEmail', 'updatedAt',
+          'acceptedAt', 'acceptedByUid', 'disabled', 'inviteToken',
+          'expiresAt'
+        ])
+        && data.email is string
+        && data.email.size() > 3
+        && data.email.size() <= 254
+        && data.emailLower == data.email
+        && data.displayName is string
+        && data.displayName.size() <= 160
+        && validRole(data.role)
+        && data.status == 'pending'
+        && data.createdAt == request.time
+        && data.createdByUid == request.auth.uid
+        && data.createdByEmail == authEmail()
+        && data.updatedAt == request.time
+        && data.acceptedAt == null
+        && data.acceptedByUid == null
+        && data.disabled == false
+        && data.inviteToken == inviteId
+        && data.expiresAt is timestamp
+        && data.expiresAt > request.time;
+    }
+
+    function validInvitedProfile(userId, data) {
+      let invite = get(
+        /databases/$(database)/documents/userInvites/$(data.inviteId)
+      ).data;
+      return signedIn()
+        && request.auth.uid == userId
+        && data.keys().hasAll([
+          'email', 'emailLower', 'name', 'role', 'disabled', 'createdAt',
+          'updatedAt', 'inviteId'
+        ])
+        && data.keys().hasOnly([
+          'email', 'emailLower', 'name', 'role', 'disabled', 'createdAt',
+          'updatedAt', 'inviteId'
+        ])
+        && data.email == authEmail()
+        && data.emailLower == authEmail()
+        && data.name is string
+        && data.name.size() <= 160
+        && data.role == invite.role
+        && validRole(data.role)
+        && data.disabled == false
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && invite.emailLower == authEmail()
+        && invite.status == 'pending'
+        && invite.disabled == false
+        && invite.inviteToken == data.inviteId
+        && invite.expiresAt > request.time;
+    }
+
+    function validDiaryEntry(data) {
+      return data.keys().hasAll([
+          'title', 'body', 'category', 'createdAt', 'createdByUid',
+          'createdByEmail', 'createdByName', 'updatedAt', 'updatedByUid',
+          'updatedByEmail', 'entryDate', 'status'
+        ])
+        && data.keys().hasOnly([
+          'title', 'body', 'category', 'createdAt', 'createdByUid',
+          'createdByEmail', 'createdByName', 'updatedAt', 'updatedByUid',
+          'updatedByEmail', 'entryDate', 'status'
+        ])
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 160
+        && data.body is string
+        && data.body.size() > 0
+        && data.body.size() <= 10000
+        && data.category in [
+          'Hendelse', 'Vedlikehold', 'Observasjon',
+          'Fôring', 'Service', 'Annet'
+        ]
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.entryDate is timestamp
+        && data.createdByUid is string
+        && data.createdByEmail is string
+        && data.createdByName is string
+        && data.updatedByUid is string
+        && data.updatedByEmail is string
+        && data.status in ['active', 'archived'];
+    }
+
+    match /users/{userId} {
+      allow create: if validInvitedProfile(userId, request.resource.data);
+
+      allow read: if signedIn()
+        && (request.auth.uid == userId || isAdmin());
+
+      allow update: if isAdmin()
+        && validRole(request.resource.data.role)
+        && request.resource.data.disabled is bool;
+      allow delete: if isAdmin();
+    }
+
+    match /userInvites/{inviteId} {
+      allow get: if isAdmin()
+        || (
+          inviteId == resource.data.inviteToken
+          && resource.data.status == 'pending'
+          && resource.data.disabled == false
+          && resource.data.expiresAt > request.time
+        );
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && validInviteCreate(inviteId, request.resource.data);
+
+      allow update: if (
+          isAdmin()
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.emailLower == resource.data.emailLower
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.inviteToken == resource.data.inviteToken
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.createdByUid == resource.data.createdByUid
+        )
+        || (
+          signedIn()
+          && resource.data.emailLower == authEmail()
+          && resource.data.status == 'pending'
+          && resource.data.disabled == false
+          && resource.data.expiresAt > request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'acceptedAt', 'acceptedByUid', 'updatedAt'
+          ])
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.acceptedAt == request.time
+          && request.resource.data.acceptedByUid == request.auth.uid
+          && request.resource.data.updatedAt == request.time
+          && getAfter(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.inviteId == inviteId
+          && getAfter(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.role == resource.data.role
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /feed_inventory/{feedId} {
+      allow read: if activeUser();
+      allow create, update: if canWriteProduction();
+      allow delete: if isAdmin();
+    }
+
+    match /feed_inventory_history/{historyId} {
+      allow read: if activeUser();
+      allow create: if canWriteProduction();
+      allow update, delete: if isAdmin();
+    }
+
+    match /facilities/{facilityId} {
+      allow read: if activeUser();
+      allow create, update, delete: if isAdmin();
+
+      match /diaryEntries/{entryId} {
+        allow read: if activeUser();
+
+        allow create: if canWriteProduction()
+          && validDiaryEntry(request.resource.data)
+          && request.resource.data.createdByUid == request.auth.uid
+          && request.resource.data.createdByEmail == authEmail()
+          && request.resource.data.updatedByUid == request.auth.uid
+          && request.resource.data.updatedByEmail == authEmail()
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.status == 'active';
+
+        allow update: if activeUser()
+          && validDiaryEntry(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.createdByUid == resource.data.createdByUid
+          && request.resource.data.createdByEmail == resource.data.createdByEmail
+          && request.resource.data.createdByName == resource.data.createdByName
+          && request.resource.data.entryDate == resource.data.entryDate
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.updatedByUid == request.auth.uid
+          && request.resource.data.updatedByEmail == authEmail()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'body', 'category', 'status', 'updatedAt',
+            'updatedByUid', 'updatedByEmail'
+          ])
+          && (
+            isAdmin()
+            || (
+              isEmployee()
+              && resource.data.createdByUid == request.auth.uid
+              && resource.data.status == 'active'
+              && request.resource.data.status == 'active'
+            )
+          );
+
+        allow delete: if false;
+      }
+
+      match /sections/{sectionId} {
+        allow read: if activeUser();
+        allow create, update, delete: if isAdmin();
+
+        match /tanks/{tankId} {
+          allow read: if activeUser();
+          allow create, delete: if isAdmin();
+          allow update: if isAdmin()
+            || (isEmployee()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['fishCount']));
+
+          match /logs/{logId} {
+            allow read: if activeUser();
+            allow create: if canWriteProduction();
+            allow update, delete: if isAdmin();
+          }
+
+          match /tankNotes/{noteId} {
+            allow read: if activeUser();
+            allow create, update: if canWriteProduction();
+            allow delete: if isAdmin();
+          }
+
+          match /weightSamples/{sampleId} {
+            allow read: if activeUser();
+            allow create: if canWriteProduction();
+            allow update, delete: if isAdmin();
+          }
+        }
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

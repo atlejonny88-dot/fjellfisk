@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "337001769164",
+    "project_id": "trolltungaarctictrout",
+    "storage_bucket": "trolltungaarctictrout.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337001769164:android:d0837f6ddc3fa670d2fa69",
+        "android_client_info": {
+          "package_name": "com.example.fjellfisk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGODw2eflOZTdhWVk7DWcuERz85ttNHPA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337001769164:android:740ea7139962b5c4d2fa69",
+        "android_client_info": {
+          "package_name": "com.example.oppdrettslogg"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGODw2eflOZTdhWVk7DWcuERz85ttNHPA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337001769164:android:bd32cd97435fbd07d2fa69",
+        "android_client_info": {
+          "package_name": "no.fjellfisk.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGODw2eflOZTdhWVk7DWcuERz85ttNHPA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

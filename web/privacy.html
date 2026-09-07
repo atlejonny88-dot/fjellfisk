@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personvernerklæring for Arctic Hardanger</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7fafc;
+      --text: #102033;
+      --muted: #5d6b7a;
+      --card: #ffffff;
+      --border: #dce6ef;
+      --accent: #0f6b8f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 18px 56px;
+    }
+
+    article {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      box-shadow: 0 12px 28px rgba(16, 32, 51, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.2;
+      color: var(--accent);
+    }
+
+    h2 {
+      margin-top: 30px;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    p {
+      margin: 12px 0;
+    }
+
+    ul {
+      padding-left: 22px;
+    }
+
+    .updated {
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    @media (max-width: 600px) {
+      main {
+        padding: 18px 10px 32px;
+      }
+
+      article {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 25px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Personvernerklæring for Arctic Hardanger</h1>
+      <p class="updated">Sist oppdatert: 16. juni 2026</p>
+
+      <h2>1. Om appen</h2>
+      <p>Arctic Hardanger er en intern drifts- og produksjonsapp for registrering og oppfølging av landbasert fiskeoppdrett.</p>
+      <p>Appen brukes til å registrere og vise driftsdata som blant annet kar, fisketall, dødelighet, fôr, temperatur, snittvekt, produksjonsrapporter og brukerroller.</p>
+
+      <h2>2. Hvilke opplysninger samles inn?</h2>
+      <p>Appen kan behandle folgende opplysninger:</p>
+      <ul>
+        <li>E-postadresse for innlogging</li>
+        <li>Brukerrolle, for eksempel admin, ansatt eller leser</li>
+        <li>Status for bruker, for eksempel aktiv eller deaktivert</li>
+        <li>Produksjonsdata registrert i appen, som fisketall, fôr, dødelighet, temperatur, snittvekt og notater</li>
+        <li>Tidspunkt for registreringer</li>
+      </ul>
+      <p>Appen samler ikke inn betalingsinformasjon, posisjonsdata, kontakter, bilder fra telefonen, helseopplysninger eller annonseringsdata.</p>
+
+      <h2>3. Hvorfor behandles opplysningene?</h2>
+      <p>Opplysningene brukes for å:</p>
+      <ul>
+        <li>Gi brukere tilgang til appen</li>
+        <li>Skille mellom ulike brukerroller</li>
+        <li>Registrere og følge opp produksjon</li>
+        <li>Lage historikk og rapporter</li>
+        <li>Sikre at bare godkjente brukere får tilgang</li>
+        <li>Hindre at deaktiverte brukere får brukt appen</li>
+      </ul>
+
+      <h2>4. Lagring av data</h2>
+      <p>Data lagres i Firebase-tjenester fra Google, blant annet Firebase Authentication og Cloud Firestore.</p>
+      <p>Firebase Authentication brukes til innlogging.</p>
+      <p>Cloud Firestore brukes til lagring av brukerroller, produksjonsdata, kar, seksjoner, historikk og rapportgrunnlag.</p>
+
+      <h2>5. Deling av data</h2>
+      <p>Data selges ikke til tredjeparter.</p>
+      <p>Data brukes ikke til annonsering.</p>
+      <p>Data deles ikke offentlig.</p>
+      <p>Data kan behandles av tekniske leverandører som er nødvendige for at appen skal fungere, for eksempel Firebase/Google Cloud.</p>
+
+      <h2>6. Tilgang og roller</h2>
+      <p>Tilgang til appen styres med brukerroller:</p>
+      <ul>
+        <li>Admin kan administrere brukere og data</li>
+        <li>Ansatt kan registrere og lese driftsdata</li>
+        <li>Leser kan lese data, men ikke endre produksjonsdata</li>
+      </ul>
+      <p>Deaktiverte brukere mister tilgang til appen.</p>
+
+      <h2>7. Sikkerhet</h2>
+      <p>Appen bruker Firebase Authentication for innlogging og Firestore-regler for tilgangskontroll.</p>
+      <p>Kun innloggede og godkjente brukere skal ha tilgang til data i appen.</p>
+
+      <h2>8. Hvor lenge lagres data?</h2>
+      <p>Produksjonsdata og historikk lagres så lenge de er nødvendige for drift, dokumentasjon og intern oppfølging.</p>
+      <p>Brukerdata kan slettes eller deaktiveres når brukeren ikke lenger skal ha tilgang.</p>
+
+      <h2>9. Dine rettigheter</h2>
+      <p>Brukere kan kontakte appansvarlig for å be om innsyn, retting eller sletting av personopplysninger der dette er relevant.</p>
+
+      <h2>10. Kontakt</h2>
+      <p>Ved spørsmål om personvern, kontakt:</p>
+      <p>Hardanger Fjellfisk<br>
+      E-post: <a href="mailto:247@live.no">247@live.no</a></p>
+    </article>
+  </main>
+</body>
+</html>
