@@ -56,7 +56,7 @@ git push -u origin student/navn-oppgave
 ```
 
 Opprett deretter en Pull Request mot `develop`. Beskriv hva som er endret og
-hvordan det er testet. Max eller Codex må godkjenne endringen før den flettes.
+hvordan det er testet. Max Oconner må godkjenne endringen før den flettes.
 Bare godkjente endringer flyttes senere fra `develop` til `main`.
 
 Les [CONTRIBUTING_STUDENTS.md](CONTRIBUTING_STUDENTS.md) for alle reglene.

@@ -9,7 +9,7 @@ at det er enkelt a teste endringen og holde produksjonsappen trygg.
 2. Start fra oppdatert `develop` og lag en egen branch for oppgaven.
 3. Gjør bare endringer som hører til oppgaven din.
 4. Opprett en Pull Request mot `develop` når arbeidet er klart.
-5. Max eller Codex må kontrollere og godkjenne Pull Requesten før merge.
+5. Max Oconner må kontrollere og godkjenne Pull Requesten før merge.
 6. Ikke merge din egen Pull Request.
 
 Bruk branch-navn som viser hvem og hva oppgaven gjelder:
@@ -30,7 +30,8 @@ Bruk branch-navn som viser hvem og hva oppgaven gjelder:
 - Ikke rør, koble til eller gjør endringer på OxyGuard/Vigo.
 - Ikke bruk ekte produksjonsdata i tester, skjermbilder eller dokumentasjon.
 
-Stopp og spør Max dersom du er usikker på om en fil eller verdi er sensitiv.
+Stopp og spør Max Oconner dersom du er usikker på om en fil eller verdi er
+sensitiv.
 
 ## Gode startoppgaver
 
