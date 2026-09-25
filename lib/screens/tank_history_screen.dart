@@ -9,6 +9,7 @@ class TankHistoryScreen extends StatefulWidget {
   final String sectionId;
   final String tankId;
   final String tankName;
+  final FirebaseFirestore? firestore;
 
   const TankHistoryScreen({
     super.key,
@@ -16,6 +17,7 @@ class TankHistoryScreen extends StatefulWidget {
     required this.sectionId,
     required this.tankId,
     required this.tankName,
+    this.firestore,
   });
 
   @override
@@ -27,9 +29,37 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
   DateTime? _from;
   DateTime? _to;
   String _type = 'all';
+  late final Future<String> _sectionName;
+
+  FirebaseFirestore get _firestore =>
+      widget.firestore ?? FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _sectionName = _loadSectionName();
+  }
+
+  Future<String> _loadSectionName() async {
+    try {
+      final section = await _firestore
+          .collection('facilities')
+          .doc(widget.facilityId)
+          .collection('sections')
+          .doc(widget.sectionId)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      final name = section.data()?['name'];
+      if (name is String && name.trim().isNotEmpty) return name.trim();
+    } catch (error, stackTrace) {
+      debugPrint('TankHistoryScreen: kunne ikke hente seksjonsnavn: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    return 'Navn ikke tilgjengelig';
+  }
 
   Query<Map<String, dynamic>> get _logsQuery {
-    return FirebaseFirestore.instance
+    return _firestore
         .collection('facilities')
         .doc(widget.facilityId)
         .collection('sections')
@@ -148,9 +178,13 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Kar: ${widget.tankName}\nBygg/seksjon: ${widget.sectionId}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            FutureBuilder<String>(
+              future: _sectionName,
+              builder: (context, snapshot) => Text(
+                'Kar: ${widget.tankName}\nBygg/seksjon: '
+                '${snapshot.data ?? 'Navn ikke tilgjengelig'}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
