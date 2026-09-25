@@ -1,3 +1,4 @@
+import '../utils/data_values.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -105,14 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 0;
   }
 
-  double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  double _toDouble(Object? value) => DataValues.decimal(value);
 
   double _weightFromLog(Map<String, dynamic> data) {
     final candidates = [
@@ -198,13 +192,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               !date.isAfter(now)) {
             final mortality = data['mortality'] ?? data['dead'] ?? 0;
             final feed = data['feedKg'] ?? 0;
-            if (mortality is num) mortalityToday += mortality.toInt();
-            if (feed is num) feedTodayKg += feed.toDouble();
+            mortalityToday += DataValues.integer(mortality);
+            feedTodayKg += DataValues.decimal(feed);
           }
 
-          final temp = data['temperature'];
-          if (temp is num && temp > 0) {
-            tempSum += temp.toDouble();
+          final temp = DataValues.decimal(data['temperature']);
+          if (temp > 0 &&
+              date != null &&
+              !date.isAfter(now) &&
+              !date.isBefore(now.subtract(const Duration(hours: 24)))) {
+            tempSum += temp;
             tempCount++;
           }
         }

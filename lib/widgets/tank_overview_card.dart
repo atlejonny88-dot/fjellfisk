@@ -21,6 +21,7 @@ class TankOverviewCard extends StatelessWidget {
     this.noteMeta,
     this.onNoteTap,
     this.notesUnavailable = false,
+    this.reviewed = false,
   });
 
   final String name;
@@ -41,6 +42,7 @@ class TankOverviewCard extends StatelessWidget {
   final String? noteMeta;
   final VoidCallback? onNoteTap;
   final bool notesUnavailable;
+  final bool reviewed;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +78,20 @@ class TankOverviewCard extends StatelessWidget {
                   statusColor: statusColor,
                   onDelete: onDelete,
                 ),
+                if (reviewed) ...[
+                  const SizedBox(height: 8),
+                  const Row(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 16, color: Color(0xFF557268)),
+                      SizedBox(width: 6),
+                      Expanded(
+                          child: Text('Gjennomgått i denne økten',
+                              style: TextStyle(
+                                  fontSize: 12, color: Color(0xFF557268)))),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 14),
                 _TankVisualSummary(
                   isActive: isActive,

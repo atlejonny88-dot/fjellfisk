@@ -45,6 +45,9 @@ class TankInfoScreen extends StatelessWidget {
         tankId: tankId,
       ),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _loadError('Anbefalt fôr', snapshot.error);
+        }
         final latestWeight = snapshot.data ?? 0;
         final biomassKg = TankInfoService.biomassKg(
           fishCount: fishCount,
@@ -142,6 +145,16 @@ class TankInfoScreen extends StatelessWidget {
     );
   }
 
+  Widget _loadError(String title, Object? error) {
+    debugPrint('$title: $error');
+    return _InfoCard(
+      icon: Icons.error_outline,
+      iconColor: Colors.orange,
+      title: title,
+      child: const Text('Kunne ikke hente data. Gå tilbake og prøv igjen.'),
+    );
+  }
+
   Widget _fcrCard() {
     return FutureBuilder<Map<String, dynamic>>(
       future: FcrService.calculateTankFcr(
@@ -151,6 +164,7 @@ class TankInfoScreen extends StatelessWidget {
         currentFishCount: fishCount,
       ),
       builder: (context, snapshot) {
+        if (snapshot.hasError) return _loadError('FCR', snapshot.error);
         if (!snapshot.hasData) {
           return const _InfoCard(
             icon: Icons.show_chart,
@@ -235,6 +249,9 @@ class TankInfoScreen extends StatelessWidget {
         tankId: tankId,
       ),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _loadError('Vekstprognose', snapshot.error);
+        }
         if (!snapshot.hasData) {
           return const _InfoCard(
             icon: Icons.trending_up,

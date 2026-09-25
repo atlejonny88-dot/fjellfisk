@@ -11,6 +11,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/invite_registration_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/user_service.dart';
+import 'services/registration_round.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -137,7 +138,10 @@ class _AuthGateState extends State<_AuthGate> {
   int _authRetry = 0;
 
   Stream<User?> _authStateStream() {
-    return FirebaseAuth.instance.authStateChanges().timeout(
+    return FirebaseAuth.instance.authStateChanges().map((user) {
+      RegistrationRound.session.setUser(user?.uid);
+      return user;
+    }).timeout(
       const Duration(seconds: 15),
       onTimeout: (sink) {
         debugPrint('Fjellfisk auth state timeout, using currentUser fallback.');

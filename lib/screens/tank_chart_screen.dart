@@ -1,7 +1,9 @@
+import '../utils/load_error.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../utils/data_values.dart';
 
 class TankChartScreen extends StatelessWidget {
   final String facilityId;
@@ -33,7 +35,7 @@ class TankChartScreen extends StatelessWidget {
       List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     final valid = docs.where((doc) {
       final data = doc.data();
-      return data['avgWeight'] is num && data['date'] is Timestamp;
+      return DataValues.weight(data) > 0 && data['date'] is Timestamp;
     }).toList();
 
     if (valid.length < 2) return null;
@@ -41,8 +43,8 @@ class TankChartScreen extends StatelessWidget {
     final first = valid.first.data();
     final last = valid.last.data();
 
-    final w1 = (first['avgWeight'] as num).toDouble();
-    final w2 = (last['avgWeight'] as num).toDouble();
+    final w1 = DataValues.weight(first);
+    final w2 = DataValues.weight(last);
     final d1 = (first['date'] as Timestamp).toDate();
     final d2 = (last['date'] as Timestamp).toDate();
 
@@ -62,7 +64,7 @@ class TankChartScreen extends StatelessWidget {
         stream: _logsQuery.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('Feil: ${snapshot.error}'));
+            return Center(child: Text(loadErrorMessage(snapshot.error)));
           }
 
           if (!snapshot.hasData) {
@@ -71,8 +73,7 @@ class TankChartScreen extends StatelessWidget {
 
           final docs = snapshot.data!.docs.where((doc) {
             final data = doc.data();
-            final weight = data['avgWeight'];
-            return weight is num && weight > 0;
+            return DataValues.weight(data) > 0 && data['date'] is Timestamp;
           }).toList();
 
           if (docs.isEmpty) {
@@ -85,7 +86,7 @@ class TankChartScreen extends StatelessWidget {
 
           for (int i = 0; i < docs.length; i++) {
             final data = docs[i].data();
-            final weight = (data['avgWeight'] as num).toDouble();
+            final weight = DataValues.weight(data);
             spots.add(FlSpot(i.toDouble(), weight));
           }
 
@@ -147,7 +148,7 @@ class TankChartScreen extends StatelessWidget {
                     leading: const Icon(Icons.scale),
                     title: const Text('Siste snittvekt'),
                     subtitle: Text(
-                      '${(docs.last.data()['avgWeight'] as num).toStringAsFixed(1)} g',
+                      '${DataValues.weight(docs.last.data()).toStringAsFixed(1)} g',
                     ),
                   ),
                 ),

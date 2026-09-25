@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="nb">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -18,7 +18,8 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Fjellfisk - drift og produksjon for Hardanger Fjellfisk.">
+  <meta name="fjellfisk-build" content="__FJELLFISK_BUILD_ID__">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -33,6 +34,7 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script src="app-update.js" defer></script>
   <script>
     (function () {
       var flutterLoaded = false;
@@ -57,9 +59,9 @@
         return caches.keys().then(function (keys) {
           return Promise.all(keys.map(function (key) {
             if (
-              key.indexOf('flutter-app-cache') !== -1 ||
-              key.indexOf('flutter-temp-cache') !== -1 ||
-              key.indexOf('trolltungaarctictrout') !== -1
+              key === 'flutter-app-cache' ||
+              key === 'flutter-temp-cache' ||
+              key === 'flutter-app-manifest'
             ) {
               return caches.delete(key);
             }
@@ -75,7 +77,12 @@
 
         return navigator.serviceWorker.getRegistrations().then(function (registrations) {
           return Promise.all(registrations.map(function (registration) {
-            return registration.unregister();
+            var worker = registration.active || registration.waiting || registration.installing;
+            if (worker && new URL(worker.scriptURL).pathname ===
+                new URL('flutter_service_worker.js', document.baseURI).pathname) {
+              return registration.unregister();
+            }
+            return Promise.resolve(false);
           }));
         });
       }

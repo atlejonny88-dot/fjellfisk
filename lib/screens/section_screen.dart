@@ -1,8 +1,11 @@
+import '../utils/load_error.dart';
+import '../utils/data_values.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../services/user_service.dart';
+import '../services/registration_round.dart';
 import '../utils/tank_status.dart';
 import '../widgets/tank_overview_card.dart';
 import 'tank_screen.dart';
@@ -30,6 +33,8 @@ class _SectionScreenState extends State<SectionScreen> {
   @override
   void initState() {
     super.initState();
+    RegistrationRound.session.setUser(UserService.currentUserId);
+    RegistrationRound.session.addListener(_refresh);
     _roleFuture = UserService.getCurrentUserRole();
   }
 
@@ -42,7 +47,14 @@ class _SectionScreenState extends State<SectionScreen> {
         .collection('tanks');
   }
 
+  @override
+  void dispose() {
+    RegistrationRound.session.removeListener(_refresh);
+    super.dispose();
+  }
+
   void _refresh() {
+    if (!mounted) return;
     setState(() {
       _refreshKey++;
     });
@@ -175,8 +187,8 @@ class _SectionScreenState extends State<SectionScreen> {
         final date = dateRaw is Timestamp ? dateRaw.toDate() : null;
 
         final mortality = logData['mortality'] ?? logData['dead'] ?? 0;
-        if (date != null && date.isAfter(sevenDaysAgo) && mortality is num) {
-          mortality7d += mortality.toInt();
+        if (date != null && date.isAfter(sevenDaysAgo) && !date.isAfter(now)) {
+          mortality7d += DataValues.integer(mortality).clamp(0, 2147483647);
         }
 
         if (date != null && date.isAfter(last24Hours) && !date.isAfter(now)) {
@@ -249,14 +261,7 @@ class _SectionScreenState extends State<SectionScreen> {
     return 0.6;
   }
 
-  double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  double _toDouble(Object? value) => DataValues.decimal(value);
 
   double _latestValidWeight(Map<String, dynamic> data) {
     final candidates = [
@@ -538,7 +543,7 @@ class _SectionScreenState extends State<SectionScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Firestore-feil:\n${snapshot.error}',
+                  loadErrorMessage(snapshot.error),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -583,7 +588,7 @@ class _SectionScreenState extends State<SectionScreen> {
             builder: (context, summarySnapshot) {
               if (summarySnapshot.hasError) {
                 return Center(
-                  child: Text('Feil: ${summarySnapshot.error}'),
+                  child: Text(loadErrorMessage(summarySnapshot.error)),
                 );
               }
 
@@ -591,7 +596,11 @@ class _SectionScreenState extends State<SectionScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final tanks = summarySnapshot.data!;
+              final tanks = RegistrationRound.session.ordered(
+                widget.facilityId,
+                widget.sectionId,
+                summarySnapshot.data!,
+              );
               return FutureBuilder<String>(
                 future: _roleFuture,
                 builder: (context, roleSnapshot) {
@@ -643,6 +652,11 @@ class _SectionScreenState extends State<SectionScreen> {
     final noteTimestamp = activeNote?['updatedAt'] ?? activeNote?['createdAt'];
 
     return TankOverviewCard(
+      reviewed: RegistrationRound.session.isReviewed(
+        widget.facilityId,
+        widget.sectionId,
+        tank['id'].toString(),
+      ),
       name: tank['name'].toString(),
       isActive: isActive,
       fishCountLabel: isActive ? '${_formatFish(fishCount)} stk' : '0 stk',
