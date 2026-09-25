@@ -75,8 +75,7 @@ class DiaryEntry {
   static DateTime? _date(dynamic value) {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
-    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
-    if (value is num) {
+    if (value is num && value.isFinite && value.abs() <= 8640000000000000) {
       return DateTime.fromMillisecondsSinceEpoch(value.toInt());
     }
     if (value is String) return DateTime.tryParse(value);

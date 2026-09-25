@@ -1,3 +1,5 @@
+import '../utils/load_error.dart';
+import '../utils/data_values.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -88,7 +90,7 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
         case 'feed':
           return _toDouble(data['feedKg'] ?? data['feed']) > 0;
         case 'weight':
-          return _toDouble(data['avgWeight'] ?? data['weight']) > 0;
+          return DataValues.weight(data) > 0;
         case 'temperature':
           return _toDouble(data['temperature']) > 0;
         case 'note':
@@ -108,7 +110,7 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
         stream: _logsQuery.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('Feil: ${snapshot.error}'));
+            return Center(child: Text(loadErrorMessage(snapshot.error)));
           }
 
           if (!snapshot.hasData) {
@@ -217,7 +219,7 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
     final date = _toDate(data['date']);
     final mortality = _toInt(data['mortality'] ?? data['dead']);
     final feedKg = _toDouble(data['feedKg'] ?? data['feed']);
-    final avgWeight = _toDouble(data['avgWeight'] ?? data['weight']);
+    final avgWeight = DataValues.weight(data);
     final temperature = _toDouble(data['temperature']);
     final note = _firstText([data['note'], data['notes'], data['comment']]);
     final feedType = _firstText([
@@ -279,22 +281,9 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
     return null;
   }
 
-  double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  double _toDouble(Object? value) => DataValues.decimal(value);
 
-  int _toInt(Object? value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim()) ?? 0;
-    return 0;
-  }
+  int _toInt(Object? value) => DataValues.integer(value);
 
   String _firstText(List<Object?> values) {
     final value = _firstValue(values);

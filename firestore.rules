@@ -13,11 +13,11 @@ service cloud.firestore {
     function activeUser() {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && userData().disabled != true;
+        && userData().get('disabled', false) != true;
     }
 
     function role() {
-      return activeUser() ? userData().role : 'leser';
+      return activeUser() ? userData().get('role', 'leser') : 'leser';
     }
 
     function isAdmin() {
@@ -89,8 +89,8 @@ service cloud.firestore {
           'email', 'emailLower', 'name', 'role', 'disabled', 'createdAt',
           'updatedAt', 'inviteId'
         ])
-        && data.email == authEmail()
-        && data.emailLower == authEmail()
+        && data.email == authEmail().lower()
+        && data.emailLower == authEmail().lower()
         && data.name is string
         && data.name.size() <= 160
         && data.role == invite.role
@@ -98,7 +98,7 @@ service cloud.firestore {
         && data.disabled == false
         && data.createdAt == request.time
         && data.updatedAt == request.time
-        && invite.emailLower == authEmail()
+        && invite.emailLower == authEmail().lower()
         && invite.status == 'pending'
         && invite.disabled == false
         && invite.inviteToken == data.inviteId
@@ -173,7 +173,7 @@ service cloud.firestore {
         )
         || (
           signedIn()
-          && resource.data.emailLower == authEmail()
+          && resource.data.emailLower == authEmail().lower()
           && resource.data.status == 'pending'
           && resource.data.disabled == false
           && resource.data.expiresAt > request.time

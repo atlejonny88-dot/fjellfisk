@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/fish_transfer_service.dart';
+import '../services/user_service.dart';
+import '../services/web_update_guard.dart';
+import '../utils/data_values.dart';
 
 class MoveFishScreen extends StatefulWidget {
   final String facilityId;
@@ -24,6 +28,10 @@ class MoveFishScreen extends StatefulWidget {
 class _MoveFishScreenState extends State<MoveFishScreen> {
   final amountCtrl = TextEditingController();
 
+  bool _saving = false;
+  bool _completed = false;
+  String? _transferId;
+  late final _tanksFuture = _loadAllTanks();
   String? selectedTankPath;
   String? selectedTankName;
 
@@ -52,7 +60,8 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
           .get();
 
       for (final tank in tanksSnap.docs) {
-        if (tank.id != widget.fromTankId) {
+        if (tank.id != widget.fromTankId ||
+            section.id != widget.fromSectionId) {
           allTanks.add(tank);
         }
       }
@@ -62,157 +71,139 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
   }
 
   Future<void> _moveFish() async {
-    final amount = int.tryParse(amountCtrl.text) ?? 0;
-
-    if (amount <= 0 || selectedTankPath == null) return;
-
-    final db = FirebaseFirestore.instance;
-
-    final fromRef = db
-        .collection('facilities')
-        .doc(widget.facilityId)
-        .collection('sections')
-        .doc(widget.fromSectionId)
-        .collection('tanks')
-        .doc(widget.fromTankId);
-
-    final toRef = db.doc(selectedTankPath!);
-
-    await db.runTransaction((transaction) async {
-      final fromSnap = await transaction.get(fromRef);
-      final toSnap = await transaction.get(toRef);
-
-      final fromData = fromSnap.data() ?? {};
-      final toData = toSnap.data() ?? {};
-
-      final fromRaw = fromData['fishCount'] ?? 0;
-      final toRaw = toData['fishCount'] ?? 0;
-
-      final fromCount =
-          fromRaw is int ? fromRaw : int.tryParse(fromRaw.toString()) ?? 0;
-      final toCount =
-          toRaw is int ? toRaw : int.tryParse(toRaw.toString()) ?? 0;
-
-      if (amount > fromCount) {
-        throw Exception('Ikke nok fisk i karet');
+    if (_saving || _completed) return;
+    final amount = int.tryParse(amountCtrl.text.trim()) ?? 0;
+    if (amount <= 0 || selectedTankPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Velg mottakerkar og et antall større enn null.')));
+      return;
+    }
+    setState(() => _saving = true);
+    setWebSavePending(true);
+    try {
+      final role = await UserService.getCurrentUserRole();
+      if (role != 'admin' && role != 'ansatt') {
+        throw const FormatException('Du har ikke skrivetilgang.');
       }
-
-      transaction.update(fromRef, {
-        'fishCount': fromCount - amount,
-      });
-
-      transaction.update(toRef, {
-        'fishCount': toCount + amount,
-      });
-
-      transaction.set(fromRef.collection('logs').doc(), {
-        'date': Timestamp.now(),
-        'mortality': 0,
-        'feedKg': 0,
-        'avgWeight': 0,
-        'temperature': 0,
-        'transferOut': amount,
-        'note': 'Flyttet $amount fisk til ${selectedTankName ?? 'ukjent kar'}',
-      });
-
-      transaction.set(toRef.collection('logs').doc(), {
-        'date': Timestamp.now(),
-        'mortality': 0,
-        'feedKg': 0,
-        'avgWeight': 0,
-        'temperature': 0,
-        'transferIn': amount,
-        'note': 'Mottok $amount fisk fra ${widget.fromTankName}',
-      });
-    });
-
-    if (!mounted) return;
-    Navigator.pop(context);
-    Navigator.pop(context);
+      final db = FirebaseFirestore.instance;
+      final from = db
+          .collection('facilities')
+          .doc(widget.facilityId)
+          .collection('sections')
+          .doc(widget.fromSectionId)
+          .collection('tanks')
+          .doc(widget.fromTankId);
+      _transferId ??= from.collection('logs').doc().id;
+      await FishTransferService.move(
+          from: from,
+          to: db.doc(selectedTankPath!),
+          amount: amount,
+          transferId: _transferId!);
+      _completed = true;
+      if (!mounted) return;
+      Navigator.pop(context);
+      Navigator.pop(context);
+    } catch (error, stack) {
+      debugPrint('Flytting feilet: $error\n$stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(error is FormatException
+                ? error.message
+                : 'Kunne ikke flytte fisk. Prøv igjen.')));
+      }
+    } finally {
+      setWebSavePending(false);
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Flytt fisk'),
-      ),
-      body: FutureBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-        future: _loadAllTanks(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Feil: ${snapshot.error}'));
-          }
+    return PopScope(
+        canPop: !_saving || _completed,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Flytt fisk'),
+          ),
+          body:
+              FutureBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+            future: _tanksFuture,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                debugPrint('Kar for flytting: ${snapshot.error}');
+                return const Center(
+                    child: Text('Kunne ikke hente kar. Prøv igjen.'));
+              }
 
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          final tanks = snapshot.data!;
+              final tanks = snapshot.data!;
 
-          if (tanks.isEmpty) {
-            return const Center(
-              child: Text('Ingen andre kar å flytte til'),
-            );
-          }
+              if (tanks.isEmpty) {
+                return const Center(
+                  child: Text('Ingen andre kar å flytte til'),
+                );
+              }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Card(
-                child: ListTile(
-                  title: const Text('Fra kar'),
-                  subtitle: Text(widget.fromTankName),
-                  trailing: Text('${widget.fromFishCount} fisk'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: selectedTankPath,
-                decoration: const InputDecoration(
-                  labelText: 'Flytt til kar',
-                ),
-                items: tanks.map((doc) {
-                  final data = doc.data();
-                  final name = (data['name'] ?? 'Ukjent kar').toString();
-                  final rawCount = data['fishCount'] ?? 0;
-                  final count = rawCount is int
-                      ? rawCount
-                      : int.tryParse(rawCount.toString()) ?? 0;
+              return AbsorbPointer(
+                  absorbing: _saving || _completed,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      Card(
+                        child: ListTile(
+                          title: const Text('Fra kar'),
+                          subtitle: Text(widget.fromTankName),
+                          trailing: Text('${widget.fromFishCount} fisk'),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedTankPath,
+                        decoration: const InputDecoration(
+                          labelText: 'Flytt til kar',
+                        ),
+                        items: tanks.map((doc) {
+                          final data = doc.data();
+                          final name =
+                              (data['name'] ?? 'Ukjent kar').toString();
+                          final count = DataValues.integer(data['fishCount']);
 
-                  return DropdownMenuItem(
-                    value: doc.reference.path,
-                    child: Text('$name ($count fisk)'),
-                    onTap: () {
-                      selectedTankName = name;
-                    },
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedTankPath = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Antall fisk som skal flyttes',
-                  hintText: 'F.eks. 2000',
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('Flytt fisk'),
-                onPressed: _moveFish,
-              ),
-            ],
-          );
-        },
-      ),
-    );
+                          return DropdownMenuItem(
+                            value: doc.reference.path,
+                            child: Text('$name ($count fisk)'),
+                            onTap: () {
+                              selectedTankName = name;
+                            },
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedTankPath = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: amountCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Antall fisk som skal flyttes',
+                          hintText: 'F.eks. 2000',
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.swap_horiz),
+                        label: const Text('Flytt fisk'),
+                        onPressed: _saving || _completed ? null : _moveFish,
+                      ),
+                    ],
+                  ));
+            },
+          ),
+        ));
   }
 }

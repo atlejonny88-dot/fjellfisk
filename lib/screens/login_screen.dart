@@ -16,9 +16,17 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   String? _error;
 
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _login() async {
+    if (_loading) return;
     final email = _emailCtrl.text.trim();
-    final password = _passwordCtrl.text.trim();
+    final password = _passwordCtrl.text;
 
     if (email.isEmpty || password.isEmpty) {
       setState(() {
@@ -53,9 +61,10 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     } catch (e) {
+      debugPrint('Innlogging feilet: $e');
       if (mounted) {
         setState(() {
-          _error = 'Kunne ikke logge inn: $e';
+          _error = 'Kunne ikke logge inn. Prøv igjen.';
         });
       }
     } finally {
@@ -82,7 +91,8 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'network-request-failed':
         return 'Fikk ikke kontakt med innloggingstjenesten. Sjekk internett.';
       default:
-        return e.message ?? 'Kunne ikke logge inn. Prøv igjen.';
+        debugPrint('Innlogging feilet: $e');
+        return 'Kunne ikke logge inn. Prøv igjen.';
     }
   }
 
@@ -90,58 +100,63 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Card(
-          margin: const EdgeInsets.all(24),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Fjellfisk',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+            child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Card(
+                  margin: const EdgeInsets.all(24),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Fjellfisk',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          autocorrect: false,
+                          textInputAction: TextInputAction.next,
+                          decoration:
+                              const InputDecoration(labelText: 'E-post'),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _passwordCtrl,
+                          obscureText: true,
+                          autocorrect: false,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) {
+                            if (!_loading) {
+                              _login();
+                            }
+                          },
+                          decoration:
+                              const InputDecoration(labelText: 'Passord'),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_error != null)
+                          Text(
+                            _error!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loading ? null : _login,
+                          child: _loading
+                              ? const CircularProgressIndicator()
+                              : const Text('Logg inn'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  autocorrect: false,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'E-post'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _passwordCtrl,
-                  obscureText: true,
-                  autocorrect: false,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) {
-                    if (!_loading) {
-                      _login();
-                    }
-                  },
-                  decoration: const InputDecoration(labelText: 'Passord'),
-                ),
-                const SizedBox(height: 16),
-                if (_error != null)
-                  Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loading ? null : _login,
-                  child: _loading
-                      ? const CircularProgressIndicator()
-                      : const Text('Logg inn'),
-                ),
-              ],
-            ),
-          ),
-        ),
+                ))),
       ),
     );
   }

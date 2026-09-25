@@ -1,3 +1,4 @@
+import '../utils/data_values.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
@@ -217,22 +218,9 @@ class ReportService {
     return null;
   }
 
-  static double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  static double _toDouble(Object? value) => DataValues.decimal(value);
 
-  static int _toInt(Object? value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim()) ?? 0;
-    return 0;
-  }
+  static int _toInt(Object? value) => DataValues.integer(value);
 
   static String _firstText(List<Object?> values) {
     for (final value in values) {

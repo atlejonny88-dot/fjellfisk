@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/weight_sample.dart';
-import 'firestore_service.dart';
+import '../utils/data_values.dart';
 import 'user_service.dart';
 
 class WeightSampleParseResult {
@@ -70,7 +70,10 @@ class WeightSampleService {
 
     for (final part in parts) {
       final parsed = double.tryParse(part.replaceAll(',', '.'));
-      if (parsed == null || parsed <= 0 || parsed > maxWeightGram) {
+      if (parsed == null ||
+          !parsed.isFinite ||
+          parsed <= 0 ||
+          parsed > maxWeightGram) {
         invalid.add(part);
       } else {
         valid.add(parsed);
@@ -86,6 +89,10 @@ class WeightSampleService {
   static WeightSampleStats calculateStats(List<double> weights) {
     if (weights.isEmpty) {
       throw ArgumentError('Tom vektliste');
+    }
+    if (weights.any((weight) =>
+        !weight.isFinite || weight <= 0 || weight > maxWeightGram)) {
+      throw ArgumentError('Vekt må være mellom 0 og 50000 gram.');
     }
 
     final sorted = [...weights]..sort();
@@ -148,6 +155,10 @@ class WeightSampleService {
     required String tankId,
     required List<double> weightsGram,
     String note = '',
+    String? sampleId,
+    FirebaseFirestore? firestore,
+    String? actorUid,
+    String? actorEmail,
   }) async {
     if (weightsGram.isEmpty) {
       throw ArgumentError('Legg til minst én vekt før lagring.');
@@ -160,38 +171,50 @@ class WeightSampleService {
     }
 
     final stats = calculateStats(weightsGram);
-    final user = UserService.currentUser;
+    final user = firestore == null ? UserService.currentUser : null;
     final now = Timestamp.now();
 
-    await samplesRef(
-      facilityId: facilityId,
-      sectionId: sectionId,
-      tankId: tankId,
-    ).add({
-      'date': now,
-      'weightsGram': stats.weightsGram,
-      'count': stats.count,
-      'averageGram': stats.averageGram,
-      'medianGram': stats.medianGram,
-      'minGram': stats.minGram,
-      'maxGram': stats.maxGram,
-      'standardDeviationGram': stats.standardDeviationGram,
-      'spreadGram': stats.spreadGram,
-      'distribution': stats.distribution,
-      'createdAt': now,
-      'createdByUid': user?.uid,
-      'createdByEmail': user?.email ?? 'ukjent',
-      'note': note.trim(),
-    });
+    final db = firestore ?? _db;
+    final tankRef = db
+        .collection('facilities')
+        .doc(facilityId)
+        .collection('sections')
+        .doc(sectionId)
+        .collection('tanks')
+        .doc(tankId);
+    final sampleRef = tankRef.collection('weightSamples').doc(sampleId);
+    await db.runTransaction((batch) async {
+      final existing = await batch.get(sampleRef);
+      if (existing.exists) return;
+      final tank = await batch.get(tankRef);
+      if (!tank.exists || DataValues.integer(tank.data()?['fishCount']) <= 0) {
+        throw const FormatException('Karet er tomt eller finnes ikke lenger.');
+      }
+      batch.set(sampleRef, {
+        'date': now,
+        'weightsGram': stats.weightsGram,
+        'count': stats.count,
+        'averageGram': stats.averageGram,
+        'medianGram': stats.medianGram,
+        'minGram': stats.minGram,
+        'maxGram': stats.maxGram,
+        'standardDeviationGram': stats.standardDeviationGram,
+        'spreadGram': stats.spreadGram,
+        'distribution': stats.distribution,
+        'createdAt': now,
+        'createdByUid': actorUid ?? user?.uid,
+        'createdByEmail': actorEmail ?? user?.email ?? 'ukjent',
+        'note': note.trim(),
+      });
 
-    await FirestoreService.addDailyLog(
-      facilityId: facilityId,
-      sectionId: sectionId,
-      tankId: tankId,
-      mortality: 0,
-      feedKg: 0,
-      avgWeight: stats.averageGram,
-      temperature: 0,
-    );
+      batch.set(sampleRef.parent.parent!.collection('logs').doc(sampleRef.id), {
+        'date': now,
+        'mortality': 0,
+        'feedKg': 0,
+        'avgWeight': stats.averageGram,
+        'avgWeightGram': stats.averageGram,
+        'temperature': 0,
+      });
+    });
   }
 }

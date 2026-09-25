@@ -23,6 +23,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.44.2'
           cache: true
 
       - name: Install dependencies
@@ -36,3 +37,23 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+      - name: Test web release updates
+        run: node --test tool/web_update.test.cjs
+
+      - name: Set up Node for local rules tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Java for Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install rules test dependencies
+        run: npm ci --ignore-scripts --prefix tool/rules
+
+      - name: Test Firestore rules without production access
+        run: npx --yes firebase-tools@15.1.0 emulators:exec --config firebase.qa.json --project demo-fjellfisk-qa --only firestore "node --test tool/rules/rules.test.cjs"

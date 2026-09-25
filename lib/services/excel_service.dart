@@ -3,6 +3,7 @@ import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 
 import '../models/production_report.dart';
+import '../utils/data_values.dart';
 import 'excel_downloader.dart';
 
 class ExcelService {
@@ -176,6 +177,17 @@ class ExcelService {
     required ProductionReport report,
     required String facilityName,
   }) async {
+    final excel =
+        productionReportWorkbook(report: report, facilityName: facilityName);
+    final fileName =
+        'produksjonsrapport_${_safeFileName(report.filterLabel)}_${DateFormat('yyyyMMdd').format(report.from)}_${DateFormat('yyyyMMdd').format(report.to)}.xlsx';
+    return ExcelDownloader.download(excel, fileName);
+  }
+
+  static Excel productionReportWorkbook({
+    required ProductionReport report,
+    required String facilityName,
+  }) {
     final excel = Excel.createExcel();
     const summaryName = 'Sammendrag';
     final summary = excel[summaryName];
@@ -220,7 +232,9 @@ class ExcelService {
     ]);
     summary.appendRow([
       TextCellValue('Vektendring g'),
-      _doubleOrText(report.weightChange, 'Ikke nok data'),
+      report.weightChange == 0 || !report.weightChange.isFinite
+          ? TextCellValue('Ikke nok data')
+          : DoubleCellValue(report.weightChange),
     ]);
     summary.appendRow([
       TextCellValue('FCR'),
@@ -313,9 +327,7 @@ class ExcelService {
       ]);
     }
 
-    final fileName =
-        'produksjonsrapport_${_safeFileName(report.filterLabel)}_${DateFormat('yyyyMMdd').format(report.from)}_${DateFormat('yyyyMMdd').format(report.to)}.xlsx';
-    return ExcelDownloader.download(excel, fileName);
+    return excel;
   }
 
   static void _appendHeader(Sheet sheet) {
@@ -351,8 +363,8 @@ class ExcelService {
       _doubleCell(_firstValue(
           [logData['feedKg'], logData['feed'], logData['feed_kg']])),
       _doubleCell(logData['temperature']),
-      _doubleCell(_firstValue(
-          [logData['avgWeight'], logData['weight'], logData['averageWeight']])),
+      _doubleCell(
+          DataValues.weight(logData) > 0 ? DataValues.weight(logData) : null),
       TextCellValue(
           _firstText([logData['note'], logData['notes'], logData['comment']])),
     ]);
@@ -377,11 +389,12 @@ class ExcelService {
 
   static num? _toNum(Object? value) {
     if (value == null) return null;
-    if (value is num) return value;
+    if (value is num) return value.isFinite ? value : null;
     if (value is String) {
       final cleaned = value.trim().replaceAll(',', '.');
       if (cleaned.isEmpty) return null;
-      return num.tryParse(cleaned);
+      final parsed = num.tryParse(cleaned);
+      return parsed != null && parsed.isFinite ? parsed : null;
     }
     return null;
   }

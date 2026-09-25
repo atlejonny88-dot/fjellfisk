@@ -1,3 +1,4 @@
+import '../utils/data_values.dart';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -145,12 +146,5 @@ class GrowthForecastService {
     return 0;
   }
 
-  static double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  static double _toDouble(Object? value) => DataValues.decimal(value);
 }
