@@ -1,7 +1,11 @@
+import '../utils/load_error.dart';
+import '../utils/data_values.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../services/user_service.dart';
+import '../services/firestore_service.dart';
+import '../services/web_update_guard.dart';
 
 class FeedInventoryScreen extends StatefulWidget {
   const FeedInventoryScreen({super.key});
@@ -11,6 +15,34 @@ class FeedInventoryScreen extends StatefulWidget {
 }
 
 class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
+  late final _roleFuture = UserService.getCurrentUserRole();
+  Future<void>? _setupFuture;
+  bool _mutationBusy = false;
+
+  Future<void> _runMutation(Future<void> Function() operation) async {
+    if (_mutationBusy) return;
+    _mutationBusy = true;
+    setWebSavePending(true);
+    try {
+      if (!_canWrite(await UserService.getCurrentUserRole())) {
+        throw const FormatException('Du har ikke skrivetilgang.');
+      }
+      await operation();
+    } catch (error, stack) {
+      debugPrint('Fôrlager: $error\n$stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(error is FormatException
+              ? error.message
+              : 'Kunne ikke oppdatere fôrlageret. Prøv igjen.'),
+        ));
+      }
+    } finally {
+      _mutationBusy = false;
+      setWebSavePending(false);
+    }
+  }
+
   final _feedRef = FirebaseFirestore.instance.collection('feed_inventory');
   final _historyRef =
       FirebaseFirestore.instance.collection('feed_inventory_history');
@@ -61,43 +93,46 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
 
     for (final entry in defaults.entries) {
       final doc = _feedRef.doc(entry.key);
-      final snap = await doc.get();
-      final now = Timestamp.now();
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final snap = await tx.get(doc);
+        final now = Timestamp.now();
 
-      if (!snap.exists) {
-        final bags = entry.value['bags'] as int;
-        final kgPerBag = entry.value['kgPerBag'] as int;
-        await doc.set({
-          ...entry.value,
-          'stockKg': bags * kgPerBag,
-          'active': true,
-          'createdAt': now,
-          'updatedAt': now,
-        });
-        continue;
-      }
+        if (!snap.exists) {
+          final bags = entry.value['bags'] as int;
+          final kgPerBag = entry.value['kgPerBag'] as int;
+          tx.set(doc, {
+            ...entry.value,
+            'stockKg': bags * kgPerBag,
+            'active': true,
+            'createdAt': now,
+            'updatedAt': now,
+          });
+          return;
+        }
 
-      final data = snap.data() ?? <String, dynamic>{};
-      final updates = <String, dynamic>{};
+        final data = snap.data() ?? <String, dynamic>{};
+        final updates = <String, dynamic>{};
 
-      if (!data.containsKey('pelletSizeMm')) {
-        updates['pelletSizeMm'] = entry.value['pelletSizeMm'];
-      }
-      if (!data.containsKey('active')) {
-        updates['active'] = true;
-      }
-      if (!data.containsKey('stockKg')) {
-        updates['stockKg'] = _toInt(data['bags']) * _toDouble(data['kgPerBag']);
-      }
-      if (!data.containsKey('createdAt')) {
-        updates['createdAt'] = data['updatedAt'] is Timestamp
-            ? data['updatedAt']
-            : FieldValue.serverTimestamp();
-      }
-      if (updates.isNotEmpty) {
-        updates['updatedAt'] = now;
-        await doc.update(updates);
-      }
+        if (!data.containsKey('pelletSizeMm')) {
+          updates['pelletSizeMm'] = entry.value['pelletSizeMm'];
+        }
+        if (!data.containsKey('active')) {
+          updates['active'] = true;
+        }
+        if (!data.containsKey('stockKg')) {
+          updates['stockKg'] =
+              _toInt(data['bags']) * _toDouble(data['kgPerBag']);
+        }
+        if (!data.containsKey('createdAt')) {
+          updates['createdAt'] = data['updatedAt'] is Timestamp
+              ? data['updatedAt']
+              : FieldValue.serverTimestamp();
+        }
+        if (updates.isNotEmpty) {
+          updates['updatedAt'] = now;
+          tx.update(doc, updates);
+        }
+      });
     }
   }
 
@@ -107,6 +142,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
     required int currentBags,
   }) async {
     final controller = TextEditingController();
+    final adjustmentId = _historyRef.doc().id;
 
     await showDialog(
       context: context,
@@ -126,38 +162,18 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
             child: const Text('Avbryt'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () => _runMutation(() async {
               final change = int.tryParse(controller.text.trim()) ?? 0;
               if (change == 0) {
                 Navigator.pop(context);
                 return;
               }
 
-              final newBags = currentBags + change;
-              final finalBags = newBags < 0 ? 0 : newBags;
-              final feedSnap = await _feedRef.doc(docId).get();
-              final kgPerBag = _toDouble(feedSnap.data()?['kgPerBag']);
-              final stockKgAfter = finalBags * kgPerBag;
-
-              await _feedRef.doc(docId).update({
-                'bags': finalBags,
-                if (kgPerBag > 0) 'stockKg': stockKgAfter,
-                'updatedAt': Timestamp.now(),
-              });
-
-              await _historyRef.add({
-                'feedId': docId,
-                'feedType': name,
-                'change': change,
-                'bagsBefore': currentBags,
-                'bagsAfter': finalBags,
-                if (kgPerBag > 0) 'stockKgAfter': stockKgAfter,
-                'user': UserService.currentUser?.email ?? 'ukjent',
-                'timestamp': Timestamp.now(),
-              });
+              await FirestoreService.adjustFeedBags(
+                  feedId: docId, change: change, adjustmentId: adjustmentId);
 
               if (dialogContext.mounted) Navigator.pop(dialogContext);
-            },
+            }),
             child: const Text('Lagre'),
           ),
         ],
@@ -192,16 +208,17 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
             child: const Text('Avbryt'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () => _runMutation(() async {
               final kg = _parseDouble(controller.text) ?? currentKg;
               final safeKg = kg <= 0 ? currentKg : kg;
 
-              await _feedRef.doc(docId).update({
+              final batch = FirebaseFirestore.instance.batch();
+              batch.update(_feedRef.doc(docId), {
                 'kgPerBag': safeKg,
                 'updatedAt': Timestamp.now(),
               });
 
-              await _historyRef.add({
+              batch.set(_historyRef.doc(), {
                 'feedId': docId,
                 'feedType': name,
                 'change': 0,
@@ -214,8 +231,9 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                 'note': 'Endret kg per sekk',
               });
 
+              await batch.commit();
               if (dialogContext.mounted) Navigator.pop(dialogContext);
-            },
+            }),
             child: const Text('Lagre'),
           ),
         ],
@@ -226,6 +244,8 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
   Future<void> _openFeedTypeDialog({
     DocumentSnapshot<Map<String, dynamic>>? doc,
   }) async {
+    final newDoc = _feedRef.doc();
+    final historyDoc = _historyRef.doc();
     final data = doc?.data() ?? <String, dynamic>{};
     final isEditing = doc != null;
     final nameController = TextEditingController(
@@ -291,7 +311,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
             child: const Text('Avbryt'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () => _runMutation(() async {
               final name = nameController.text.trim();
               final pellet = _parseDouble(pelletController.text);
               final kgPerBag = _parseDouble(kgController.text) ?? 25;
@@ -306,19 +326,19 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
               }
 
               final now = Timestamp.now();
+              final batch = FirebaseFirestore.instance.batch();
 
               if (isEditing) {
                 final beforeName = (data['name'] ?? doc.id).toString();
                 final beforePellet = _toDouble(data['pelletSizeMm']);
 
-                await doc.reference.update({
+                batch.update(doc.reference, {
                   'name': name,
                   'pelletSizeMm': pellet,
-                  'active': _toBool(data['active'], fallback: true),
                   'updatedAt': now,
                 });
 
-                await _historyRef.add({
+                batch.set(historyDoc, {
                   'feedId': doc.id,
                   'feedType': beforeName,
                   'change': 0,
@@ -328,8 +348,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                       'Endret fôrtype: $beforeName (${_formatPellet(beforePellet)}) -> $name (${_formatPellet(pellet)})',
                 });
               } else {
-                final newDoc = _feedRef.doc();
-                await newDoc.set({
+                batch.set(newDoc, {
                   'name': name,
                   'pelletSizeMm': pellet,
                   'active': true,
@@ -340,7 +359,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                   'updatedAt': now,
                 });
 
-                await _historyRef.add({
+                batch.set(historyDoc, {
                   'feedId': newDoc.id,
                   'feedType': name,
                   'change': 0,
@@ -350,8 +369,9 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                 });
               }
 
+              await batch.commit();
               if (dialogContext.mounted) Navigator.pop(dialogContext);
-            },
+            }),
             child: const Text('Lagre'),
           ),
         ],
@@ -376,18 +396,22 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
       return;
     }
 
-    await _feedRef.doc(docId).update({
-      'active': nextActive,
-      'updatedAt': Timestamp.now(),
-    });
+    await _runMutation(() async {
+      final batch = FirebaseFirestore.instance.batch();
+      batch.update(_feedRef.doc(docId), {
+        'active': nextActive,
+        'updatedAt': Timestamp.now(),
+      });
 
-    await _historyRef.add({
-      'feedId': docId,
-      'feedType': name,
-      'change': 0,
-      'user': UserService.currentUser?.email ?? 'ukjent',
-      'timestamp': Timestamp.now(),
-      'note': nextActive ? 'Aktiverte fôrtype' : 'Deaktiverte fôrtype',
+      batch.set(_historyRef.doc(), {
+        'feedId': docId,
+        'feedType': name,
+        'change': 0,
+        'user': UserService.currentUser?.email ?? 'ukjent',
+        'timestamp': Timestamp.now(),
+        'note': nextActive ? 'Aktiverte fôrtype' : 'Deaktiverte fôrtype',
+      });
+      await batch.commit();
     });
   }
 
@@ -403,26 +427,20 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
     return '${pellet.toStringAsFixed(1)} mm';
   }
 
-  int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
+  int _toInt(dynamic value) => DataValues.integer(value);
 
-  double _toDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    return _parseDouble(value?.toString()) ?? 0;
-  }
+  double _toDouble(dynamic value) => DataValues.decimal(value);
 
   double _stockKg(Map<String, dynamic> data) {
     final stockKg = data['stockKg'];
-    if (stockKg is num) return stockKg.toDouble();
+    final parsed = DataValues.number(stockKg);
+    if (parsed != null) return parsed.toDouble();
     return _toInt(data['bags']) * _toDouble(data['kgPerBag']);
   }
 
   double? _parseDouble(String? value) {
     if (value == null) return null;
-    return double.tryParse(value.trim().replaceAll(',', '.'));
+    return DataValues.number(value)?.toDouble();
   }
 
   bool _toBool(dynamic value, {required bool fallback}) {
@@ -442,7 +460,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<String>(
-      future: UserService.getCurrentUserRole(),
+      future: _roleFuture,
       builder: (context, roleSnapshot) {
         final role = roleSnapshot.data ?? 'leser';
         final canWrite = _canWrite(role);
@@ -466,10 +484,13 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                 )
               : null,
           body: FutureBuilder<void>(
-            future: _ensureDefaultFeedTypes(),
+            future: canWrite
+                ? (_setupFuture ??= _ensureDefaultFeedTypes())
+                : Future<void>.value(),
             builder: (context, setupSnapshot) {
               if (setupSnapshot.hasError) {
-                return Center(child: Text('Feil: ${setupSnapshot.error}'));
+                return Center(
+                    child: Text(loadErrorMessage(setupSnapshot.error)));
               }
 
               if (setupSnapshot.connectionState == ConnectionState.waiting) {
@@ -480,7 +501,8 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                 stream: _feedRef.orderBy('name').snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
-                    return Center(child: Text('Feil: ${snapshot.error}'));
+                    return Center(
+                        child: Text(loadErrorMessage(snapshot.error)));
                   }
 
                   if (!snapshot.hasData) {
@@ -731,7 +753,7 @@ class FeedInventoryHistoryScreen extends StatelessWidget {
         stream: historyRef.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('Feil: ${snapshot.error}'));
+            return Center(child: Text(loadErrorMessage(snapshot.error)));
           }
 
           if (!snapshot.hasData) {

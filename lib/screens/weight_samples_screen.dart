@@ -6,6 +6,7 @@ import '../models/weight_sample.dart';
 import '../services/firestore_service.dart';
 import '../services/user_service.dart';
 import '../services/weight_sample_service.dart';
+import '../services/web_update_guard.dart';
 import '../utils/tank_status.dart';
 
 class WeightSamplesScreen extends StatefulWidget {
@@ -35,6 +36,13 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
   final _weights = <double>[];
   var _mode = 'single';
   var _isSaving = false;
+  var _leaving = false;
+  late final _roleFuture = UserService.getCurrentUserRole();
+  late final _sampleId = WeightSampleService.samplesRef(
+    facilityId: widget.facilityId,
+    sectionId: widget.sectionId,
+    tankId: widget.tankId,
+  ).doc().id;
 
   @override
   void dispose() {
@@ -83,8 +91,8 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
       return;
     }
 
-    await _save(() {
-      return FirestoreService.addDailyLog(
+    await _save(() async {
+      await FirestoreService.addDailyLog(
         facilityId: widget.facilityId,
         sectionId: widget.sectionId,
         tankId: widget.tankId,
@@ -92,6 +100,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         feedKg: 0,
         avgWeight: result.validWeights.first,
         temperature: 0,
+        registrationId: _sampleId,
       );
     }, 'Snittvekt lagret');
   }
@@ -102,39 +111,42 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
       return;
     }
 
-    await _save(() {
+    await _save(() async {
       return WeightSampleService.saveWeightSample(
         facilityId: widget.facilityId,
         sectionId: widget.sectionId,
         tankId: widget.tankId,
-        weightsGram: _weights,
+        weightsGram: List<double>.of(_weights),
         note: _noteCtrl.text,
+        sampleId: _sampleId,
       );
     }, 'Vektprøve lagret');
-
-    if (!mounted) return;
-    setState(() {
-      _weights.clear();
-      _noteCtrl.clear();
-    });
   }
 
   Future<void> _save(Future<void> Function() action, String successText) async {
+    if (_isSaving || _leaving) return;
     if (!_isActive()) {
       _showMessage('Karet er tomt. Legg inn fisketall før vekt registreres.');
       return;
     }
 
     setState(() => _isSaving = true);
+    setWebSavePending(true);
     try {
+      if (!_canWrite(await UserService.getCurrentUserRole())) {
+        throw StateError('Ingen skrivetilgang');
+      }
       await action();
       if (!mounted) return;
       _showMessage(successText);
+      _leaving = true;
       Navigator.pop(context);
     } catch (error) {
       if (!mounted) return;
-      _showMessage('Kunne ikke lagre vekt: $error');
+      debugPrint('Kunne ikke lagre vekt: $error');
+      _showMessage('Kunne ikke lagre vekten. Verdiene er beholdt. Prøv igjen.');
     } finally {
+      setWebSavePending(false);
       if (mounted) setState(() => _isSaving = false);
     }
   }
@@ -142,41 +154,47 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<String>(
-      future: UserService.getCurrentUserRole(),
+      future: _roleFuture,
       builder: (context, roleSnapshot) {
         final role = roleSnapshot.data ?? 'leser';
         final canWrite = _canWrite(role);
         final isActive = _isActive();
 
-        return Scaffold(
-          appBar: AppBar(title: Text('Vektprøve - ${widget.tankName}')),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (!canWrite)
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.visibility),
-                    title: const Text('Lesetilgang'),
-                    subtitle: Text('Du er logget inn som $role og kan kun se.'),
-                  ),
-                ),
-              if (!isActive)
-                const Card(
-                  child: ListTile(
-                    leading: Icon(Icons.pause_circle),
-                    title: Text('Tomt kar'),
-                    subtitle: Text(
-                      'Vektprøve kan registreres når karet har fisk.',
+        return PopScope(
+            canPop: !_isSaving || _leaving,
+            child: Scaffold(
+              appBar: AppBar(title: Text('Vektprøve - ${widget.tankName}')),
+              body: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (!canWrite)
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.visibility),
+                        title: const Text('Lesetilgang'),
+                        subtitle:
+                            Text('Du er logget inn som $role og kan kun se.'),
+                      ),
                     ),
-                  ),
-                ),
-              if (canWrite && isActive) _registrationCard(),
-              const SizedBox(height: 12),
-              _historySection(),
-            ],
-          ),
-        );
+                  if (!isActive)
+                    const Card(
+                      child: ListTile(
+                        leading: Icon(Icons.pause_circle),
+                        title: Text('Tomt kar'),
+                        subtitle: Text(
+                          'Vektprøve kan registreres når karet har fisk.',
+                        ),
+                      ),
+                    ),
+                  if (canWrite && isActive)
+                    AbsorbPointer(
+                        absorbing: _isSaving || _leaving,
+                        child: _registrationCard()),
+                  const SizedBox(height: 12),
+                  _historySection(),
+                ],
+              ),
+            ));
       },
     );
   }

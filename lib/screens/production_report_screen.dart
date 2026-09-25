@@ -27,6 +27,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   late DateTime _to;
   late Future<List<ReportOption>> _sectionsFuture;
   var _isExporting = false;
+  Object? _reportKey;
+  Future<ProductionReport>? _cachedReport;
 
   @override
   void initState() {
@@ -54,7 +56,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
 
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
 
     setState(() {
       _period = 'custom';
@@ -74,7 +76,10 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       return null;
     }
 
-    return ProductionReportService.loadProductionReport(
+    final key = (_scope, _sectionId, _tankId, _from, _to);
+    if (_reportKey == key && _cachedReport != null) return _cachedReport;
+    _reportKey = key;
+    return _cachedReport = ProductionReportService.loadProductionReport(
       facilityId: widget.facilityId,
       from: _from,
       to: _to,
@@ -84,6 +89,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
   }
 
   Future<void> _exportReport(ProductionReport report) async {
+    if (_isExporting) return;
     setState(() => _isExporting = true);
 
     try {
@@ -97,9 +103,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         const SnackBar(content: Text('Excel eksport fullført')),
       );
     } catch (error) {
+      debugPrint('Rapporteksport: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kunne ikke eksportere rapport: $error')),
+        const SnackBar(
+            content: Text('Kunne ikke eksportere rapporten. Prøv igjen.')),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -115,7 +123,14 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         title: const Text('Produksjonsrapport'),
       ),
       body: RefreshIndicator(
-        onRefresh: () async => setState(() {}),
+        onRefresh: () async {
+          setState(() => _cachedReport = null);
+          try {
+            await _reportFuture();
+          } catch (error) {
+            debugPrint('Rapport: $error');
+          }
+        },
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -133,12 +148,17 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               FutureBuilder<ProductionReport>(
                 future: reportFuture,
                 builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
                   if (snapshot.hasError) {
-                    return Card(
+                    debugPrint('Rapport: ${snapshot.error}');
+                    return const Card(
                       child: ListTile(
-                        leading: const Icon(Icons.error_outline),
-                        title: const Text('Kunne ikke lage rapport'),
-                        subtitle: Text(snapshot.error.toString()),
+                        leading: Icon(Icons.error_outline),
+                        title: Text('Kunne ikke lage rapport'),
+                        subtitle:
+                            Text('Prøv igjen. Kontroller nettverk og tilgang.'),
                       ),
                     );
                   }

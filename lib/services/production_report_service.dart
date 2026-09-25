@@ -1,8 +1,10 @@
+import '../utils/data_values.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../models/production_report.dart';
 import '../utils/tank_status.dart';
+import 'fcr_service.dart';
 
 class ProductionReportService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -13,7 +15,8 @@ class ProductionReportService {
   }
 
   static DateTime endOfDay(DateTime value) {
-    return DateTime(value.year, value.month, value.day, 23, 59, 59, 999);
+    return DateTime(value.year, value.month, value.day + 1)
+        .subtract(const Duration(microseconds: 1));
   }
 
   static DateTime fromForPeriod(String period) {
@@ -22,13 +25,13 @@ class ProductionReportService {
       case 'today':
         return today;
       case '7d':
-        return today.subtract(const Duration(days: 6));
+        return DateTime(today.year, today.month, today.day - 6);
       case '30d':
-        return today.subtract(const Duration(days: 29));
+        return DateTime(today.year, today.month, today.day - 29);
       case 'month':
         return DateTime(today.year, today.month);
       default:
-        return today.subtract(const Duration(days: 6));
+        return DateTime(today.year, today.month, today.day - 6);
     }
   }
 
@@ -81,10 +84,12 @@ class ProductionReportService {
     required DateTime to,
     String? sectionId,
     String? tankId,
+    FirebaseFirestore? firestore,
   }) async {
     final fromDate = startOfDay(from);
     final toDate = endOfDay(to);
-    final facilityRef = _db.collection('facilities').doc(facilityId);
+    final facilityRef =
+        (firestore ?? _db).collection('facilities').doc(facilityId);
 
     final sectionRefs = <DocumentReference<Map<String, dynamic>>>[];
     if (sectionId != null) {
@@ -106,6 +111,9 @@ class ProductionReportService {
     var biomassKg = 0.0;
     var biomassGainKg = 0.0;
     var weightedLatestWeight = 0.0;
+    var fishWithWeight = 0;
+    var fcrFeedKg = 0.0;
+    var fcrIncomplete = false;
     var tempSum = 0.0;
     var weightChangeSum = 0.0;
     double? minTemperature;
@@ -170,6 +178,7 @@ class ProductionReportService {
           }
 
           if (date.isBefore(fromDate) || date.isAfter(toDate)) continue;
+          if (!isActive) continue;
 
           tankRegistrations++;
           registrations++;
@@ -223,18 +232,25 @@ class ProductionReportService {
         final tankWeightChange = lastPeriodWeight > 0 && firstPeriodWeight > 0
             ? lastPeriodWeight - firstPeriodWeight
             : 0.0;
-        final tankBiomassGainKg = isActive && tankWeightChange > 0
-            ? fishCount * tankWeightChange / 1000
-            : 0.0;
-        final tankFcr = tankBiomassGainKg > 0 && tankFeedKg > 0
-            ? tankFeedKg / tankBiomassGainKg
-            : null;
+        final fcrData = FcrService.calculateFromLogs(
+          logs.docs.map((doc) => doc.data()).toList(),
+          fishCount,
+          from: fromDate,
+          to: toDate,
+        );
+        final tankFcr =
+            fcrData['hasData'] == true ? _toDouble(fcrData['fcr']) : null;
+        final tankBiomassGainKg =
+            tankFcr != null ? _toDouble(fcrData['biomassGainKg']) : 0.0;
 
         if (isActive) {
           biomassKg += tankBiomassKg;
           if (latestWeight > 0) {
             weightedLatestWeight += latestWeight * fishCount;
+            fishWithWeight += fishCount;
           }
+          if (tankFcr != null) fcrFeedKg += _toDouble(fcrData['feedKg']);
+          if (tankFcr == null && tankFeedKg > 0) fcrIncomplete = true;
           if (tankBiomassGainKg > 0) biomassGainKg += tankBiomassGainKg;
           if (tankWeightChange != 0 &&
               firstWeightDate != null &&
@@ -273,9 +289,11 @@ class ProductionReportService {
       return a.tankName.compareTo(b.tankName);
     });
 
-    final fcr = biomassGainKg > 0 && feedKg > 0 ? feedKg / biomassGainKg : null;
+    final fcr = !fcrIncomplete && biomassGainKg > 0 && fcrFeedKg > 0
+        ? fcrFeedKg / biomassGainKg
+        : null;
     final latestAvgWeight =
-        activeFish > 0 ? weightedLatestWeight / activeFish : 0.0;
+        fishWithWeight > 0 ? weightedLatestWeight / fishWithWeight : 0.0;
     final avgTemperature = tempCount == 0 ? null : tempSum / tempCount;
     final weightChange =
         weightChangeCount == 0 ? 0.0 : weightChangeSum / weightChangeCount;
@@ -327,22 +345,9 @@ class ProductionReportService {
     return 0;
   }
 
-  static double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  static double _toDouble(Object? value) => DataValues.decimal(value);
 
-  static int _toInt(Object? value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim()) ?? 0;
-    return 0;
-  }
+  static int _toInt(Object? value) => DataValues.integer(value);
 
   static String _firstText(List<Object?> values) {
     for (final value in values) {

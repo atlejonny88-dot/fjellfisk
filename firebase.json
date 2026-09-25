@@ -23,6 +23,7 @@
                                   }
                 },
     "hosting":  {
+                    "predeploy": ["node tool/prepare_web_release.cjs"],
                     "public":  "build/web",
                     "ignore":  [
                                    "firebase.json",
@@ -36,6 +37,10 @@
                                      }
                                  ],
                     "headers":  [
+                                    {
+                                        "regex": ".*",
+                                        "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
+                                    },
                                     {
                                         "source":  "/",
                                         "headers":  [

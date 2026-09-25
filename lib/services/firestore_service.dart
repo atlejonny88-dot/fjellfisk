@@ -1,3 +1,4 @@
+import '../utils/data_values.dart';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,22 +8,9 @@ class FirestoreService {
 
   static String get userId => FirebaseAuth.instance.currentUser!.uid;
 
-  static double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  static double _toDouble(Object? value) => DataValues.decimal(value);
 
-  static int _toInt(Object? value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim()) ?? 0;
-    return 0;
-  }
+  static int _toInt(Object? value) => DataValues.integer(value);
 
   // ================= DASHBOARD =================
 
@@ -40,7 +28,7 @@ class FirestoreService {
       final tanksSnap = await s.reference.collection('tanks').get();
       tanks += tanksSnap.docs.length;
       for (final t in tanksSnap.docs) {
-        fish += (t.data()['fishCount'] ?? 0) as int;
+        fish += _toInt(t.data()['fishCount']);
       }
     }
 
@@ -116,7 +104,7 @@ class FirestoreService {
 
   // ================= LOGGING =================
 
-  static Future<void> addDailyLog({
+  static Future<int> addDailyLog({
     required String facilityId,
     required String sectionId,
     required String tankId,
@@ -124,119 +112,153 @@ class FirestoreService {
     required double feedKg,
     required double avgWeight,
     required double temperature,
-    int? fishCountAfter,
     String? feedInventoryId,
     String? feedType,
     double? pelletSizeMm,
+    String? registrationId,
+    FirebaseFirestore? firestore,
+    String? actorEmail,
   }) async {
-    final tankRef = _db
+    if (mortality < 0 ||
+        !feedKg.isFinite ||
+        feedKg < 0 ||
+        !avgWeight.isFinite ||
+        avgWeight < 0 ||
+        !temperature.isFinite ||
+        (pelletSizeMm != null &&
+            (!pelletSizeMm.isFinite || pelletSizeMm <= 0))) {
+      throw const FormatException('Registreringen inneholder ugyldige tall.');
+    }
+    final db = firestore ?? _db;
+    final tankRef = db
         .collection('facilities')
         .doc(facilityId)
         .collection('sections')
         .doc(sectionId)
         .collection('tanks')
         .doc(tankId);
-
-    final logRef = tankRef.collection('logs').doc();
+    // The same ID can be retried after an uncertain network response.
+    final logRef = tankRef.collection('logs').doc(registrationId);
+    final feedRef = feedKg > 0 && feedInventoryId != null
+        ? db.collection('feed_inventory').doc(feedInventoryId)
+        : null;
+    final historyRef = db.collection('feed_inventory_history').doc();
     final now = Timestamp.now();
-    final logData = <String, dynamic>{
-      'date': now,
-      'mortality': mortality,
-      'feedKg': feedKg,
-      'avgWeight': avgWeight,
-      'avgWeightGram': avgWeight,
-      'temperature': temperature,
-      if (feedInventoryId != null) 'feedInventoryId': feedInventoryId,
-      if (feedType != null) 'feedType': feedType,
-      if (pelletSizeMm != null) 'pelletSizeMm': pelletSizeMm,
-    };
+    final email = feedRef == null
+        ? ''
+        : actorEmail ?? FirebaseAuth.instance.currentUser?.email ?? 'ukjent';
 
-    if (feedInventoryId == null || feedKg <= 0) {
-      if (fishCountAfter == null) {
-        await logRef.set(logData);
-        return;
+    return db.runTransaction<int>((transaction) async {
+      final existing = await transaction.get(logRef);
+      final tank = await transaction.get(tankRef);
+      final count = DataValues.integer(tank.data()?['fishCount']);
+      if (existing.exists) return count;
+      if (!tank.exists || count <= 0) {
+        throw const FormatException('Karet er tomt eller finnes ikke lenger.');
       }
-
-      final batch = _db.batch();
-      batch.set(
-        tankRef,
-        {'fishCount': fishCountAfter < 0 ? 0 : fishCountAfter},
-        SetOptions(merge: true),
-      );
-      batch.set(logRef, logData);
-      await batch.commit();
-      return;
-    }
-
-    final feedRef = _db.collection('feed_inventory').doc(feedInventoryId);
-    final historyRef = _db.collection('feed_inventory_history').doc();
-
-    await _db.runTransaction((transaction) async {
-      final feedSnap = await transaction.get(feedRef);
-      if (!feedSnap.exists) {
-        throw Exception('Valgt fôrtype finnes ikke i lageret.');
+      if (mortality > count) {
+        throw const FormatException(
+            'Dødelighet kan ikke være større enn fisketallet.');
       }
-
-      final feedData = feedSnap.data() ?? <String, dynamic>{};
-      if (feedData['active'] == false) {
-        throw Exception('Valgt fôrtype er deaktivert.');
+      Map<String, dynamic>? feedData;
+      double stockKg = 0;
+      if (feedRef != null) {
+        final feed = await transaction.get(feedRef);
+        feedData = feed.data();
+        if (!feed.exists || feedData == null || feedData['active'] == false) {
+          throw const FormatException('Valgt fôrtype er ikke tilgjengelig.');
+        }
+        stockKg = DataValues.number(feedData['stockKg'])?.toDouble() ??
+            _toInt(feedData['bags']) * _toDouble(feedData['kgPerBag']);
+        if (stockKg + 0.0001 < feedKg) {
+          throw const FormatException('Ikke nok fôr på lager.');
+        }
       }
-
-      final bags = _toInt(feedData['bags']);
-      final kgPerBag = _toDouble(feedData['kgPerBag']);
-      final stockKgRaw = feedData['stockKg'];
-      final stockKg =
-          stockKgRaw is num ? stockKgRaw.toDouble() : bags * kgPerBag;
-
-      if (stockKg + 0.0001 < feedKg) {
-        throw Exception(
-          'Ikke nok fôr på lager. Tilgjengelig: ${stockKg.toStringAsFixed(1)} kg.',
-        );
-      }
-
-      final newStockKg = stockKg - feedKg;
-      final resolvedFeedType =
-          feedType ?? (feedData['name'] ?? feedInventoryId).toString();
-      final resolvedPelletSize =
-          pelletSizeMm ?? _toDouble(feedData['pelletSizeMm']);
-
+      final countAfter = count - mortality;
+      final resolvedPellet =
+          pelletSizeMm ?? _toDouble(feedData?['pelletSizeMm']);
       transaction.set(logRef, {
-        ...logData,
-        'feedType': resolvedFeedType,
-        if (resolvedPelletSize > 0) 'pelletSizeMm': resolvedPelletSize,
+        'date': now,
+        'mortality': mortality,
+        'feedKg': feedKg,
+        'avgWeight': avgWeight,
+        'avgWeightGram': avgWeight,
+        'temperature': temperature,
+        if (feedRef != null) 'feedInventoryId': feedInventoryId,
+        if (feedType != null || feedData != null)
+          'feedType':
+              feedType ?? (feedData?['name'] ?? feedInventoryId).toString(),
+        if (resolvedPellet > 0) 'pelletSizeMm': resolvedPellet,
       });
-
-      if (fishCountAfter != null) {
-        transaction.set(
-          tankRef,
-          {'fishCount': fishCountAfter < 0 ? 0 : fishCountAfter},
-          SetOptions(merge: true),
-        );
+      if (mortality > 0) transaction.update(tankRef, {'fishCount': countAfter});
+      if (feedRef != null) {
+        final after = (stockKg - feedKg).clamp(0.0, double.maxFinite);
+        transaction.update(feedRef, {'stockKg': after, 'updatedAt': now});
+        transaction.set(historyRef, {
+          'feedId': feedInventoryId,
+          'feedType': feedType ?? feedData?['name'],
+          'change': 0,
+          'changeKg': -feedKg,
+          'stockKgBefore': stockKg,
+          'stockKgAfter': after,
+          'user': email,
+          'timestamp': now,
+          'note': 'Fôr brukt i $tankId',
+          'facilityId': facilityId,
+          'sectionId': sectionId,
+          'tankId': tankId,
+        });
       }
-
-      transaction.update(feedRef, {
-        'stockKg': newStockKg,
-        'updatedAt': now,
-      });
-
-      transaction.set(historyRef, {
-        'feedId': feedInventoryId,
-        'feedType': resolvedFeedType,
-        'change': 0,
-        'changeKg': -feedKg,
-        'stockKgBefore': stockKg,
-        'stockKgAfter': newStockKg,
-        'user': FirebaseAuth.instance.currentUser?.email ?? 'ukjent',
-        'timestamp': now,
-        'note': 'Fôr brukt i $tankId',
-        'facilityId': facilityId,
-        'sectionId': sectionId,
-        'tankId': tankId,
-      });
+      return countAfter;
     });
   }
 
   // ================= CHART DATA =================
+
+  static Future<void> adjustFeedBags({
+    required String feedId,
+    required int change,
+    String? adjustmentId,
+    FirebaseFirestore? firestore,
+    String? actorEmail,
+  }) async {
+    final db = firestore ?? _db;
+    final ref = db.collection('feed_inventory').doc(feedId);
+    final history = db.collection('feed_inventory_history').doc(adjustmentId);
+    final email =
+        actorEmail ?? FirebaseAuth.instance.currentUser?.email ?? 'ukjent';
+    await db.runTransaction((tx) async {
+      final existing = await tx.get(history);
+      if (existing.exists) return;
+      final snap = await tx.get(ref);
+      if (!snap.exists) throw const FormatException('Fôrtypen finnes ikke.');
+      final data = snap.data()!;
+      final bags = _toInt(data['bags']);
+      final kg = _toDouble(data['kgPerBag']);
+      final stock = DataValues.number(data['stockKg'])?.toDouble() ?? bags * kg;
+      final after = stock + change * kg;
+      if (kg <= 0 || bags + change < 0 || after < 0) {
+        throw const FormatException('Justeringen gir ugyldig lagerbeholdning.');
+      }
+      tx.update(ref, {
+        'bags': bags + change,
+        'stockKg': after,
+        'updatedAt': Timestamp.now()
+      });
+      tx.set(history, {
+        'feedId': feedId,
+        'feedType': data['name'],
+        'change': change,
+        'changeKg': change * kg,
+        'bagsBefore': bags,
+        'bagsAfter': bags + change,
+        'stockKgBefore': stock,
+        'stockKgAfter': after,
+        'user': email,
+        'timestamp': Timestamp.now(),
+      });
+    });
+  }
 
   static Future<List<Map<String, dynamic>>> getWeights({
     required String facilityId,
@@ -277,7 +299,9 @@ class FirestoreService {
   }
 
   static double calculateSGR(double w1, double w2, int days) {
-    if (w1 <= 0 || days <= 0) return 0;
+    if (!w1.isFinite || !w2.isFinite || w1 <= 0 || w2 <= 0 || days <= 0) {
+      return 0;
+    }
     return ((log(w2) - log(w1)) / days) * 100;
   }
 }

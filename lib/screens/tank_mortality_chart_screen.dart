@@ -1,6 +1,8 @@
+import '../utils/load_error.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../utils/data_values.dart';
 
 class TankMortalityChartScreen extends StatelessWidget {
   final String facilityId;
@@ -38,7 +40,7 @@ class TankMortalityChartScreen extends StatelessWidget {
         stream: _logsQuery.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('Feil: ${snapshot.error}'));
+            return Center(child: Text(loadErrorMessage(snapshot.error)));
           }
 
           if (!snapshot.hasData) {
@@ -59,7 +61,7 @@ class TankMortalityChartScreen extends StatelessWidget {
           for (int i = 0; i < docs.length; i++) {
             final data = docs[i].data();
             final raw = data['mortality'] ?? data['dead'] ?? 0;
-            final dead = raw is num ? raw.toInt() : 0;
+            final dead = DataValues.integer(raw).clamp(0, 2147483647);
 
             totalDead += dead;
 

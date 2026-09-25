@@ -45,6 +45,7 @@ firebase-adminsdk*.json
 
 # Firebase CLI local cache
 .firebase/
+node_modules/
 
 # Symbolication related
 app.*.symbols

@@ -1,24 +1,12 @@
+import '../utils/data_values.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TankInfoService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  static double toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  static double toDouble(Object? value) => DataValues.decimal(value);
 
-  static int toInt(Object? value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim()) ?? 0;
-    return 0;
-  }
+  static int toInt(Object? value) => DataValues.integer(value);
 
   static double weightFromLog(Map<String, dynamic> data) {
     final candidates = [
@@ -127,7 +115,8 @@ class TankInfoService {
 
   static double stockKg(Map<String, dynamic> data) {
     final stockKg = data['stockKg'];
-    if (stockKg is num) return stockKg.toDouble();
+    final parsed = DataValues.number(stockKg);
+    if (parsed != null) return parsed.toDouble();
 
     final bags = toInt(data['bags']);
     final kgPerBag = toDouble(data['kgPerBag']);

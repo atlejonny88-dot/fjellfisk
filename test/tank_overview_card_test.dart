@@ -31,6 +31,8 @@ void main() {
               statusIcon: Icons.check_circle,
               onTap: () {},
               onDelete: () {},
+              reviewed: true,
+              noteText: 'Kontroller filteret',
             ),
           ),
         ),
@@ -42,6 +44,9 @@ void main() {
     expect(find.text('Fôr 24t'), findsOneWidget);
     expect(find.text('Døde 7d'), findsOneWidget);
     expect(find.text('Temp'), findsOneWidget);
+    expect(find.text('Gjennomgått i denne økten'), findsOneWidget);
+    expect(find.text('Kontroller filteret'), findsOneWidget);
+    expect(find.text('Alt innen normale verdier'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

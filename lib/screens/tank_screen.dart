@@ -1,3 +1,4 @@
+import '../utils/data_values.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,9 @@ import '../services/user_service.dart';
 import '../services/fcr_service.dart';
 import '../services/growth_forecast_service.dart';
 import '../services/tank_info_service.dart';
+import '../services/registration_round.dart';
+import '../services/web_update_guard.dart';
+import '../widgets/tank_registration_actions.dart';
 import '../utils/tank_status.dart';
 import 'tank_chart_screen.dart';
 import 'tank_mortality_chart_screen.dart';
@@ -43,9 +47,30 @@ class _TankScreenState extends State<TankScreen> {
   final tempCtrl = TextEditingController();
   String? _selectedFeedInventoryId;
   bool _showFeedInventoryPicker = false;
+  final _saveState = RegistrationSave();
+  bool _openingNext = false;
+  String? _registrationId;
+  late int _fishCount;
+  late final Future<String> _roleFuture;
+  late Future<double> _weightFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _fishCount = widget.fishCount;
+    RegistrationRound.session.setUser(UserService.currentUserId);
+    _roleFuture = UserService.getCurrentUserRole();
+    _weightFuture = _getLatestWeight();
+    _saveState.addListener(_saveChanged);
+  }
+
+  void _saveChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    _saveState.dispose();
     deadCtrl.dispose();
     feedCtrl.dispose();
     weightCtrl.dispose();
@@ -57,17 +82,7 @@ class _TankScreenState extends State<TankScreen> {
     return role == 'admin' || role == 'ansatt';
   }
 
-  double _toDouble(dynamic value) {
-    return TankInfoService.toDouble(value);
-  }
-
-  double? _tryParsePositiveDouble(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
-    final parsed = double.tryParse(trimmed.replaceAll(',', '.'));
-    if (parsed == null || parsed <= 0) return null;
-    return parsed;
-  }
+  double _toDouble(dynamic value) => DataValues.decimal(value);
 
   double _weightFromLog(Map<String, dynamic> data) {
     final candidates = [
@@ -85,14 +100,7 @@ class _TankScreenState extends State<TankScreen> {
     return 0;
   }
 
-  int _toInt(dynamic value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is double) return value.toInt();
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
-  }
+  int _toInt(dynamic value) => DataValues.integer(value);
 
   CollectionReference<Map<String, dynamic>> get _logsRef {
     return FirebaseFirestore.instance
@@ -122,7 +130,8 @@ class _TankScreenState extends State<TankScreen> {
 
   double _stockKg(Map<String, dynamic> data) {
     final stockKg = data['stockKg'];
-    if (stockKg is num) return stockKg.toDouble();
+    final parsed = DataValues.number(stockKg);
+    if (parsed != null) return parsed.toDouble();
 
     final bags = _toInt(data['bags']);
     final kgPerBag = _toDouble(data['kgPerBag']);
@@ -201,7 +210,7 @@ class _TankScreenState extends State<TankScreen> {
 
   Future<void> _editFishCount() async {
     final controller = TextEditingController(
-      text: widget.fishCount.toString(),
+      text: _fishCount.toString(),
     );
 
     await showDialog(
@@ -222,8 +231,7 @@ class _TankScreenState extends State<TankScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final newCount =
-                  int.tryParse(controller.text) ?? widget.fishCount;
+              final newCount = int.tryParse(controller.text) ?? _fishCount;
 
               await FirestoreService.updateFishCount(
                 facilityId: widget.facilityId,
@@ -253,104 +261,192 @@ class _TankScreenState extends State<TankScreen> {
           fromSectionId: widget.sectionId,
           fromTankId: widget.tankId,
           fromTankName: widget.tankName,
-          fromFishCount: widget.fishCount,
+          fromFishCount: _fishCount,
         ),
       ),
     );
   }
 
-  Future<void> _save() async {
-    if (!TankStatus.isActiveFishCount(widget.fishCount)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Karet er tomt. Legg inn fisketall før drift registreres.'),
-        ),
-      );
-      return;
+  void _message(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  double _parseNumber(String text, String label, {bool positive = false}) {
+    if (text.trim().isEmpty) return 0;
+    final value = double.tryParse(text.trim().replaceAll(',', '.'));
+    if (value == null ||
+        !value.isFinite ||
+        (positive ? value <= 0 : value < 0)) {
+      throw FormatException('Ugyldig $label');
     }
+    return value;
+  }
 
-    final weightText = weightCtrl.text.trim();
-    final feedText = feedCtrl.text.trim();
-    final tempText = tempCtrl.text.trim();
-
-    final dead = int.tryParse(deadCtrl.text.trim()) ?? 0;
-    final feed = feedText.isEmpty ? 0.0 : _toDouble(feedText);
-    final typedWeight = weightText.isEmpty ? 0.0 : _toDouble(weightText);
-    final temp = tempText.isEmpty ? 0.0 : _toDouble(tempText);
-
-    if (weightText.isNotEmpty && _tryParsePositiveDouble(weightText) == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ugyldig snittvekt')),
-      );
-      return;
-    }
-
-    final latestWeight = await _getLatestWeight();
-    final weightToSave = typedWeight > 0 ? typedWeight : latestWeight;
-
-    final newCount = widget.fishCount - dead;
-
-    String? feedType = feed > 0 ? _recommendedFeed(weightToSave) : null;
-    double? pelletSizeMm;
-
-    if (feed > 0 && _selectedFeedInventoryId != null) {
-      final feedSnap =
-          await _feedInventoryRef.doc(_selectedFeedInventoryId).get();
-      final feedData = feedSnap.data();
-
-      if (!feedSnap.exists || feedData == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Valgt fôrtype finnes ikke.')),
-        );
-        return;
-      }
-
-      final availableKg = _stockKg(feedData);
-      if (availableKg + 0.0001 < feed) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+  Future<void> _save({bool goNext = false}) async {
+    if (_saveState.busy || _openingNext) return;
+    try {
+      final saved = await _saveState.run(() async {
+        final deadText = deadCtrl.text.trim();
+        final dead = deadText.isEmpty ? 0 : int.tryParse(deadText);
+        if (dead == null || dead < 0) {
+          throw const FormatException('Ugyldig dødelighet');
+        }
+        final feed = _parseNumber(feedCtrl.text, 'fôrmengde');
+        final typedWeight =
+            _parseNumber(weightCtrl.text, 'snittvekt', positive: true);
+        final temp = _parseNumber(tempCtrl.text, 'temperatur');
+        if ([deadCtrl, feedCtrl, weightCtrl, tempCtrl]
+            .every((controller) => controller.text.trim().isEmpty)) {
+          throw const FormatException('Fyll inn minst én registrering.');
+        }
+        final selectedFeedId = _selectedFeedInventoryId;
+        final role = await UserService.getCurrentUserRole();
+        if (!_canWrite(role)) {
+          throw const FormatException('Du har ikke tilgang til å registrere.');
+        }
+        // Refresh the count before saving again on the same screen.
+        final tank =
+            await _logsRef.parent!.get(const GetOptions(source: Source.server));
+        if (!tank.exists) {
+          throw const FormatException('Karet finnes ikke lenger.');
+        }
+        final count = TankStatus.fishCountFrom(tank.data()?['fishCount']);
+        if (count <= 0) {
+          throw const FormatException(
+              'Karet er tomt. Legg inn fisketall før drift registreres.');
+        }
+        if (dead > count) {
+          throw const FormatException(
+              'Dødelighet kan ikke være større enn fisketallet.');
+        }
+        final weightToSave =
+            typedWeight > 0 ? typedWeight : await _getLatestWeight();
+        String? feedType = feed > 0 ? _recommendedFeed(weightToSave) : null;
+        double? pelletSizeMm;
+        if (feed > 0 && selectedFeedId != null) {
+          final feedSnap = await _feedInventoryRef.doc(selectedFeedId).get();
+          final feedData = feedSnap.data();
+          if (!feedSnap.exists || feedData == null) {
+            throw const FormatException('Valgt fôrtype finnes ikke.');
+          }
+          final availableKg = _stockKg(feedData);
+          if (availableKg + 0.0001 < feed) {
+            throw FormatException(
               'Ikke nok fôr på lager. Tilgjengelig: ${availableKg.toStringAsFixed(1)} kg.',
-            ),
+            );
+          }
+          feedType = (feedData['name'] ?? selectedFeedId).toString();
+          final pellet = _toDouble(feedData['pelletSizeMm']);
+          if (pellet > 0) pelletSizeMm = pellet;
+        }
+        if (!mounted) {
+          throw const FormatException('Registreringen ble avbrutt.');
+        }
+        _registrationId ??= _logsRef.doc().id;
+        final countAfter = await FirestoreService.addDailyLog(
+          facilityId: widget.facilityId,
+          sectionId: widget.sectionId,
+          tankId: widget.tankId,
+          mortality: dead,
+          feedKg: feed,
+          // A feed-only entry is not a new weight measurement.
+          avgWeight: typedWeight,
+          temperature: temp,
+          registrationId: _registrationId,
+          feedInventoryId: feed > 0 ? selectedFeedId : null,
+          feedType: feedType,
+          pelletSizeMm: pelletSizeMm,
+        );
+        RegistrationRound.session.markReviewed(
+          widget.facilityId,
+          widget.sectionId,
+          widget.tankId,
+        );
+        if (!mounted) return;
+        _registrationId = null;
+        _fishCount = countAfter;
+        for (final controller in [deadCtrl, feedCtrl, weightCtrl, tempCtrl]) {
+          controller.clear();
+        }
+        _weightFuture = Future.value(weightToSave);
+      });
+      if (!mounted || !saved) return;
+      _message('Registrering lagret');
+      if (goNext) await _openNextTank();
+    } on FormatException catch (error) {
+      if (mounted) _message(error.message);
+    } catch (error, stack) {
+      debugPrint('Kunne ikke lagre registrering: $error\n$stack');
+      if (mounted) _message('Kunne ikke lagre registreringen. Prøv igjen.');
+    }
+  }
+
+  Future<void> _openNextTank() async {
+    if (_saveState.busy || _openingNext) return;
+    setState(() => _openingNext = true);
+    var navigating = false;
+    try {
+      if ([deadCtrl, feedCtrl, weightCtrl, tempCtrl]
+          .any((controller) => controller.text.trim().isNotEmpty)) {
+        final leave = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Ulagrede endringer'),
+            content:
+                const Text('Gå til neste kar uten å lagre de nye verdiene?'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Avbryt')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Neste kar')),
+            ],
           ),
         );
+        if (leave != true || !mounted) return;
+      }
+      final snapshot = await _logsRef.parent!.parent
+          .orderBy('createdAt')
+          .get(const GetOptions(source: Source.server));
+      final next = RegistrationRound.session.next(
+        widget.facilityId,
+        widget.sectionId,
+        widget.tankId,
+        snapshot.docs
+            .map((doc) => <String, dynamic>{
+                  ...doc.data(),
+                  'id': doc.id,
+                })
+            .toList(),
+      );
+      if (!mounted) return;
+      if (next == null) {
+        _message('Alle kar i denne seksjonen er gjennomgått.');
         return;
       }
-
-      feedType = (feedData['name'] ?? _selectedFeedInventoryId).toString();
-      final pellet = _toDouble(feedData['pelletSizeMm']);
-      if (pellet > 0) pelletSizeMm = pellet;
+      // Replace only the tank route so Back still returns directly to its section.
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+        builder: (_) => TankScreen(
+          facilityId: widget.facilityId,
+          sectionId: widget.sectionId,
+          tankId: next['id'].toString(),
+          tankName: (next['name'] ?? next['id']).toString(),
+          fishCount: TankStatus.fishCountFrom(next['fishCount']),
+        ),
+      ));
+      navigating = true;
+    } catch (error, stack) {
+      debugPrint('Kunne ikke åpne neste kar: $error\n$stack');
+      if (mounted) {
+        _message(
+            'Registreringen er lagret, men neste kar kunne ikke åpnes. Prøv igjen.');
+      }
+    } finally {
+      if (mounted && !navigating) setState(() => _openingNext = false);
     }
-
-    try {
-      await FirestoreService.addDailyLog(
-        facilityId: widget.facilityId,
-        sectionId: widget.sectionId,
-        tankId: widget.tankId,
-        mortality: dead,
-        feedKg: feed,
-        avgWeight: weightToSave,
-        temperature: temp,
-        fishCountAfter: dead > 0 ? (newCount < 0 ? 0 : newCount) : null,
-        feedInventoryId: feed > 0 && _selectedFeedInventoryId != null
-            ? _selectedFeedInventoryId
-            : null,
-        feedType: feedType,
-        pelletSizeMm: pelletSizeMm,
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kunne ikke lagre registrering: $error')),
-      );
-      return;
-    }
-
-    if (!mounted) return;
-    Navigator.pop(context);
   }
 
   void _openGrowthChart() {
@@ -404,7 +500,7 @@ class _TankScreenState extends State<TankScreen> {
           sectionId: widget.sectionId,
           tankId: widget.tankId,
           tankName: widget.tankName,
-          fishCount: widget.fishCount,
+          fishCount: _fishCount,
         ),
       ),
     );
@@ -419,10 +515,12 @@ class _TankScreenState extends State<TankScreen> {
           sectionId: widget.sectionId,
           tankId: widget.tankId,
           tankName: widget.tankName,
-          fishCount: widget.fishCount,
+          fishCount: _fishCount,
         ),
       ),
-    );
+    ).then((_) {
+      if (mounted) setState(() => _weightFuture = _getLatestWeight());
+    });
   }
 
   String _formatDateTime(Object? value) {
@@ -465,6 +563,9 @@ class _TankScreenState extends State<TankScreen> {
   Future<void> _openNoteDialog({
     QueryDocumentSnapshot<Map<String, dynamic>>? note,
   }) async {
+    var saving = false;
+    var saved = false;
+    final noteRef = note?.reference ?? _tankNotesRef.doc();
     final controller = TextEditingController(
       text: (note?.data()['text'] ?? '').toString(),
     );
@@ -484,15 +585,22 @@ class _TankScreenState extends State<TankScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () {
+              if (!saving) Navigator.pop(dialogContext);
+            },
             child: const Text('Avbryt'),
           ),
           ElevatedButton(
             onPressed: () async {
+              if (saving || saved) return;
               final text = controller.text.trim();
               if (text.isEmpty) return;
-
+              saving = true;
+              setWebSavePending(true);
               try {
+                if (!_canWrite(await UserService.getCurrentUserRole())) {
+                  throw const FormatException('Du har ikke skrivetilgang.');
+                }
                 final user = UserService.currentUser;
                 final now = Timestamp.now();
                 final data = {
@@ -504,7 +612,7 @@ class _TankScreenState extends State<TankScreen> {
                 };
 
                 if (note == null) {
-                  await _tankNotesRef.add({
+                  await noteRef.set({
                     ...data,
                     'createdAt': now,
                     'createdByUid': user?.uid,
@@ -514,6 +622,7 @@ class _TankScreenState extends State<TankScreen> {
                   await note.reference.set(data, SetOptions(merge: true));
                 }
 
+                saved = true;
                 if (!dialogContext.mounted) return;
                 Navigator.pop(dialogContext);
 
@@ -522,12 +631,17 @@ class _TankScreenState extends State<TankScreen> {
                   const SnackBar(content: Text('Driftsnotat lagret')),
                 );
               } catch (error) {
+                debugPrint('Driftsnotat: $error');
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Kunne ikke lagre driftsnotat: $error'),
+                  const SnackBar(
+                    content:
+                        Text('Kunne ikke lagre driftsnotatet. Prøv igjen.'),
                   ),
                 );
+              } finally {
+                saving = false;
+                setWebSavePending(false);
               }
             },
             child: const Text('Lagre'),
@@ -730,7 +844,7 @@ class _TankScreenState extends State<TankScreen> {
         facilityId: widget.facilityId,
         sectionId: widget.sectionId,
         tankId: widget.tankId,
-        currentFishCount: widget.fishCount,
+        currentFishCount: _fishCount,
       ),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -988,220 +1102,202 @@ class _TankScreenState extends State<TankScreen> {
     final typedWeight = _toDouble(weightCtrl.text);
 
     return FutureBuilder<String>(
-      future: UserService.getCurrentUserRole(),
+      future: _roleFuture,
       builder: (context, roleSnapshot) {
         final role = roleSnapshot.data ?? 'leser';
         final canWrite = _canWrite(role);
-        final isActive = TankStatus.isActiveFishCount(widget.fishCount);
+        final isActive = TankStatus.isActiveFishCount(_fishCount);
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(widget.tankName),
-            actions: [
-              if (canWrite)
-                IconButton(
-                  icon: const Icon(Icons.download),
-                  onPressed: _exportExcel,
-                ),
-            ],
-          ),
-          body: FutureBuilder<double>(
-            future: _getLatestWeight(),
-            builder: (context, snapshot) {
-              final latestWeight = snapshot.data ?? 0;
-              final displayWeight =
-                  typedWeight > 0 ? typedWeight : latestWeight;
+        return PopScope(
+          canPop: !_saveState.busy && !_openingNext,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(widget.tankName),
+              actions: [
+                if (canWrite)
+                  IconButton(
+                    icon: const Icon(Icons.download),
+                    onPressed:
+                        _saveState.busy || _openingNext ? null : _exportExcel,
+                  ),
+              ],
+            ),
+            body: FutureBuilder<double>(
+              future: _weightFuture,
+              builder: (context, snapshot) {
+                final latestWeight = snapshot.data ?? 0;
+                final displayWeight =
+                    typedWeight > 0 ? typedWeight : latestWeight;
 
-              final biomassKg = _biomassKg(
-                fishCount: widget.fishCount,
-                avgWeightGram: displayWeight,
-              );
-              final biomassTon = biomassKg / 1000;
+                final biomassKg = _biomassKg(
+                  fishCount: _fishCount,
+                  avgWeightGram: displayWeight,
+                );
+                final biomassTon = biomassKg / 1000;
 
-              final feedPercent = _recommendedFeedPercent(displayWeight);
-              final dailyFeedKg = _recommendedDailyFeedKg(
-                biomassKg: biomassKg,
-                feedPercent: feedPercent,
-              );
+                final feedPercent = _recommendedFeedPercent(displayWeight);
+                final dailyFeedKg = _recommendedDailyFeedKg(
+                  biomassKg: biomassKg,
+                  feedPercent: feedPercent,
+                );
 
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (!canWrite)
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.visibility),
-                        title: const Text('Lesetilgang'),
-                        subtitle: Text(
-                          'Du er logget inn som $role og kan kun se data.',
-                        ),
-                      ),
-                    ),
-                  Card(
-                    child: ListTile(
-                      title: const Text('Antall fisk'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.fishCount.toString(),
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (!canWrite)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.visibility),
+                          title: const Text('Lesetilgang'),
+                          subtitle: Text(
+                            'Du er logget inn som $role og kan kun se data.',
                           ),
-                          if (canWrite)
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: _editFishCount,
+                        ),
+                      ),
+                    Card(
+                      child: ListTile(
+                        title: const Text('Antall fisk'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _fishCount.toString(),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.scale),
-                      title: const Text('Biomasse'),
-                      subtitle: Text(
-                        !isActive
-                            ? 'Ikke i bruk - legg inn fisketall for å beregne biomasse'
-                            : displayWeight <= 0
-                                ? 'Registrer snittvekt for å beregne biomasse'
-                                : 'Snittvekt: ${displayWeight.toStringAsFixed(1)} g\n'
-                                    '${biomassKg.toStringAsFixed(1)} kg\n'
-                                    '${biomassTon.toStringAsFixed(2)} tonn',
-                      ),
-                    ),
-                  ),
-                  if (!isActive)
-                    const Card(
-                      child: ListTile(
-                        leading: Icon(Icons.pause_circle),
-                        title: Text('Tomt kar'),
-                        subtitle: Text(
-                          'Ikke i bruk. Legg inn fisketall med blyanten for å aktivere karet.',
+                            if (canWrite)
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: _saveState.busy || _openingNext
+                                    ? null
+                                    : _editFishCount,
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                  _notesSection(canWrite: canWrite),
-                  if (_showLegacyInfoCards && isActive)
                     Card(
                       child: ListTile(
-                        leading: const Icon(Icons.restaurant),
-                        title: const Text('Anbefalt fôr'),
+                        leading: const Icon(Icons.scale),
+                        title: const Text('Biomasse'),
                         subtitle: Text(
-                          'Siste snittvekt: ${displayWeight > 0 ? '${displayWeight.toStringAsFixed(1)} g' : 'ikke registrert'}\n'
-                          '${_recommendedFeed(displayWeight)}\n'
-                          'Pellet: ${_pelletSize(displayWeight)}\n'
-                          '${_nextFeedMessage(displayWeight)}',
+                          !isActive
+                              ? 'Ikke i bruk - legg inn fisketall for å beregne biomasse'
+                              : displayWeight <= 0
+                                  ? 'Registrer snittvekt for å beregne biomasse'
+                                  : 'Snittvekt: ${displayWeight.toStringAsFixed(1)} g\n'
+                                      '${biomassKg.toStringAsFixed(1)} kg\n'
+                                      '${biomassTon.toStringAsFixed(2)} tonn',
                         ),
                       ),
                     ),
-                  if (_showLegacyInfoCards && isActive)
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.local_dining),
-                        title: const Text('Anbefalt daglig fôrrasjon'),
-                        subtitle: Text(
-                          displayWeight <= 0
-                              ? 'Registrer snittvekt for å beregne fôrrasjon'
-                              : 'Biomasse: ${biomassKg.toStringAsFixed(1)} kg\n'
-                                  'Fôrprosent: ${feedPercent.toStringAsFixed(1)} %\n'
-                                  'Anbefalt: ${dailyFeedKg.toStringAsFixed(1)} kg/dag',
+                    if (!isActive)
+                      const Card(
+                        child: ListTile(
+                          leading: Icon(Icons.pause_circle),
+                          title: Text('Tomt kar'),
+                          subtitle: Text(
+                            'Ikke i bruk. Legg inn fisketall med blyanten for å aktivere karet.',
+                          ),
                         ),
                       ),
-                    ),
-                  if (_showLegacyInfoCards && isActive) _fcrCard(),
-                  if (_showLegacyInfoCards && isActive) _growthForecastCard(),
-                  if (canWrite && isActive) ...[
+                    _notesSection(
+                        canWrite:
+                            canWrite && !_saveState.busy && !_openingNext),
+                    if (_showLegacyInfoCards && isActive)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.restaurant),
+                          title: const Text('Anbefalt fôr'),
+                          subtitle: Text(
+                            'Siste snittvekt: ${displayWeight > 0 ? '${displayWeight.toStringAsFixed(1)} g' : 'ikke registrert'}\n'
+                            '${_recommendedFeed(displayWeight)}\n'
+                            'Pellet: ${_pelletSize(displayWeight)}\n'
+                            '${_nextFeedMessage(displayWeight)}',
+                          ),
+                        ),
+                      ),
+                    if (_showLegacyInfoCards && isActive)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.local_dining),
+                          title: const Text('Anbefalt daglig fôrrasjon'),
+                          subtitle: Text(
+                            displayWeight <= 0
+                                ? 'Registrer snittvekt for å beregne fôrrasjon'
+                                : 'Biomasse: ${biomassKg.toStringAsFixed(1)} kg\n'
+                                    'Fôrprosent: ${feedPercent.toStringAsFixed(1)} %\n'
+                                    'Anbefalt: ${dailyFeedKg.toStringAsFixed(1)} kg/dag',
+                          ),
+                        ),
+                      ),
+                    if (_showLegacyInfoCards && isActive) _fcrCard(),
+                    if (_showLegacyInfoCards && isActive) _growthForecastCard(),
+                    if (canWrite && isActive) ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: deadCtrl,
+                        enabled: !_saveState.busy && !_openingNext,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Dødelighet',
+                        ),
+                      ),
+                      TextField(
+                        controller: feedCtrl,
+                        enabled: !_saveState.busy && !_openingNext,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Fôr (kg)',
+                        ),
+                      ),
+                      AbsorbPointer(
+                        absorbing: _saveState.busy || _openingNext,
+                        child: _feedInventoryPicker(),
+                      ),
+                      TextField(
+                        controller: weightCtrl,
+                        enabled: !_saveState.busy && !_openingNext,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Snittvekt (g) – valgfritt',
+                          helperText:
+                              'La stå tomt hvis fisken ikke er veid i dag',
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      TextField(
+                        controller: tempCtrl,
+                        enabled: !_saveState.busy && !_openingNext,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Temperatur',
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: deadCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Dødelighet',
-                      ),
+                    TankRegistrationActions(
+                      canWrite: canWrite,
+                      isActive: isActive,
+                      saving: _saveState.busy,
+                      openingNext: _openingNext,
+                      hasSaved: _saveState.hasSaved,
+                      onSave: () => _save(),
+                      onSaveNext: () => _save(goNext: true),
+                      onNext: _openNextTank,
+                      onInfo: _openTankInfo,
+                      onWeightSample: _openWeightSamples,
+                      onMove: _openMoveFish,
+                      onHistory: _openHistory,
+                      onGrowth: _openGrowthChart,
+                      onMortality: _openMortalityChart,
                     ),
-                    TextField(
-                      controller: feedCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Fôr (kg)',
-                      ),
-                    ),
-                    _feedInventoryPicker(),
-                    TextField(
-                      controller: weightCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Snittvekt (g) – valgfritt',
-                        helperText:
-                            'La stå tomt hvis fisken ikke er veid i dag',
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    TextField(
-                      controller: tempCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Temperatur',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _save,
-                      child: const Text('Lagre'),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _openWeightSamples,
-                      icon: const Icon(Icons.monitor_weight),
-                      label: const Text('Vektprøve'),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      onPressed: _openTankInfo,
-                      icon: const Icon(Icons.info_outline),
-                      label: const Text('Kar info'),
-                    ),
-                    const SizedBox(height: 8),
-                    if (isActive)
-                      ElevatedButton(
-                        onPressed: _openMoveFish,
-                        child: const Text('Flytt fisk'),
-                      ),
                   ],
-                  if (!(canWrite && isActive)) ...[
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _openWeightSamples,
-                      icon: const Icon(Icons.monitor_weight),
-                      label: const Text('Vektprøve'),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      onPressed: _openTankInfo,
-                      icon: const Icon(Icons.info_outline),
-                      label: const Text('Kar info'),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _openHistory,
-                    child: const Text('Historikk'),
-                  ),
-                  ElevatedButton(
-                    onPressed: _openGrowthChart,
-                    child: const Text('Vekstdiagram'),
-                  ),
-                  ElevatedButton(
-                    onPressed: _openMortalityChart,
-                    child: const Text('Dødelighetsdiagram'),
-                  ),
-                ],
-              );
-            },
+                );
+              },
+            ),
           ),
         );
       },

@@ -1,0 +1,1 @@
+void setWebSavePending(bool pending) {}

@@ -1,3 +1,4 @@
+import '../utils/data_values.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../utils/tank_status.dart';
@@ -28,7 +29,7 @@ class FcrService {
     final tankSnap = await tankRef.get();
     final tankData = tankSnap.data();
     final storedFishCount = TankStatus.fishCountFrom(tankData?['fishCount']);
-    final fishCount = storedFishCount > 0 ? storedFishCount : currentFishCount;
+    final fishCount = tankSnap.exists ? storedFishCount : 0;
 
     if (!TankStatus.isActiveFishCount(fishCount)) {
       return _noData('Tomt kar - FCR beregnes ikke');
@@ -37,6 +38,15 @@ class FcrService {
     final snap = await tankRef.collection('logs').orderBy('date').get();
     final logs = snap.docs.map((doc) => doc.data()).toList();
 
+    return calculateFromLogs(logs, fishCount, from: from, to: to);
+  }
+
+  static Map<String, dynamic> calculateFromLogs(
+      List<Map<String, dynamic>> logs, int fishCount,
+      {DateTime? from, DateTime? to}) {
+    if (fishCount <= 0) return _noData('Tomt kar - FCR beregnes ikke');
+    logs = [...logs]..sort((a, b) => (_toDate(a['date']) ?? DateTime(1970))
+        .compareTo(_toDate(b['date']) ?? DateTime(1970)));
     final periodStart = from == null ? null : _startOfDay(from);
     final periodEnd = to == null ? null : _endOfDay(to);
 
@@ -58,7 +68,7 @@ class FcrService {
     }
 
     final weightLogs = sourceLogs.where((log) {
-      return _toDate(log['date']) != null && _toDouble(log['avgWeight']) > 0;
+      return _toDate(log['date']) != null && DataValues.weight(log) > 0;
     }).toList();
 
     if (weightLogs.length < 2) {
@@ -67,8 +77,8 @@ class FcrService {
 
     final first = weightLogs.first;
     final last = weightLogs.last;
-    final startWeight = _toDouble(first['avgWeight']);
-    final endWeight = _toDouble(last['avgWeight']);
+    final startWeight = DataValues.weight(first);
+    final endWeight = DataValues.weight(last);
     final startDate = _toDate(first['date']);
     final endDate = _toDate(last['date']);
 
@@ -169,14 +179,7 @@ class FcrService {
     return null;
   }
 
-  static double _toDouble(Object? value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
-    }
-    return 0;
-  }
+  static double _toDouble(Object? value) => DataValues.decimal(value);
 
   static bool _isMovementLog(Map<String, dynamic> log) {
     final note = (log['note'] ?? log['notes'] ?? log['comment'] ?? '')
@@ -185,7 +188,9 @@ class FcrService {
     final type =
         (log['type'] ?? log['eventType'] ?? '').toString().toLowerCase();
 
-    return note.contains('flyttet') ||
+    return DataValues.decimal(log['transferIn']) > 0 ||
+        DataValues.decimal(log['transferOut']) > 0 ||
+        note.contains('flyttet') ||
         note.contains('mottok') ||
         type.contains('move') ||
         type.contains('flytt');
