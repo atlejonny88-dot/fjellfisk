@@ -75,6 +75,7 @@ const server = http.createServer((req, res) => {
     await Promise.all([u.waitForURL(url => url.searchParams.get('fjellfisk_build') === newId),u.getByRole('button',{name:'Oppdater nå'}).click()]);
     assert.ok(u.url().endsWith('#/tank/test'));
     assert.ok(u.url().includes('keep=yes'));
+    assert.ok(new URL(u.url()).searchParams.has('fjellfisk_reload'));
     assert.equal(await u.evaluate(() => localStorage.getItem('auth-preservation-sentinel')), 'keep');
     await updates.close();
     console.log('PASS old/new banner, save guard, reload URL and stored-session preservation');

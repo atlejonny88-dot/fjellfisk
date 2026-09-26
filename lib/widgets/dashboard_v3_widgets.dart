@@ -6,6 +6,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.facilityName,
     required this.userLabel,
     required this.isDesktop,
+    this.isRefreshing = false,
     required this.onRefresh,
     required this.onLogout,
   });
@@ -13,6 +14,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   final String facilityName;
   final String userLabel;
   final bool isDesktop;
+  final bool isRefreshing;
   final VoidCallback onRefresh;
   final VoidCallback onLogout;
 
@@ -71,8 +73,16 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         if (isDesktop)
           IconButton(
             tooltip: 'Oppdater dashboard',
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh),
+            onPressed: isRefreshing ? null : onRefresh,
+            icon: isRefreshing
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh),
           ),
         if (isDesktop) ...[
           const SizedBox(width: 8),
@@ -379,10 +389,12 @@ class DashboardHeading extends StatelessWidget {
   const DashboardHeading({
     super.key,
     required this.facilityName,
+    this.isRefreshing = false,
     required this.onRefresh,
   });
 
   final String facilityName;
+  final bool isRefreshing;
   final VoidCallback onRefresh;
 
   @override
@@ -416,9 +428,14 @@ class DashboardHeading extends StatelessWidget {
           children: [
             Expanded(child: title),
             OutlinedButton.icon(
-              onPressed: onRefresh,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Oppdater'),
+              onPressed: isRefreshing ? null : onRefresh,
+              icon: isRefreshing
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Text(isRefreshing ? 'Oppdaterer' : 'Oppdater'),
             ),
           ],
         );

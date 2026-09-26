@@ -34,6 +34,41 @@
   var banner;
   var latest;
   var lastCheck = 0;
+  async function clearFlutterRuntime() {
+    var tasks = [];
+    if (window.caches) {
+      tasks.push(caches.keys().then(function (keys) {
+        return Promise.all(keys.filter(function (key) {
+          return key === 'flutter-app-cache' ||
+            key === 'flutter-temp-cache' ||
+            key === 'flutter-app-manifest';
+        }).map(function (key) { return caches.delete(key); }));
+      }));
+    }
+    if ('serviceWorker' in navigator) {
+      tasks.push(navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        return Promise.all(registrations.filter(function (registration) {
+          var worker = registration.active || registration.waiting || registration.installing;
+          return worker && new URL(worker.scriptURL).pathname ===
+            new URL('flutter_service_worker.js', document.baseURI).pathname;
+        }).map(function (registration) { return registration.unregister(); }));
+      }));
+    }
+    await Promise.all(tasks);
+  }
+  async function reloadLatest() {
+    var url = new URL(window.location.href);
+    url.searchParams.set('fjellfisk_build', latest);
+    // A unique value also forces navigation if a previous update attempt used
+    // the same build URL while an old service worker was still in control.
+    url.searchParams.set('fjellfisk_reload', Date.now().toString());
+    try {
+      await clearFlutterRuntime();
+    } catch (error) {
+      console.warn('Fjellfisk update cleanup failed:', error);
+    }
+    window.location.replace(url.href);
+  }
   var checker = createChecker({
     current: current,
     read: async function () {
@@ -68,15 +103,15 @@
         banner.appendChild(element);
         return element;
       }
-      var update = button('Oppdater nå', function () {
+      var update = button('Oppdater nå', async function () {
         if (window.fjellfiskSaving) {
           message.textContent = 'Vent til registreringen er ferdig lagret før du oppdaterer.';
           return;
         }
         if (!window.confirm('Appen lastes på nytt. Har du lagret endringene dine?')) return;
-        var url = new URL(window.location.href);
-        url.searchParams.set('fjellfisk_build', latest);
-        window.location.replace(url.href);
+        update.disabled = true;
+        message.textContent = 'Oppdaterer Fjellfisk ...';
+        await reloadLatest();
       });
       update.style.background = '#0b63e5';
       update.style.color = 'white';
