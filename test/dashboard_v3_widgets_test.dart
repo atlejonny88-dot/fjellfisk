@@ -110,4 +110,43 @@ void main() {
     expect(find.text('Hovedbygget med et langt seksjonsnavn'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('dashboard refresh button invokes callback and shows busy state',
+      (tester) async {
+    var refreshes = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: DashboardHeading(
+            facilityName: 'Arctic Hardanger',
+            onRefresh: () => refreshes++,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Oppdater'));
+    expect(refreshes, 1);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: DashboardHeading(
+            facilityName: 'Arctic Hardanger',
+            isRefreshing: true,
+            onRefresh: () => refreshes++,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Oppdaterer'), findsOneWidget);
+    expect(
+      tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed,
+      isNull,
+    );
+  });
 }
