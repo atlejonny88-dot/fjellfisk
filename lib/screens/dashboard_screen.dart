@@ -37,6 +37,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final GlobalKey _diaryKey = GlobalKey();
   late Future<Map<String, dynamic>> _dashboardFuture;
   late Future<String> _roleFuture;
+  bool _isRefreshing = false;
+  int _diaryRefreshKey = 0;
 
   CollectionReference<Map<String, dynamic>> get _sectionsRef {
     return FirebaseFirestore.instance
@@ -95,15 +97,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<double> _latestWeight(
-    CollectionReference<Map<String, dynamic>> logsRef,
-  ) async {
-    final snap =
-        await logsRef.orderBy('date', descending: true).limit(50).get();
+    CollectionReference<Map<String, dynamic>> logsRef, {
+    required bool forceServer,
+  }) async {
+    final snap = await _getQuery(
+      logsRef.orderBy('date', descending: true).limit(50),
+      forceServer: forceServer,
+    );
     for (final doc in snap.docs) {
       final weight = _weightFromLog(doc.data());
       if (weight > 0) return weight;
     }
     return 0;
+  }
+
+  Future<QuerySnapshot<Map<String, dynamic>>> _getQuery(
+    Query<Map<String, dynamic>> query, {
+    required bool forceServer,
+  }) async {
+    if (!forceServer) return query.get();
+
+    try {
+      return await query.get(const GetOptions(source: Source.server));
+    } on FirebaseException catch (error) {
+      if (error.code != 'unavailable' &&
+          error.code != 'deadline-exceeded' &&
+          error.code != 'network-request-failed') {
+        rethrow;
+      }
+      return query.get(const GetOptions(source: Source.cache));
+    }
   }
 
   double _toDouble(Object? value) => DataValues.decimal(value);
@@ -122,7 +145,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return 0;
   }
 
-  Future<Map<String, dynamic>> _loadDashboard() async {
+  Future<Map<String, dynamic>> _loadDashboard(
+      {bool forceServer = false}) async {
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
 
@@ -139,7 +163,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int tempCount = 0;
     final sectionRows = <Map<String, dynamic>>[];
 
-    final sectionsSnap = await _sectionsRef.get();
+    final sectionsSnap = await _getQuery(
+      _sectionsRef,
+      forceServer: forceServer,
+    );
     totalSections = sectionsSnap.docs.length;
 
     for (final section in sectionsSnap.docs) {
@@ -152,7 +179,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       double sectionBiomassKg = 0;
       double sectionFeedKg = 0;
 
-      final tanksSnap = await section.reference.collection('tanks').get();
+      final tanksSnap = await _getQuery(
+        section.reference.collection('tanks'),
+        forceServer: forceServer,
+      );
       sectionTanks = tanksSnap.docs.length;
       totalTanks += sectionTanks;
 
@@ -174,7 +204,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final logsRef = tank.reference.collection('logs');
         if (!isActive) continue;
 
-        final latestWeight = await _latestWeight(logsRef);
+        final latestWeight = await _latestWeight(
+          logsRef,
+          forceServer: forceServer,
+        );
         final biomass = _biomassKg(fishCount, latestWeight);
         final dailyFeed = biomass * (_feedPercent(latestWeight) / 100);
         sectionBiomassKg += biomass;
@@ -182,7 +215,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         totalBiomassKg += biomass;
         recommendedFeedKg += dailyFeed;
 
-        final logsSnap = await logsRef.get();
+        final logsSnap = await _getQuery(
+          logsRef,
+          forceServer: forceServer,
+        );
         for (final log in logsSnap.docs) {
           final data = log.data();
           final dateRaw = data['date'];
@@ -234,18 +270,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     };
   }
 
-  Future<void> _refresh() async {
-    final future = _loadDashboard().timeout(_loadTimeout);
+  Future<void> _refresh({bool showFeedback = false}) async {
+    if (_isRefreshing) return;
+
+    final future = _loadDashboard(forceServer: true).timeout(_loadTimeout);
     setState(() {
+      _isRefreshing = true;
+      _diaryRefreshKey++;
       _dashboardFuture = future;
       _roleFuture = UserService.getCurrentUserRole();
     });
     try {
       await future;
-    } catch (_) {
+      if (!mounted || !showFeedback) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dashboard oppdatert')),
+      );
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Fjellfisk dashboard refresh error: $error\n$stackTrace');
+      }
       // FutureBuilder shows a local retry state.
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
     }
   }
+
+  Future<void> _refreshFromUser() => _refresh(showFeedback: true);
 
   Future<void> _logout() async {
     final shouldLogout = await showDialog<bool>(
@@ -370,7 +423,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             facilityName: widget.facilityName,
             userLabel: userLabel,
             isDesktop: isDesktop,
-            onRefresh: _refresh,
+            isRefreshing: _isRefreshing,
+            onRefresh: _refreshFromUser,
             onLogout: _logout,
           ),
           drawer: isDesktop
@@ -396,7 +450,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       }
                       return DashboardErrorState(
                         message: _dashboardErrorMessage(snapshot.error),
-                        onRetry: _refresh,
+                        onRetry: _refreshFromUser,
                       );
                     }
                     if (!snapshot.hasData) {
@@ -437,7 +491,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final avgTemp = data['avgTemp'] as double;
 
     return RefreshIndicator(
-      onRefresh: _refresh,
+      onRefresh: _refreshFromUser,
       child: Scrollbar(
         controller: _scrollController,
         thumbVisibility: MediaQuery.sizeOf(context).width >= 1080,
@@ -453,7 +507,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   DashboardHeading(
                     facilityName: widget.facilityName,
-                    onRefresh: _refresh,
+                    isRefreshing: _isRefreshing,
+                    onRefresh: _refreshFromUser,
                   ),
                   const SizedBox(height: 20),
                   ResponsiveDashboardGrid(
@@ -511,6 +566,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   KeyedSubtree(
                     key: _diaryKey,
                     child: DiaryLogPanel(
+                      key: ValueKey(_diaryRefreshKey),
                       facilityId: widget.facilityId,
                       facilityName: widget.facilityName,
                     ),
