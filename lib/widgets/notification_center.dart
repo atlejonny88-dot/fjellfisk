@@ -203,102 +203,104 @@ class _NotificationCenterSheetState extends State<NotificationCenterSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.84;
     return SafeArea(
       top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 660,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.84,
-        ),
-        child: StreamBuilder<List<AppNotification>>(
-          stream: widget.notifications,
-          builder: (context, snapshot) {
-            final notifications = snapshot.data ?? const <AppNotification>[];
-            final unread = notifications.where((item) => !item.isRead).length;
-            return Material(
-              color: Colors.white,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 10),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.notifications_none_rounded,
-                          color: Color(0xFF0B63E5),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            l10n.notifications,
-                            style: const TextStyle(
-                              color: Color(0xFF0A1733),
-                              fontSize: 19,
-                              fontWeight: FontWeight.w800,
-                            ),
+      child: SizedBox(
+        height: sheetHeight,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 660),
+          child: StreamBuilder<List<AppNotification>>(
+            stream: widget.notifications,
+            builder: (context, snapshot) {
+              final notifications = snapshot.data ?? const <AppNotification>[];
+              final unread = notifications.where((item) => !item.isRead).length;
+              return Material(
+                color: Colors.white,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 10),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.notifications_none_rounded,
+                            color: Color(0xFF0B63E5),
                           ),
-                        ),
-                        if (unread > 0)
-                          TextButton(
-                            onPressed: _markingAll
-                                ? null
-                                : () => _markAllRead(notifications),
+                          const SizedBox(width: 10),
+                          Expanded(
                             child: Text(
-                              _markingAll ? l10n.marking : l10n.markAllRead,
+                              l10n.notifications,
+                              style: const TextStyle(
+                                color: Color(0xFF0A1733),
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
-                        IconButton(
-                          tooltip: l10n.closeNotifications,
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
+                          if (unread > 0)
+                            TextButton(
+                              onPressed: _markingAll
+                                  ? null
+                                  : () => _markAllRead(notifications),
+                              child: Text(
+                                _markingAll ? l10n.marking : l10n.markAllRead,
+                              ),
+                            ),
+                          IconButton(
+                            tooltip: l10n.closeNotifications,
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: snapshot.hasError
-                        ? _NotificationMessage(
-                            icon: Icons.notifications_off_outlined,
-                            title: l10n.notificationsUnavailable,
-                            detail: l10n.notificationsUnavailableDetail,
-                          )
-                        : !snapshot.hasData
-                            ? const Center(child: CircularProgressIndicator())
-                            : notifications.isEmpty
-                                ? _NotificationMessage(
-                                    icon: Icons.notifications_none_rounded,
-                                    title: l10n.noNotifications,
-                                    detail: l10n.noNotificationsDetail,
-                                  )
-                                : ListView.separated(
-                                    padding: const EdgeInsets.fromLTRB(
-                                        12, 10, 12, 20),
-                                    itemCount: notifications.length,
-                                    separatorBuilder: (_, __) =>
-                                        const SizedBox(height: 8),
-                                    itemBuilder: (context, index) {
-                                      final notification = notifications[index];
-                                      final busy = _busyNotifications
-                                          .contains(notification.id);
-                                      return _NotificationTile(
-                                        key: ValueKey(notification.id),
-                                        notification: notification,
-                                        busy: busy,
-                                        onTap: () => _open(notification),
-                                        onMarkRead: notification.isRead
-                                            ? null
-                                            : () => _markRead(notification),
-                                      );
-                                    },
-                                  ),
-                  ),
-                ],
-              ),
-            );
-          },
+                    const Divider(height: 1),
+                    Expanded(
+                      child: snapshot.hasError
+                          ? _NotificationMessage(
+                              icon: Icons.notifications_off_outlined,
+                              title: l10n.notificationsUnavailable,
+                              detail: l10n.notificationsUnavailableDetail,
+                            )
+                          : !snapshot.hasData
+                              ? const Center(child: CircularProgressIndicator())
+                              : notifications.isEmpty
+                                  ? _NotificationMessage(
+                                      icon: Icons.notifications_none_rounded,
+                                      title: l10n.noNotifications,
+                                      detail: l10n.noNotificationsDetail,
+                                    )
+                                  : ListView.separated(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          12, 10, 12, 20),
+                                      itemCount: notifications.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 8),
+                                      itemBuilder: (context, index) {
+                                        final notification =
+                                            notifications[index];
+                                        final busy = _busyNotifications
+                                            .contains(notification.id);
+                                        return _NotificationTile(
+                                          key: ValueKey(notification.id),
+                                          notification: notification,
+                                          busy: busy,
+                                          onTap: () => _open(notification),
+                                          onMarkRead: notification.isRead
+                                              ? null
+                                              : () => _markRead(notification),
+                                        );
+                                      },
+                                    ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
