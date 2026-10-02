@@ -130,12 +130,14 @@ class NotificationCenterSheet extends StatefulWidget {
   const NotificationCenterSheet({
     super.key,
     required this.notifications,
+    this.initialNotifications = const <AppNotification>[],
     required this.onMarkRead,
     required this.onMarkAllRead,
     required this.onOpen,
   });
 
   final Stream<List<AppNotification>> notifications;
+  final List<AppNotification> initialNotifications;
   final Future<void> Function(AppNotification notification) onMarkRead;
   final Future<void> Function(Iterable<AppNotification> notifications)
       onMarkAllRead;
@@ -212,6 +214,7 @@ class _NotificationCenterSheetState extends State<NotificationCenterSheet> {
           constraints: const BoxConstraints(maxWidth: 660),
           child: StreamBuilder<List<AppNotification>>(
             stream: widget.notifications,
+            initialData: widget.initialNotifications,
             builder: (context, snapshot) {
               final notifications = snapshot.data ?? const <AppNotification>[];
               final unread = notifications.where((item) => !item.isRead).length;
