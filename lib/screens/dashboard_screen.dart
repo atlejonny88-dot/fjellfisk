@@ -47,6 +47,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late Future<Map<String, dynamic>> _dashboardFuture;
   late Future<String> _roleFuture;
   late Stream<List<AppNotification>> _notificationStream;
+  StreamSubscription<List<AppNotification>>? _notificationSubscription;
+  List<AppNotification> _latestNotifications = const <AppNotification>[];
   bool _isRefreshing = false;
   int _diaryRefreshKey = 0;
   Timer? _webUpdateTimer;
@@ -63,9 +65,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _dashboardFuture = _loadDashboard().timeout(_loadTimeout);
     _roleFuture = UserService.getCurrentUserRole();
-    // The bell and the sheet can listen at the same time.
+    // The bell and sheet can listen at the same time. Keep the last value so a
+    // newly opened sheet does not wait for the next Firestore event.
     _notificationStream =
         NotificationService.notificationsStream().asBroadcastStream();
+    _notificationSubscription = _notificationStream.listen(
+      (notifications) {
+        if (mounted) {
+          setState(() => _latestNotifications = notifications);
+        }
+      },
+    );
     unawaited(_syncNotifications());
     _webUpdateTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -76,6 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _notificationSubscription?.cancel();
     _webUpdateTimer?.cancel();
     super.dispose();
   }
@@ -411,6 +422,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         alignment: Alignment.bottomCenter,
         child: NotificationCenterSheet(
           notifications: _notificationStream,
+          initialNotifications: _latestNotifications,
           onMarkRead: NotificationService.markRead,
           onMarkAllRead: NotificationService.markAllRead,
           onOpen: _openNotificationTarget,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fjellfisk/models/app_notification.dart';
 import 'package:fjellfisk/l10n/app_localizations.dart';
 import 'package:fjellfisk/theme/app_theme.dart';
@@ -121,6 +123,34 @@ void main() {
     expect(find.text('Kort varseltekst'), findsOneWidget);
     expect(tester.getSize(find.byType(NotificationCenterSheet)).height,
         greaterThan(200));
+  });
+
+  testWidgets('center shows cached notifications before a stream event',
+      (tester) async {
+    final notification = _notification(id: 'cached-notification');
+    final controller = StreamController<List<AppNotification>>.broadcast();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        locale: const Locale('nb'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: NotificationCenterSheet(
+            notifications: controller.stream,
+            initialNotifications: [notification],
+            onMarkRead: (_) async {},
+            onMarkAllRead: (_) async {},
+            onOpen: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Kort varseltekst'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('notification tap marks read before opening target',
