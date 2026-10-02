@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../utils/data_values.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,8 +13,10 @@ import '../services/growth_forecast_service.dart';
 import '../services/tank_info_service.dart';
 import '../services/registration_round.dart';
 import '../services/web_update_guard.dart';
+import '../l10n/localizations.dart';
 import '../widgets/tank_registration_actions.dart';
 import '../utils/tank_status.dart';
+import '../utils/ui_motion.dart';
 import 'tank_chart_screen.dart';
 import 'tank_mortality_chart_screen.dart';
 import 'tank_history_screen.dart';
@@ -49,7 +53,9 @@ class _TankScreenState extends State<TankScreen> {
   bool _showFeedInventoryPicker = false;
   final _saveState = RegistrationSave();
   bool _openingNext = false;
+  bool _showSaveFeedback = false;
   String? _registrationId;
+  Timer? _saveFeedbackTimer;
   late int _fishCount;
   late final Future<String> _roleFuture;
   late Future<double> _weightFuture;
@@ -70,6 +76,7 @@ class _TankScreenState extends State<TankScreen> {
 
   @override
   void dispose() {
+    _saveFeedbackTimer?.cancel();
     _saveState.dispose();
     deadCtrl.dispose();
     feedCtrl.dispose();
@@ -165,23 +172,38 @@ class _TankScreenState extends State<TankScreen> {
   }
 
   String _nextFeedMessage(double weight) {
-    if (weight <= 0) return 'Ingen snittvekt registrert ennå';
+    if (weight <= 0) return context.l10n.noAverageWeightRegistered;
     if (weight < 2) {
-      return '${(2 - weight).toStringAsFixed(1)} g igjen til Nutra Sprint 0.8';
+      return context.l10n.weightUntilFeed(
+        (2 - weight).toStringAsFixed(1),
+        'Nutra Sprint 0.8',
+      );
     }
     if (weight < 5) {
-      return '${(5 - weight).toStringAsFixed(1)} g igjen til Nutra Sprint 1.0';
+      return context.l10n.weightUntilFeed(
+        (5 - weight).toStringAsFixed(1),
+        'Nutra Sprint 1.0',
+      );
     }
     if (weight < 15) {
-      return '${(15 - weight).toStringAsFixed(1)} g igjen til Nutra Olympic 2.0';
+      return context.l10n.weightUntilFeed(
+        (15 - weight).toStringAsFixed(1),
+        'Nutra Olympic 2.0',
+      );
     }
     if (weight < 100) {
-      return '${(100 - weight).toStringAsFixed(1)} g igjen til Polarfeed Laksens Valg 150';
+      return context.l10n.weightUntilFeed(
+        (100 - weight).toStringAsFixed(1),
+        'Polarfeed Laksens Valg 150',
+      );
     }
     if (weight < 300) {
-      return '${(300 - weight).toStringAsFixed(1)} g igjen til Polarfeed Laksens Valg 300';
+      return context.l10n.weightUntilFeed(
+        (300 - weight).toStringAsFixed(1),
+        'Polarfeed Laksens Valg 300',
+      );
     }
-    return 'Sluttfôr / stor fisk';
+    return context.l10n.finishFeedLargeFish;
   }
 
   double _biomassKg({
@@ -216,18 +238,18 @@ class _TankScreenState extends State<TankScreen> {
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Juster fisketall'),
+        title: Text(context.l10n.adjustFishCount),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Nytt antall fisk',
+          decoration: InputDecoration(
+            labelText: context.l10n.newFishCount,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -245,7 +267,7 @@ class _TankScreenState extends State<TankScreen> {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text('Lagre'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -273,53 +295,60 @@ class _TankScreenState extends State<TankScreen> {
     );
   }
 
+  void _showSaveConfirmation() {
+    _saveFeedbackTimer?.cancel();
+    setState(() => _showSaveFeedback = true);
+    _saveFeedbackTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _showSaveFeedback = false);
+    });
+  }
+
   double _parseNumber(String text, String label, {bool positive = false}) {
     if (text.trim().isEmpty) return 0;
     final value = double.tryParse(text.trim().replaceAll(',', '.'));
     if (value == null ||
         !value.isFinite ||
         (positive ? value <= 0 : value < 0)) {
-      throw FormatException('Ugyldig $label');
+      throw FormatException(context.l10n.invalidValue(label));
     }
     return value;
   }
 
   Future<void> _save({bool goNext = false}) async {
     if (_saveState.busy || _openingNext) return;
+    final l10n = context.l10n;
     try {
       final saved = await _saveState.run(() async {
         final deadText = deadCtrl.text.trim();
         final dead = deadText.isEmpty ? 0 : int.tryParse(deadText);
         if (dead == null || dead < 0) {
-          throw const FormatException('Ugyldig dødelighet');
+          throw FormatException(l10n.invalidMortality);
         }
-        final feed = _parseNumber(feedCtrl.text, 'fôrmengde');
+        final feed = _parseNumber(feedCtrl.text, l10n.feed);
         final typedWeight =
-            _parseNumber(weightCtrl.text, 'snittvekt', positive: true);
-        final temp = _parseNumber(tempCtrl.text, 'temperatur');
+            _parseNumber(weightCtrl.text, l10n.averageWeight, positive: true);
+        final temp = _parseNumber(tempCtrl.text, l10n.temperature);
         if ([deadCtrl, feedCtrl, weightCtrl, tempCtrl]
             .every((controller) => controller.text.trim().isEmpty)) {
-          throw const FormatException('Fyll inn minst én registrering.');
+          throw FormatException(l10n.enterAtLeastOneRegistration);
         }
         final selectedFeedId = _selectedFeedInventoryId;
         final role = await UserService.getCurrentUserRole();
         if (!_canWrite(role)) {
-          throw const FormatException('Du har ikke tilgang til å registrere.');
+          throw FormatException(l10n.noRegistrationAccess);
         }
         // Refresh the count before saving again on the same screen.
         final tank =
             await _logsRef.parent!.get(const GetOptions(source: Source.server));
         if (!tank.exists) {
-          throw const FormatException('Karet finnes ikke lenger.');
+          throw FormatException(l10n.tankNoLongerExists);
         }
         final count = TankStatus.fishCountFrom(tank.data()?['fishCount']);
         if (count <= 0) {
-          throw const FormatException(
-              'Karet er tomt. Legg inn fisketall før drift registreres.');
+          throw FormatException(l10n.emptyTankBeforeRegistration);
         }
         if (dead > count) {
-          throw const FormatException(
-              'Dødelighet kan ikke være større enn fisketallet.');
+          throw FormatException(l10n.mortalityExceedsFishCount);
         }
         final weightToSave =
             typedWeight > 0 ? typedWeight : await _getLatestWeight();
@@ -329,12 +358,12 @@ class _TankScreenState extends State<TankScreen> {
           final feedSnap = await _feedInventoryRef.doc(selectedFeedId).get();
           final feedData = feedSnap.data();
           if (!feedSnap.exists || feedData == null) {
-            throw const FormatException('Valgt fôrtype finnes ikke.');
+            throw FormatException(l10n.selectedFeedTypeMissing);
           }
           final availableKg = _stockKg(feedData);
           if (availableKg + 0.0001 < feed) {
             throw FormatException(
-              'Ikke nok fôr på lager. Tilgjengelig: ${availableKg.toStringAsFixed(1)} kg.',
+              l10n.insufficientFeedInStock(availableKg.toStringAsFixed(1)),
             );
           }
           feedType = (feedData['name'] ?? selectedFeedId).toString();
@@ -342,7 +371,7 @@ class _TankScreenState extends State<TankScreen> {
           if (pellet > 0) pelletSizeMm = pellet;
         }
         if (!mounted) {
-          throw const FormatException('Registreringen ble avbrutt.');
+          throw FormatException(l10n.registrationCancelled);
         }
         _registrationId ??= _logsRef.doc().id;
         final countAfter = await FirestoreService.addDailyLog(
@@ -373,13 +402,14 @@ class _TankScreenState extends State<TankScreen> {
         _weightFuture = Future.value(weightToSave);
       });
       if (!mounted || !saved) return;
-      _message('Registrering lagret');
+      _showSaveConfirmation();
+      _message(l10n.registrationSaved);
       if (goNext) await _openNextTank();
     } on FormatException catch (error) {
       if (mounted) _message(error.message);
     } catch (error, stack) {
       debugPrint('Kunne ikke lagre registrering: $error\n$stack');
-      if (mounted) _message('Kunne ikke lagre registreringen. Prøv igjen.');
+      if (mounted) _message(l10n.registrationSaveFailed);
     }
   }
 
@@ -393,16 +423,15 @@ class _TankScreenState extends State<TankScreen> {
         final leave = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Ulagrede endringer'),
-            content:
-                const Text('Gå til neste kar uten å lagre de nye verdiene?'),
+            title: Text(context.l10n.unsavedChanges),
+            content: Text(context.l10n.leaveWithoutSaving),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Avbryt')),
+                  child: Text(context.l10n.cancel)),
               TextButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Neste kar')),
+                  child: Text(context.l10n.nextTank)),
             ],
           ),
         );
@@ -424,11 +453,12 @@ class _TankScreenState extends State<TankScreen> {
       );
       if (!mounted) return;
       if (next == null) {
-        _message('Alle kar i denne seksjonen er gjennomgått.');
+        _message(context.l10n.allTanksReviewed);
         return;
       }
       // Replace only the tank route so Back still returns directly to its section.
-      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+      Navigator.of(context).pushReplacement(subtleFadeSlideRoute<void>(
+        context: context,
         builder: (_) => TankScreen(
           facilityId: widget.facilityId,
           sectionId: widget.sectionId,
@@ -441,8 +471,7 @@ class _TankScreenState extends State<TankScreen> {
     } catch (error, stack) {
       debugPrint('Kunne ikke åpne neste kar: $error\n$stack');
       if (mounted) {
-        _message(
-            'Registreringen er lagret, men neste kar kunne ikke åpnes. Prøv igjen.');
+        _message(context.l10n.nextTankOpenFailed);
       }
     } finally {
       if (mounted && !navigating) setState(() => _openingNext = false);
@@ -524,7 +553,7 @@ class _TankScreenState extends State<TankScreen> {
   }
 
   String _formatDateTime(Object? value) {
-    if (value is! Timestamp) return 'Ukjent tidspunkt';
+    if (value is! Timestamp) return context.l10n.unknownTime;
 
     final date = value.toDate();
     final now = DateTime.now();
@@ -535,8 +564,8 @@ class _TankScreenState extends State<TankScreen> {
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
 
-    if (isToday) return 'I dag kl. $hour:$minute';
-    return '$day.$month.${date.year} kl. $hour:$minute';
+    if (isToday) return context.l10n.todayAt('$hour:$minute');
+    return '$day.$month.${date.year} $hour:$minute';
   }
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _sortNotes(
@@ -563,6 +592,7 @@ class _TankScreenState extends State<TankScreen> {
   Future<void> _openNoteDialog({
     QueryDocumentSnapshot<Map<String, dynamic>>? note,
   }) async {
+    final l10n = context.l10n;
     var saving = false;
     var saved = false;
     final noteRef = note?.reference ?? _tankNotesRef.doc();
@@ -573,14 +603,18 @@ class _TankScreenState extends State<TankScreen> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(note == null ? 'Nytt driftsnotat' : 'Rediger driftsnotat'),
+        title: Text(
+          note == null
+              ? context.l10n.newOperationalNote
+              : context.l10n.editOperationalNote,
+        ),
         content: TextField(
           controller: controller,
           maxLength: 300,
           maxLines: 5,
-          decoration: const InputDecoration(
-            labelText: 'Notat',
-            hintText: 'F.eks. For mye spillfôr',
+          decoration: InputDecoration(
+            labelText: context.l10n.notes,
+            hintText: context.l10n.noteHint,
           ),
         ),
         actions: [
@@ -588,7 +622,7 @@ class _TankScreenState extends State<TankScreen> {
             onPressed: () {
               if (!saving) Navigator.pop(dialogContext);
             },
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -599,7 +633,7 @@ class _TankScreenState extends State<TankScreen> {
               setWebSavePending(true);
               try {
                 if (!_canWrite(await UserService.getCurrentUserRole())) {
-                  throw const FormatException('Du har ikke skrivetilgang.');
+                  throw FormatException(l10n.noWriteAccess);
                 }
                 final user = UserService.currentUser;
                 final now = Timestamp.now();
@@ -628,15 +662,14 @@ class _TankScreenState extends State<TankScreen> {
 
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Driftsnotat lagret')),
+                  SnackBar(content: Text(context.l10n.operationalNoteSaved)),
                 );
               } catch (error) {
                 debugPrint('Driftsnotat: $error');
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                        Text('Kunne ikke lagre driftsnotatet. Prøv igjen.'),
+                  SnackBar(
+                    content: Text(context.l10n.operationalNoteSaveFailed),
                   ),
                 );
               } finally {
@@ -644,7 +677,7 @@ class _TankScreenState extends State<TankScreen> {
                 setWebSavePending(false);
               }
             },
-            child: const Text('Lagre'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -668,12 +701,12 @@ class _TankScreenState extends State<TankScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Driftsnotat markert som ferdig')),
+        SnackBar(content: Text(context.l10n.operationalNoteCompleted)),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kunne ikke lagre driftsnotat: $error')),
+        SnackBar(content: Text(context.l10n.operationalNoteSaveFailed)),
       );
     }
   }
@@ -695,10 +728,10 @@ class _TankScreenState extends State<TankScreen> {
               children: [
                 const Icon(Icons.sticky_note_2, color: Color(0xFFB26A00)),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Driftsnotat',
-                    style: TextStyle(
+                    context.l10n.notes,
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
@@ -706,7 +739,9 @@ class _TankScreenState extends State<TankScreen> {
                 ),
                 if (canWrite)
                   IconButton(
-                    tooltip: activeNote == null ? 'Nytt notat' : 'Rediger',
+                    tooltip: activeNote == null
+                        ? context.l10n.newNote
+                        : context.l10n.edit,
                     icon: Icon(activeNote == null ? Icons.add : Icons.edit),
                     onPressed: () => _openNoteDialog(note: activeNote),
                   ),
@@ -715,9 +750,7 @@ class _TankScreenState extends State<TankScreen> {
             const SizedBox(height: 8),
             if (activeNote == null)
               Text(
-                canWrite
-                    ? 'Ingen aktivt driftsnotat.'
-                    : 'Ingen aktivt driftsnotat.',
+                context.l10n.noActiveOperationalNote,
               )
             else
               Container(
@@ -734,7 +767,7 @@ class _TankScreenState extends State<TankScreen> {
                     Text(data?['text']?.toString() ?? ''),
                     const SizedBox(height: 8),
                     Text(
-                      'Skrevet av: ${(data?['updatedByEmail'] ?? data?['createdByEmail'] ?? 'ukjent')}\n'
+                      '${context.l10n.writtenBy((data?['updatedByEmail'] ?? data?['createdByEmail'] ?? 'ukjent').toString())}\n'
                       '${_formatDateTime(data?['updatedAt'] ?? data?['createdAt'])}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -744,7 +777,7 @@ class _TankScreenState extends State<TankScreen> {
                         alignment: Alignment.centerLeft,
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.check),
-                          label: const Text('Marker som ferdig'),
+                          label: Text(context.l10n.markCompleted),
                           onPressed: () => _resolveNote(activeNote),
                         ),
                       ),
@@ -757,7 +790,7 @@ class _TankScreenState extends State<TankScreen> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   icon: const Icon(Icons.add),
-                  label: const Text('Opprett driftsnotat'),
+                  label: Text(context.l10n.createOperationalNote),
                   onPressed: () => _openNoteDialog(),
                 ),
               ),
@@ -765,14 +798,14 @@ class _TankScreenState extends State<TankScreen> {
               const SizedBox(height: 8),
               ExpansionTile(
                 tilePadding: EdgeInsets.zero,
-                title: Text('Ferdige notater (${resolvedNotes.length})'),
+                title: Text(context.l10n.completedNotes(resolvedNotes.length)),
                 children: resolvedNotes.map((note) {
                   final noteData = note.data();
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(noteData['text']?.toString() ?? ''),
                     subtitle: Text(
-                      'Ferdig: ${_formatDateTime(noteData['resolvedAt'])}\n'
+                      '${context.l10n.completedAt(_formatDateTime(noteData['resolvedAt']))}\n'
                       '${noteData['resolvedByEmail'] ?? noteData['updatedByEmail'] ?? 'ukjent'}',
                     ),
                   );
@@ -793,11 +826,11 @@ class _TankScreenState extends State<TankScreen> {
           if (kDebugMode) {
             debugPrint('Kunne ikke laste driftsnotater: ${snapshot.error}');
           }
-          return const Card(
+          return Card(
             child: ListTile(
-              leading: Icon(Icons.error_outline),
-              title: Text('Driftsnotat'),
-              subtitle: Text('Driftsnotater er ikke tilgjengelige nå.'),
+              leading: const Icon(Icons.error_outline),
+              title: Text(context.l10n.notes),
+              subtitle: Text(context.l10n.tankNotesUnavailable),
             ),
           );
         }
@@ -824,16 +857,17 @@ class _TankScreenState extends State<TankScreen> {
         sectionId: widget.sectionId,
         tankId: widget.tankId,
         tankName: widget.tankName,
+        labels: context.l10n,
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Excel eksport fullført')),
+        SnackBar(content: Text(context.l10n.excelExportComplete)),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kunne ikke eksportere Excel: $error')),
+        SnackBar(content: Text(context.l10n.excelExportFailed)),
       );
     }
   }
@@ -848,11 +882,11 @@ class _TankScreenState extends State<TankScreen> {
       ),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Card(
+          return Card(
             child: ListTile(
-              leading: Icon(Icons.show_chart),
-              title: Text('FCR'),
-              subtitle: Text('Beregner...'),
+              leading: const Icon(Icons.show_chart),
+              title: const Text('FCR'),
+              subtitle: Text(context.l10n.calculating),
             ),
           );
         }
@@ -864,7 +898,7 @@ class _TankScreenState extends State<TankScreen> {
             child: ListTile(
               leading: const Icon(Icons.show_chart),
               title: const Text('FCR'),
-              subtitle: Text(data['message']?.toString() ?? 'Ikke nok data'),
+              subtitle: Text(context.l10n.notEnoughData),
             ),
           );
         }
@@ -892,10 +926,10 @@ class _TankScreenState extends State<TankScreen> {
             ),
             title: const Text('FCR'),
             subtitle: Text(
-              'Startvekt: ${startWeight.toStringAsFixed(1)} g\n'
-              'Sluttvekt: ${endWeight.toStringAsFixed(1)} g\n'
-              'Biomasseøkning: ${biomassGainKg.toStringAsFixed(1)} kg\n'
-              'Fôr brukt: ${feedKg.toStringAsFixed(1)} kg',
+              '${context.l10n.startWeight}: ${startWeight.toStringAsFixed(1)} g\n'
+              '${context.l10n.endWeight}: ${endWeight.toStringAsFixed(1)} g\n'
+              '${context.l10n.biomassGain}: ${biomassGainKg.toStringAsFixed(1)} kg\n'
+              '${context.l10n.feedUsed}: ${feedKg.toStringAsFixed(1)} kg',
             ),
             trailing: Text(
               fcr.toStringAsFixed(2),
@@ -920,11 +954,11 @@ class _TankScreenState extends State<TankScreen> {
       ),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Card(
+          return Card(
             child: ListTile(
-              leading: Icon(Icons.trending_up),
-              title: Text('Vekstprognose'),
-              subtitle: Text('Beregner...'),
+              leading: const Icon(Icons.trending_up),
+              title: Text(context.l10n.growthForecast),
+              subtitle: Text(context.l10n.calculating),
             ),
           );
         }
@@ -935,8 +969,8 @@ class _TankScreenState extends State<TankScreen> {
           return Card(
             child: ListTile(
               leading: const Icon(Icons.trending_up),
-              title: const Text('Vekstprognose'),
-              subtitle: Text(data['message']?.toString() ?? 'Ikke nok data'),
+              title: Text(context.l10n.growthForecast),
+              subtitle: Text(context.l10n.notEnoughData),
             ),
           );
         }
@@ -954,13 +988,13 @@ class _TankScreenState extends State<TankScreen> {
               Icons.trending_up,
               color: Colors.blue,
             ),
-            title: const Text('Vekstprognose'),
+            title: Text(context.l10n.growthForecast),
             subtitle: Text(
-              'Nå: ${lastWeight.toStringAsFixed(1)} g\n'
-              '30 dager: ${forecast30.toStringAsFixed(1)} g\n'
-              '60 dager: ${forecast60.toStringAsFixed(1)} g\n'
-              '90 dager: ${forecast90.toStringAsFixed(1)} g\n'
-              'SGR: ${sgr.toStringAsFixed(2)} %/dag over $daysMeasured dager',
+              '${context.l10n.currentAverageWeight}: ${lastWeight.toStringAsFixed(1)} g\n'
+              '${context.l10n.forecastDays(30)}: ${forecast30.toStringAsFixed(1)} g\n'
+              '${context.l10n.forecastDays(60)}: ${forecast60.toStringAsFixed(1)} g\n'
+              '${context.l10n.forecastDays(90)}: ${forecast90.toStringAsFixed(1)} g\n'
+              '${context.l10n.sgrOverDays(sgr.toStringAsFixed(2), daysMeasured)}',
             ),
           ),
         );
@@ -975,11 +1009,11 @@ class _TankScreenState extends State<TankScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.tune),
-            title: const Text('Annen fôrtype fra lager'),
+            title: Text(context.l10n.otherFeedType),
             subtitle: Text(
               _selectedFeedInventoryId == null
-                  ? 'Ikke valgt - bruker anbefalt fôrtype'
-                  : 'Valgt fôrtype trekkes fra lager',
+                  ? context.l10n.recommendedFeedUsed
+                  : context.l10n.selectedFeedDrawnFromInventory,
             ),
             trailing: Icon(
               _showFeedInventoryPicker
@@ -1009,7 +1043,7 @@ class _TankScreenState extends State<TankScreen> {
                           'Kunne ikke laste fôrlager: ${snapshot.error}');
                     }
                     return Text(
-                      'Kunne ikke laste fôrlager nå.',
+                      context.l10n.feedInventoryLoadFailed,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),
@@ -1029,8 +1063,8 @@ class _TankScreenState extends State<TankScreen> {
                           .compareTo(_toDouble(bData['pelletSizeMm']));
                     });
                   if (docs.isEmpty) {
-                    return const Text(
-                      'Ingen aktive fôrtype i lager. Anbefalt fôrtype brukes.',
+                    return Text(
+                      context.l10n.noActiveFeedUsesRecommended,
                     );
                   }
 
@@ -1044,10 +1078,9 @@ class _TankScreenState extends State<TankScreen> {
                       DropdownButtonFormField<String>(
                         initialValue: value,
                         isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Velg fôrtype',
-                          helperText:
-                              'Valgfritt. Brukes bare hvis du gir annen type enn anbefalt.',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.selectFeedType,
+                          helperText: context.l10n.feedSelectionOptionalHint,
                         ),
                         items: docs.map<DropdownMenuItem<String>>((doc) {
                           final data = doc.data();
@@ -1074,7 +1107,7 @@ class _TankScreenState extends State<TankScreen> {
                         alignment: Alignment.centerLeft,
                         child: TextButton.icon(
                           icon: const Icon(Icons.close),
-                          label: const Text('Bruk anbefalt fôrtype'),
+                          label: Text(context.l10n.useRecommendedFeedType),
                           onPressed: _selectedFeedInventoryId == null
                               ? null
                               : () {
@@ -1148,15 +1181,15 @@ class _TankScreenState extends State<TankScreen> {
                       Card(
                         child: ListTile(
                           leading: const Icon(Icons.visibility),
-                          title: const Text('Lesetilgang'),
+                          title: Text(context.l10n.readerAccess),
                           subtitle: Text(
-                            'Du er logget inn som $role og kan kun se data.',
+                            context.l10n.readOnlyRole(role),
                           ),
                         ),
                       ),
                     Card(
                       child: ListTile(
-                        title: const Text('Antall fisk'),
+                        title: Text(context.l10n.numberOfFish),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1181,26 +1214,24 @@ class _TankScreenState extends State<TankScreen> {
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.scale),
-                        title: const Text('Biomasse'),
+                        title: Text(context.l10n.biomass),
                         subtitle: Text(
                           !isActive
-                              ? 'Ikke i bruk - legg inn fisketall for å beregne biomasse'
+                              ? context.l10n.emptyTankActivateHint
                               : displayWeight <= 0
-                                  ? 'Registrer snittvekt for å beregne biomasse'
-                                  : 'Snittvekt: ${displayWeight.toStringAsFixed(1)} g\n'
+                                  ? context.l10n.averageWeightMissingForBiomass
+                                  : '${context.l10n.averageWeight}: ${displayWeight.toStringAsFixed(1)} g\n'
                                       '${biomassKg.toStringAsFixed(1)} kg\n'
                                       '${biomassTon.toStringAsFixed(2)} tonn',
                         ),
                       ),
                     ),
                     if (!isActive)
-                      const Card(
+                      Card(
                         child: ListTile(
-                          leading: Icon(Icons.pause_circle),
-                          title: Text('Tomt kar'),
-                          subtitle: Text(
-                            'Ikke i bruk. Legg inn fisketall med blyanten for å aktivere karet.',
-                          ),
+                          leading: const Icon(Icons.pause_circle),
+                          title: Text(context.l10n.emptyTank),
+                          subtitle: Text(context.l10n.emptyTankActivateHint),
                         ),
                       ),
                     _notesSection(
@@ -1210,11 +1241,11 @@ class _TankScreenState extends State<TankScreen> {
                       Card(
                         child: ListTile(
                           leading: const Icon(Icons.restaurant),
-                          title: const Text('Anbefalt fôr'),
+                          title: Text(context.l10n.recommendedFeedLabel),
                           subtitle: Text(
-                            'Siste snittvekt: ${displayWeight > 0 ? '${displayWeight.toStringAsFixed(1)} g' : 'ikke registrert'}\n'
+                            '${context.l10n.latestAverageWeightLine(displayWeight > 0 ? '${displayWeight.toStringAsFixed(1)} g' : context.l10n.notRegistered)}\n'
                             '${_recommendedFeed(displayWeight)}\n'
-                            'Pellet: ${_pelletSize(displayWeight)}\n'
+                            '${context.l10n.pelletSize}: ${_pelletSize(displayWeight)}\n'
                             '${_nextFeedMessage(displayWeight)}',
                           ),
                         ),
@@ -1223,13 +1254,13 @@ class _TankScreenState extends State<TankScreen> {
                       Card(
                         child: ListTile(
                           leading: const Icon(Icons.local_dining),
-                          title: const Text('Anbefalt daglig fôrrasjon'),
+                          title: Text(context.l10n.dailyFeedRation),
                           subtitle: Text(
                             displayWeight <= 0
-                                ? 'Registrer snittvekt for å beregne fôrrasjon'
-                                : 'Biomasse: ${biomassKg.toStringAsFixed(1)} kg\n'
-                                    'Fôrprosent: ${feedPercent.toStringAsFixed(1)} %\n'
-                                    'Anbefalt: ${dailyFeedKg.toStringAsFixed(1)} kg/dag',
+                                ? context.l10n.registerAverageWeightForFeed
+                                : '${context.l10n.biomass}: ${biomassKg.toStringAsFixed(1)} kg\n'
+                                    '${context.l10n.feedPercent}: ${feedPercent.toStringAsFixed(1)} %\n'
+                                    '${context.l10n.recommendedFeedLabel}: ${dailyFeedKg.toStringAsFixed(1)} kg/dag',
                           ),
                         ),
                       ),
@@ -1241,16 +1272,16 @@ class _TankScreenState extends State<TankScreen> {
                         controller: deadCtrl,
                         enabled: !_saveState.busy && !_openingNext,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Dødelighet',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.mortalityInput,
                         ),
                       ),
                       TextField(
                         controller: feedCtrl,
                         enabled: !_saveState.busy && !_openingNext,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Fôr (kg)',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.feedKgInput,
                         ),
                       ),
                       AbsorbPointer(
@@ -1261,10 +1292,9 @@ class _TankScreenState extends State<TankScreen> {
                         controller: weightCtrl,
                         enabled: !_saveState.busy && !_openingNext,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Snittvekt (g) – valgfritt',
-                          helperText:
-                              'La stå tomt hvis fisken ikke er veid i dag',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.averageWeightOptional,
+                          helperText: context.l10n.leaveWeightEmptyHint,
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -1272,8 +1302,8 @@ class _TankScreenState extends State<TankScreen> {
                         controller: tempCtrl,
                         enabled: !_saveState.busy && !_openingNext,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Temperatur',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.temperatureInput,
                         ),
                       ),
                     ],
@@ -1284,6 +1314,7 @@ class _TankScreenState extends State<TankScreen> {
                       saving: _saveState.busy,
                       openingNext: _openingNext,
                       hasSaved: _saveState.hasSaved,
+                      showSavedFeedback: _showSaveFeedback,
                       onSave: () => _save(),
                       onSaveNext: () => _save(goNext: true),
                       onNext: _openNextTank,

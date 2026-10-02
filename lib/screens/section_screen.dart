@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../l10n/localizations.dart';
 import '../services/user_service.dart';
 import '../services/registration_round.dart';
 import '../utils/tank_status.dart';
+import '../utils/ui_motion.dart';
 import '../widgets/tank_overview_card.dart';
 import 'tank_screen.dart';
 
@@ -63,28 +65,29 @@ class _SectionScreenState extends State<SectionScreen> {
   Future<void> _addTank(BuildContext context) async {
     final nameController = TextEditingController();
     final fishController = TextEditingController();
+    final l10n = context.l10n;
 
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Nytt kar'),
+        title: Text(l10n.newTank),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Navn på kar',
-                hintText: 'F.eks. K1',
+              decoration: InputDecoration(
+                labelText: l10n.tankName,
+                hintText: l10n.tankNameExample,
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: fishController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Antall fisk',
-                hintText: 'F.eks. 12500',
+              decoration: InputDecoration(
+                labelText: l10n.numberOfFishLabel,
+                hintText: l10n.fishCountLargeExample,
               ),
             ),
           ],
@@ -92,7 +95,7 @@ class _SectionScreenState extends State<SectionScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Avbryt'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -109,7 +112,7 @@ class _SectionScreenState extends State<SectionScreen> {
 
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('Opprett'),
+            child: Text(l10n.create),
           ),
         ],
       ),
@@ -125,7 +128,7 @@ class _SectionScreenState extends State<SectionScreen> {
   ) async {
     final data = tankDoc.data();
 
-    final tankName = (data['name'] ?? 'Ukjent kar').toString();
+    final tankName = (data['name'] ?? context.l10n.unknownTank).toString();
     final fishCount = TankStatus.fishCountFrom(data['fishCount']);
     final isActive = TankStatus.isActiveFishCount(fishCount);
 
@@ -236,7 +239,6 @@ class _SectionScreenState extends State<SectionScreen> {
       'feedKgDay': feedKgDay,
       'feedKgLast24h': feedKgLast24h,
       'mortality7d': mortality7d,
-      'statusText': status['text'],
       'statusColor': status['color'],
       'statusIcon': status['icon'],
       'statusLevel': status['level'],
@@ -308,7 +310,7 @@ class _SectionScreenState extends State<SectionScreen> {
   }
 
   String _formatNoteDate(Object? value) {
-    if (value is! Timestamp) return 'Ukjent tidspunkt';
+    if (value is! Timestamp) return context.l10n.unknownTime;
 
     final date = value.toDate();
     final now = DateTime.now();
@@ -319,8 +321,8 @@ class _SectionScreenState extends State<SectionScreen> {
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
 
-    if (isToday) return 'I dag kl. $hour:$minute';
-    return '$day.$month.${date.year} kl. $hour:$minute';
+    if (isToday) return context.l10n.todayAt('$hour:$minute');
+    return '$day.$month.${date.year} $hour:$minute';
   }
 
   String _shortNoteText(String text) {
@@ -341,7 +343,7 @@ class _SectionScreenState extends State<SectionScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Driftsnotat'),
+        title: Text(context.l10n.operationalNote),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -359,7 +361,7 @@ class _SectionScreenState extends State<SectionScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Lukk'),
+            child: Text(context.l10n.close),
           ),
         ],
       ),
@@ -374,16 +376,14 @@ class _SectionScreenState extends State<SectionScreen> {
   }) {
     if (!isActive) {
       return {
-        'text': 'Tomt kar',
         'level': 'empty',
         'color': const Color(0xFF7F8997),
         'icon': Icons.pause_circle,
       };
     }
 
-    if (mortality7d >= 100) {
+    if (TankStatus.hasHighMortality7d(mortality7d)) {
       return {
-        'text': 'Høy dødelighet',
         'level': 'critical',
         'color': const Color(0xFFD53C3C),
         'icon': Icons.warning,
@@ -392,7 +392,6 @@ class _SectionScreenState extends State<SectionScreen> {
 
     if (latestWeight <= 0) {
       return {
-        'text': 'Mangler snittvekt',
         'level': 'observation',
         'color': const Color(0xFFE49600),
         'icon': Icons.info,
@@ -405,7 +404,6 @@ class _SectionScreenState extends State<SectionScreen> {
 
     if (latestWeightDate != null && daysSinceWeight > 30) {
       return {
-        'text': 'Gammel snittvekt',
         'level': 'observation',
         'color': const Color(0xFFE49600),
         'icon': Icons.schedule,
@@ -413,7 +411,6 @@ class _SectionScreenState extends State<SectionScreen> {
     }
 
     return {
-      'text': 'Normal drift',
       'level': 'active',
       'color': const Color(0xFF0BA765),
       'icon': Icons.check_circle,
@@ -431,43 +428,45 @@ class _SectionScreenState extends State<SectionScreen> {
     return value.toStringAsFixed(decimals).replaceAll('.', ',');
   }
 
-  String _formatBiomass(double biomassKg) {
-    if (biomassKg <= 0) return 'Ikke nok data';
+  String _formatBiomass(BuildContext context, double biomassKg) {
+    if (biomassKg <= 0) return context.l10n.notEnoughData;
     if (biomassKg >= 1000) {
       return '${_formatDecimal(biomassKg / 1000, decimals: 2)} tonn';
     }
     return '${_formatDecimal(biomassKg)} kg';
   }
 
-  String _statusLabel(String level) {
+  String _statusLabel(BuildContext context, String level) {
     switch (level) {
       case 'critical':
-        return 'Kritisk';
+        return context.l10n.critical;
       case 'observation':
-        return 'Observasjon';
+        return context.l10n.observation;
       case 'empty':
-        return 'Tomt kar';
+        return context.l10n.emptyTank;
       default:
-        return 'Aktiv';
+        return context.l10n.statusActive;
     }
   }
 
   String _statusMessage({
+    required BuildContext context,
     required String level,
-    required String statusText,
     required int mortality7d,
   }) {
     switch (level) {
       case 'critical':
-        return 'Høy dødelighet · $mortality7d døde siste 7 dager';
+        return context.l10n.highMortalityMessage(mortality7d);
       case 'observation':
-        return '$statusText · følg opp nye målinger';
+        return context.l10n.followUpMeasurements(
+          context.l10n.missingAverageWeight,
+        );
       case 'empty':
-        return 'Ikke i bruk · kan åpnes og fylles senere';
+        return context.l10n.emptyTankMessage;
       default:
         return mortality7d > 0
-            ? 'Normal drift · dødelighet 7d: $mortality7d'
-            : 'Alt innen normale verdier';
+            ? context.l10n.normalMortalityMessage(mortality7d)
+            : context.l10n.allValuesNormal;
     }
   }
 
@@ -479,21 +478,19 @@ class _SectionScreenState extends State<SectionScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Slette $tankName?'),
-        content: const Text(
-          'Karet fjernes fra oversikten. Denne handlingen kan ikke angres.',
-        ),
+        title: Text(context.l10n.deleteTankQuestion(tankName)),
+        content: Text(context.l10n.deleteTankConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFD53C3C),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Slett kar'),
+            child: Text(context.l10n.deleteTank),
           ),
         ],
       ),
@@ -505,7 +502,8 @@ class _SectionScreenState extends State<SectionScreen> {
   void _openTank(BuildContext context, Map<String, dynamic> tank) {
     Navigator.push(
       context,
-      MaterialPageRoute(
+      subtleFadeSlideRoute(
+        context: context,
         builder: (_) => TankScreen(
           facilityId: widget.facilityId,
           sectionId: widget.sectionId,
@@ -527,7 +525,7 @@ class _SectionScreenState extends State<SectionScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Oppdater karoversikt',
+            tooltip: context.l10n.refreshTankOverview,
             onPressed: _refresh,
             icon: const Icon(Icons.refresh),
           ),
@@ -543,7 +541,7 @@ class _SectionScreenState extends State<SectionScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  loadErrorMessage(snapshot.error),
+                  loadErrorMessage(context, snapshot.error),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -551,8 +549,8 @@ class _SectionScreenState extends State<SectionScreen> {
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Text('Laster kar...'),
+            return Center(
+              child: Text(context.l10n.loadingTanks),
             );
           }
 
@@ -568,14 +566,14 @@ class _SectionScreenState extends State<SectionScreen> {
                     const Icon(Icons.water, size: 48),
                     const SizedBox(height: 12),
                     Text(
-                      'Ingen kar i ${widget.sectionName} ennå',
+                      context.l10n.noTanksInSection(widget.sectionName),
                       style: const TextStyle(fontSize: 18),
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
                       onPressed: () => _addTank(context),
                       icon: const Icon(Icons.add),
-                      label: const Text('Opprett første kar'),
+                      label: Text(context.l10n.createFirstTank),
                     ),
                   ],
                 ),
@@ -588,7 +586,7 @@ class _SectionScreenState extends State<SectionScreen> {
             builder: (context, summarySnapshot) {
               if (summarySnapshot.hasError) {
                 return Center(
-                  child: Text(loadErrorMessage(summarySnapshot.error)),
+                  child: Text(loadErrorMessage(context, summarySnapshot.error)),
                 );
               }
 
@@ -636,7 +634,6 @@ class _SectionScreenState extends State<SectionScreen> {
     final biomassKg = tank['biomassKg'] as double;
     final feedKgLast24h = tank['feedKgLast24h'] as double;
     final mortality7d = tank['mortality7d'] as int;
-    final statusText = tank['statusText'].toString();
     final statusLevel = tank['statusLevel'].toString();
     final statusColor = tank['statusColor'] as Color;
     final activeNote = tank['activeNote'] as Map<String, dynamic>?;
@@ -652,6 +649,7 @@ class _SectionScreenState extends State<SectionScreen> {
     final noteTimestamp = activeNote?['updatedAt'] ?? activeNote?['createdAt'];
 
     return TankOverviewCard(
+      key: ValueKey("tank-card-${tank['id']}"),
       reviewed: RegistrationRound.session.isReviewed(
         widget.facilityId,
         widget.sectionId,
@@ -660,23 +658,26 @@ class _SectionScreenState extends State<SectionScreen> {
       name: tank['name'].toString(),
       isActive: isActive,
       fishCountLabel: isActive ? '${_formatFish(fishCount)} stk' : '0 stk',
-      biomassLabel: isActive ? _formatBiomass(biomassKg) : 'Ikke i bruk',
+      biomassLabel:
+          isActive ? _formatBiomass(context, biomassKg) : context.l10n.notInUse,
       weightLabel: !isActive
-          ? 'Ingen'
+          ? context.l10n.noValue
           : latestWeight > 0
               ? '${_formatDecimal(latestWeight)} g'
-              : 'Ingen data',
-      feedLabel: !isActive ? 'Ingen' : '${_formatDecimal(feedKgLast24h)} kg',
-      mortalityLabel: !isActive ? 'Ingen' : '$mortality7d stk',
+              : context.l10n.noData,
+      feedLabel: !isActive
+          ? context.l10n.noFeed
+          : '${_formatDecimal(feedKgLast24h)} kg',
+      mortalityLabel: !isActive ? context.l10n.noValue : '$mortality7d stk',
       temperatureLabel: !isActive
-          ? 'Ingen'
+          ? context.l10n.noValue
           : latestTemperature > 0
               ? '${_formatDecimal(latestTemperature)} °C'
-              : 'Ingen data',
-      statusLabel: _statusLabel(statusLevel),
+              : context.l10n.noData,
+      statusLabel: _statusLabel(context, statusLevel),
       statusMessage: _statusMessage(
+        context: context,
         level: statusLevel,
-        statusText: statusText,
         mortality7d: mortality7d,
       ),
       statusColor: statusColor,
@@ -745,6 +746,7 @@ class _TankOverviewContentState extends State<_TankOverviewContent> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 760;
@@ -778,14 +780,14 @@ class _TankOverviewContentState extends State<_TankOverviewContent> {
                     child: Row(
                       children: [
                         _StatusFilterButton(
-                          label: 'Alle kar',
+                          label: l10n.allTanks,
                           count: widget.tanks.length,
                           selected: _selectedFilter == 'all',
                           onTap: () => setState(() => _selectedFilter = 'all'),
                         ),
                         const SizedBox(width: 8),
                         _StatusFilterButton(
-                          label: 'Aktive',
+                          label: l10n.activeTanks,
                           count: _count('active'),
                           color: const Color(0xFF0BA765),
                           selected: _selectedFilter == 'active',
@@ -794,7 +796,7 @@ class _TankOverviewContentState extends State<_TankOverviewContent> {
                         ),
                         const SizedBox(width: 8),
                         _StatusFilterButton(
-                          label: 'Observasjon',
+                          label: l10n.observation,
                           count: _count('observation'),
                           color: const Color(0xFFE49600),
                           selected: _selectedFilter == 'observation',
@@ -803,7 +805,7 @@ class _TankOverviewContentState extends State<_TankOverviewContent> {
                         ),
                         const SizedBox(width: 8),
                         _StatusFilterButton(
-                          label: 'Kritiske',
+                          label: l10n.criticalPlural,
                           count: _count('critical'),
                           color: const Color(0xFFD53C3C),
                           selected: _selectedFilter == 'critical',
@@ -812,7 +814,7 @@ class _TankOverviewContentState extends State<_TankOverviewContent> {
                         ),
                         const SizedBox(width: 8),
                         _StatusFilterButton(
-                          label: 'Tomme kar',
+                          label: l10n.emptyTanksLabel,
                           count: _count('empty'),
                           color: const Color(0xFF7F8997),
                           selected: _selectedFilter == 'empty',
@@ -859,11 +861,12 @@ class _OverviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final heading = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Karoversikt · $sectionName',
+          l10n.tankOverviewTitle(sectionName),
           style: TextStyle(
             color: const Color(0xFF0A1733),
             fontSize: isWide ? 28 : 24,
@@ -872,9 +875,9 @@ class _OverviewHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Oversikt og siste nøkkeltall for alle kar i seksjonen.',
-          style: TextStyle(
+        Text(
+          l10n.tankOverviewSubtitle,
+          style: const TextStyle(
             color: Color(0xFF5F7088),
             fontSize: 14,
           ),
@@ -887,9 +890,9 @@ class _OverviewHeader extends StatelessWidget {
       child: TextField(
         controller: searchController,
         onChanged: onSearchChanged,
-        decoration: const InputDecoration(
-          hintText: 'Søk etter kar...',
-          prefixIcon: Icon(Icons.search),
+        decoration: InputDecoration(
+          hintText: l10n.searchTanks,
+          prefixIcon: const Icon(Icons.search),
         ),
       ),
     );
@@ -898,7 +901,7 @@ class _OverviewHeader extends StatelessWidget {
         ? FilledButton.icon(
             onPressed: onAddTank,
             icon: const Icon(Icons.add),
-            label: const Text('Nytt kar'),
+            label: Text(l10n.newTank),
           )
         : null;
 
@@ -1051,6 +1054,7 @@ class _NoMatchingTanks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 46),
@@ -1059,14 +1063,14 @@ class _NoMatchingTanks extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFDCE5EF)),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.search_off, size: 34, color: Color(0xFF7F8997)),
-          SizedBox(height: 10),
+          const Icon(Icons.search_off, size: 34, color: Color(0xFF7F8997)),
+          const SizedBox(height: 10),
           Text(
-            'Ingen kar passer med valgt søk eller filter.',
+            l10n.noMatchingTanks,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: Color(0xFF41536D),
               fontWeight: FontWeight.w600,
             ),

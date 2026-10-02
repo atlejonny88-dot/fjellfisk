@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_invite.dart';
 import '../services/user_invite_service.dart';
+import '../l10n/localizations.dart';
 
 class InviteRegistrationScreen extends StatefulWidget {
   const InviteRegistrationScreen({
@@ -58,13 +59,14 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
   }
 
   Future<void> _submit(UserInvite invite) async {
+    final l10n = context.l10n;
     final password = _passwordController.text;
     if (password.length < 6) {
-      setState(() => _error = 'Passordet må ha minst 6 tegn');
+      setState(() => _error = l10n.passwordMinimum);
       return;
     }
     if (!_existingAccount && password != _confirmPasswordController.text) {
-      setState(() => _error = 'Passordene er ikke like');
+      setState(() => _error = l10n.passwordsDoNotMatch);
       return;
     }
 
@@ -78,9 +80,9 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
       if (user != null &&
           UserInviteService.normalizeEmail(user.email ?? '') !=
               UserInviteService.normalizeEmail(invite.email)) {
-        throw const UserInviteException(
+        throw UserInviteException(
           'wrong-email',
-          'Du er logget inn med en annen e-post. Logg ut og prøv igjen.',
+          l10n.wrongSignedInUser(user.email ?? ''),
         );
       }
 
@@ -106,9 +108,9 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
       }
 
       if (user == null) {
-        throw const UserInviteException(
+        throw UserInviteException(
           'not-authenticated',
-          'Kunne ikke fullføre innloggingen',
+          l10n.couldNotCompleteInvitation,
         );
       }
 
@@ -118,19 +120,19 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
       ).timeout(const Duration(seconds: 20));
       widget.onAccepted();
     } on UserInviteException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) setState(() => _error = _inviteError(context, error));
     } on FirebaseAuthException catch (error) {
-      if (mounted) setState(() => _error = _authError(error));
+      if (mounted) setState(() => _error = _authError(context, error));
     } on TimeoutException {
       if (mounted) {
-        setState(() => _error = 'Tjenesten brukte for lang tid. Prøv igjen.');
+        setState(() => _error = context.l10n.serviceTimedOut);
       }
     } catch (error, stackTrace) {
       if (kDebugMode) {
         debugPrint('Invitasjonsregistrering feilet: $error\n$stackTrace');
       }
       if (mounted) {
-        setState(() => _error = 'Kunne ikke fullføre invitasjonen');
+        setState(() => _error = context.l10n.couldNotCompleteInvitation);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -142,20 +144,20 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
     if (mounted) setState(() => _error = null);
   }
 
-  String _authError(FirebaseAuthException error) {
+  String _authError(BuildContext context, FirebaseAuthException error) {
     switch (error.code) {
       case 'email-already-in-use':
-        return 'E-posten har allerede en konto. Velg «Jeg har konto».';
+        return context.l10n.alreadyHaveAccount;
       case 'wrong-password':
       case 'invalid-credential':
       case 'user-not-found':
-        return 'Feil e-post eller passord';
+        return context.l10n.invalidCredentials;
       case 'weak-password':
-        return 'Passordet er for svakt';
+        return context.l10n.passwordMinimum;
       case 'network-request-failed':
-        return 'Fikk ikke kontakt med innloggingstjenesten';
+        return context.l10n.loginNetworkFailed;
       default:
-        return 'Kunne ikke opprette eller logge inn på kontoen';
+        return context.l10n.couldNotCompleteInvitation;
     }
   }
 
@@ -223,10 +225,10 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
                   color: Color(0xFF0B63E5),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Du er invitert',
+                Text(
+                  context.l10n.invited,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Color(0xFF0A1733),
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -234,14 +236,14 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${invite.email}\nRolle: ${_roleLabel(invite.role)}',
+                  '${invite.email}\n${context.l10n.roleLine(_roleLabel(context, invite.role))}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Color(0xFF5F7088)),
                 ),
                 const SizedBox(height: 22),
                 if (wrongSignedInUser) ...[
                   Text(
-                    'Du er logget inn som ${currentUser.email}. Logg ut for å bruke invitasjonen.',
+                    context.l10n.wrongSignedInUser(currentUser.email ?? ''),
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Color(0xFFD53C3C)),
                   ),
@@ -249,13 +251,14 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
                   OutlinedButton.icon(
                     onPressed: _signOut,
                     icon: const Icon(Icons.logout),
-                    label: const Text('Logg ut'),
+                    label: Text(context.l10n.logout),
                   ),
                 ] else ...[
                   TextField(
                     controller: _nameController,
                     enabled: !_loading,
-                    decoration: const InputDecoration(labelText: 'Navn'),
+                    decoration:
+                        InputDecoration(labelText: context.l10n.fullName),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -263,10 +266,11 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
                     enabled: !_loading,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Passord',
+                      labelText: context.l10n.password,
                       suffixIcon: IconButton(
-                        tooltip:
-                            _obscurePassword ? 'Vis passord' : 'Skjul passord',
+                        tooltip: _obscurePassword
+                            ? context.l10n.showPassword
+                            : context.l10n.hidePassword,
                         onPressed: () => setState(
                           () => _obscurePassword = !_obscurePassword,
                         ),
@@ -284,8 +288,8 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
                       controller: _confirmPasswordController,
                       enabled: !_loading,
                       obscureText: _obscurePassword,
-                      decoration: const InputDecoration(
-                        labelText: 'Gjenta passord',
+                      decoration: InputDecoration(
+                        labelText: context.l10n.confirmPassword,
                       ),
                     ),
                   ],
@@ -315,7 +319,9 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
                                 : Icons.person_add_alt_1,
                           ),
                     label: Text(
-                      _existingAccount ? 'Logg inn og godta' : 'Opprett konto',
+                      _existingAccount
+                          ? context.l10n.signInAndAccept
+                          : context.l10n.createAccount,
                     ),
                   ),
                   TextButton(
@@ -327,8 +333,8 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
                             }),
                     child: Text(
                       _existingAccount
-                          ? 'Jeg trenger en ny konto'
-                          : 'Jeg har allerede konto',
+                          ? context.l10n.needNewAccount
+                          : context.l10n.alreadyHaveAccount,
                     ),
                   ),
                 ],
@@ -356,21 +362,21 @@ class _InvalidInvite extends StatelessWidget {
           children: [
             const Icon(Icons.link_off, size: 46, color: Color(0xFF7F8997)),
             const SizedBox(height: 12),
-            const Text(
-              'Invitasjonen er ugyldig eller utløpt',
+            Text(
+              context.l10n.invalidInvitation,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Be administrator opprette en ny invitasjon.',
+            Text(
+              context.l10n.askAdminForInvitation,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Prøv igjen'),
+              label: Text(context.l10n.retry),
             ),
           ],
         ),
@@ -379,8 +385,21 @@ class _InvalidInvite extends StatelessWidget {
   }
 }
 
-String _roleLabel(String role) {
-  if (role == 'admin') return 'Admin';
-  if (role == 'ansatt') return 'Ansatt';
-  return 'Leser';
+String _roleLabel(BuildContext context, String role) {
+  if (role == 'admin') return context.l10n.roleAdmin;
+  if (role == 'ansatt') return context.l10n.roleEmployee;
+  return context.l10n.roleReader;
+}
+
+String _inviteError(BuildContext context, UserInviteException error) {
+  return switch (error.code) {
+    'invalid-invite' ||
+    'expired' ||
+    'revoked' =>
+      context.l10n.invalidInvitation,
+    'wrong-email' => context.l10n.signInWithInvitedEmail,
+    'permission-denied' => context.l10n.contentUnavailable,
+    'unavailable' => context.l10n.serviceTimedOut,
+    _ => context.l10n.couldNotCompleteInvitation,
+  };
 }

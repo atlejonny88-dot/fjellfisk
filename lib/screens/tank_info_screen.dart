@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/fcr_service.dart';
 import '../services/growth_forecast_service.dart';
 import '../services/tank_info_service.dart';
+import '../l10n/localizations.dart';
 
 class TankInfoScreen extends StatelessWidget {
   final String facilityId;
@@ -24,7 +25,7 @@ class TankInfoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kar info - $tankName'),
+        title: Text(context.l10n.tankInfoTitle(tankName)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -46,7 +47,11 @@ class TankInfoScreen extends StatelessWidget {
       ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _loadError('Anbefalt fôr', snapshot.error);
+          return _loadError(
+            context,
+            context.l10n.recommendedFeedLabel,
+            snapshot.error,
+          );
         }
         final latestWeight = snapshot.data ?? 0;
         final biomassKg = TankInfoService.biomassKg(
@@ -60,82 +65,89 @@ class TankInfoScreen extends StatelessWidget {
           biomassKg: biomassKg,
           feedPercent: feedPercent,
         );
-        final recommendedFeed = TankInfoService.recommendedFeed(latestWeight);
+        final recommendedFeedName = latestWeight > 0
+            ? TankInfoService.recommendedFeed(latestWeight)
+            : '';
+        final recommendedFeed = recommendedFeedName.isEmpty
+            ? context.l10n.registerAverageWeightForFeed
+            : recommendedFeedName;
 
         return _InfoCard(
           icon: Icons.restaurant,
           iconColor: const Color(0xFF2E7D32),
-          title: 'Anbefalt fôr',
+          title: context.l10n.recommendedFeedLabel,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _InfoRow(
-                label: 'Siste snittvekt',
+                label: context.l10n.latestAverageWeight,
                 value: latestWeight > 0
                     ? '${latestWeight.toStringAsFixed(1)} g'
-                    : 'Ikke registrert',
+                    : context.l10n.notRegistered,
               ),
-              _InfoRow(label: 'Anbefalt fôrtype', value: recommendedFeed),
               _InfoRow(
-                label: 'Pelletstørrelse',
+                  label: context.l10n.recommendedFeedType,
+                  value: recommendedFeed),
+              _InfoRow(
+                label: context.l10n.pelletSize,
                 value: TankInfoService.pelletSize(latestWeight),
               ),
               FutureBuilder<Map<String, dynamic>?>(
                 future: TankInfoService.recommendedFeedInventory(
-                  recommendedFeed,
+                  recommendedFeedName,
                 ),
                 builder: (context, stockSnapshot) {
                   if (stockSnapshot.connectionState ==
                       ConnectionState.waiting) {
-                    return const _InfoRow(
-                      label: 'Lagerbeholdning',
-                      value: 'Sjekker lager...',
+                    return _InfoRow(
+                      label: context.l10n.stockLevel,
+                      value: context.l10n.checkingStock,
                     );
                   }
 
                   if (stockSnapshot.hasError) {
-                    return const _InfoRow(
-                      label: 'Lagerbeholdning',
-                      value: 'Ikke tilgjengelig',
+                    return _InfoRow(
+                      label: context.l10n.stockLevel,
+                      value: context.l10n.notAvailable,
                     );
                   }
 
                   final feedData = stockSnapshot.data;
                   if (feedData == null) {
-                    return const _InfoRow(
-                      label: 'Lagerbeholdning',
-                      value: 'Ikke funnet i aktivt fôrlager',
+                    return _InfoRow(
+                      label: context.l10n.stockLevel,
+                      value: context.l10n.notFoundInActiveInventory,
                     );
                   }
 
                   final stockKg = TankInfoService.stockKg(feedData);
                   return _InfoRow(
-                    label: 'Lagerbeholdning',
+                    label: context.l10n.stockLevel,
                     value: '${stockKg.toStringAsFixed(1)} kg',
                   );
                 },
               ),
               _InfoRow(
-                label: 'Anbefalt daglig fôrmengde',
+                label: context.l10n.recommendedDailyFeedAmount,
                 value: dailyFeedKg > 0
                     ? '${dailyFeedKg.toStringAsFixed(1)} kg/dag'
-                    : 'Ikke nok data',
+                    : context.l10n.notEnoughData,
               ),
               _InfoRow(
-                label: 'Fôrprosent',
+                label: context.l10n.feedPercent,
                 value: feedPercent > 0
                     ? '${feedPercent.toStringAsFixed(1)} %'
-                    : 'Ikke nok data',
+                    : context.l10n.notEnoughData,
               ),
               _InfoRow(
-                label: 'Biomasse',
+                label: context.l10n.biomass,
                 value: biomassKg > 0
                     ? '${biomassKg.toStringAsFixed(1)} kg (${(biomassKg / 1000).toStringAsFixed(2)} tonn)'
-                    : 'Ikke nok data',
+                    : context.l10n.notEnoughData,
               ),
               const SizedBox(height: 8),
               Text(
-                TankInfoService.nextFeedMessage(latestWeight),
+                _nextFeedMessage(context, latestWeight),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -145,13 +157,13 @@ class TankInfoScreen extends StatelessWidget {
     );
   }
 
-  Widget _loadError(String title, Object? error) {
+  Widget _loadError(BuildContext context, String title, Object? error) {
     debugPrint('$title: $error');
     return _InfoCard(
       icon: Icons.error_outline,
       iconColor: Colors.orange,
       title: title,
-      child: const Text('Kunne ikke hente data. Gå tilbake og prøv igjen.'),
+      child: Text(context.l10n.couldNotFetchData),
     );
   }
 
@@ -164,13 +176,15 @@ class TankInfoScreen extends StatelessWidget {
         currentFishCount: fishCount,
       ),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return _loadError('FCR', snapshot.error);
+        if (snapshot.hasError) {
+          return _loadError(context, 'FCR', snapshot.error);
+        }
         if (!snapshot.hasData) {
-          return const _InfoCard(
+          return _InfoCard(
             icon: Icons.show_chart,
             iconColor: Colors.blueGrey,
             title: 'FCR',
-            child: Text('Beregner...'),
+            child: Text(context.l10n.calculating),
           );
         }
 
@@ -181,7 +195,7 @@ class TankInfoScreen extends StatelessWidget {
             iconColor: Colors.blueGrey,
             title: 'FCR',
             child: Text(
-              data['message']?.toString() ?? 'Ikke nok data til å beregne FCR',
+              context.l10n.fcrUnavailable,
             ),
           );
         }
@@ -219,19 +233,19 @@ class TankInfoScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _InfoRow(
-                label: 'Startvekt',
+                label: context.l10n.startWeight,
                 value: '${startWeight.toStringAsFixed(1)} g',
               ),
               _InfoRow(
-                label: 'Sluttvekt',
+                label: context.l10n.endWeight,
                 value: '${endWeight.toStringAsFixed(1)} g',
               ),
               _InfoRow(
-                label: 'Biomasseøkning',
+                label: context.l10n.biomassGain,
                 value: '${biomassGainKg.toStringAsFixed(1)} kg',
               ),
               _InfoRow(
-                label: 'Fôr brukt',
+                label: context.l10n.feedUsed,
                 value: '${feedKg.toStringAsFixed(1)} kg',
               ),
             ],
@@ -250,14 +264,18 @@ class TankInfoScreen extends StatelessWidget {
       ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _loadError('Vekstprognose', snapshot.error);
+          return _loadError(
+            context,
+            context.l10n.growthForecast,
+            snapshot.error,
+          );
         }
         if (!snapshot.hasData) {
-          return const _InfoCard(
+          return _InfoCard(
             icon: Icons.trending_up,
             iconColor: Colors.blue,
-            title: 'Vekstprognose',
-            child: Text('Beregner...'),
+            title: context.l10n.growthForecast,
+            child: Text(context.l10n.calculating),
           );
         }
 
@@ -266,8 +284,8 @@ class TankInfoScreen extends StatelessWidget {
           return _InfoCard(
             icon: Icons.trending_up,
             iconColor: Colors.blue,
-            title: 'Vekstprognose',
-            child: Text(data['message']?.toString() ?? 'Ikke nok data'),
+            title: context.l10n.growthForecast,
+            child: Text(context.l10n.notEnoughData),
           );
         }
 
@@ -281,24 +299,24 @@ class TankInfoScreen extends StatelessWidget {
         return _InfoCard(
           icon: Icons.trending_up,
           iconColor: Colors.blue,
-          title: 'Vekstprognose',
+          title: context.l10n.growthForecast,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _InfoRow(
-                label: 'Nåværende snittvekt',
+                label: context.l10n.currentAverageWeight,
                 value: '${lastWeight.toStringAsFixed(1)} g',
               ),
               _InfoRow(
-                label: 'Prognose 30 dager',
+                label: context.l10n.forecastDays(30),
                 value: '${forecast30.toStringAsFixed(1)} g',
               ),
               _InfoRow(
-                label: 'Prognose 60 dager',
+                label: context.l10n.forecastDays(60),
                 value: '${forecast60.toStringAsFixed(1)} g',
               ),
               _InfoRow(
-                label: 'Prognose 90 dager',
+                label: context.l10n.forecastDays(90),
                 value: '${forecast90.toStringAsFixed(1)} g',
               ),
               _InfoRow(
@@ -306,14 +324,49 @@ class TankInfoScreen extends StatelessWidget {
                 value: '${sgr.toStringAsFixed(2)} %/dag',
               ),
               _InfoRow(
-                label: 'Datagrunnlag',
-                value: '$daysMeasured dager',
+                label: context.l10n.dataBasis,
+                value: context.l10n.daysCount(daysMeasured),
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  String _nextFeedMessage(BuildContext context, double weight) {
+    if (weight <= 0) return context.l10n.noAverageWeightRegistered;
+    if (weight < 2) {
+      return context.l10n.weightUntilFeed(
+        (2 - weight).toStringAsFixed(1),
+        'Nutra Sprint 0.8',
+      );
+    }
+    if (weight < 5) {
+      return context.l10n.weightUntilFeed(
+        (5 - weight).toStringAsFixed(1),
+        'Nutra Sprint 1.0',
+      );
+    }
+    if (weight < 15) {
+      return context.l10n.weightUntilFeed(
+        (15 - weight).toStringAsFixed(1),
+        'Nutra Olympic 2.0',
+      );
+    }
+    if (weight < 100) {
+      return context.l10n.weightUntilFeed(
+        (100 - weight).toStringAsFixed(1),
+        'Polarfeed Laksens Valg 150',
+      );
+    }
+    if (weight < 300) {
+      return context.l10n.weightUntilFeed(
+        (300 - weight).toStringAsFixed(1),
+        'Polarfeed Laksens Valg 300',
+      );
+    }
+    return context.l10n.finishFeedLargeFish;
   }
 }
 

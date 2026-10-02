@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/localizations.dart';
+
 class TankHistoryScreen extends StatefulWidget {
   final String facilityId;
   final String sectionId;
@@ -55,7 +57,7 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
       debugPrint('TankHistoryScreen: kunne ikke hente seksjonsnavn: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
-    return 'Navn ikke tilgjengelig';
+    return '';
   }
 
   Query<Map<String, dynamic>> get _logsQuery {
@@ -135,12 +137,14 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Historikk - ${widget.tankName}')),
+      appBar: AppBar(title: Text(context.l10n.historyForTank(widget.tankName))),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _logsQuery.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text(loadErrorMessage(snapshot.error)));
+            return Center(
+              child: Text(loadErrorMessage(context, snapshot.error)),
+            );
           }
 
           if (!snapshot.hasData) {
@@ -155,11 +159,11 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
               _filters(),
               const SizedBox(height: 8),
               if (docs.isEmpty)
-                const Card(
+                Card(
                   child: ListTile(
-                    leading: Icon(Icons.info),
-                    title: Text('Ingen registreringer funnet'),
-                    subtitle: Text('Prøv å endre filter eller periode.'),
+                    leading: const Icon(Icons.info),
+                    title: Text(context.l10n.noRecordsFound),
+                    subtitle: Text(context.l10n.changeFilterOrPeriod),
                   ),
                 )
               else
@@ -181,25 +185,30 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
             FutureBuilder<String>(
               future: _sectionName,
               builder: (context, snapshot) => Text(
-                'Kar: ${widget.tankName}\nBygg/seksjon: '
-                '${snapshot.data ?? 'Navn ikke tilgjengelig'}',
+                '${context.l10n.tank}: ${widget.tankName}\n'
+                '${context.l10n.buildingOrSection}: '
+                '${(snapshot.data?.isNotEmpty ?? false) ? snapshot.data : context.l10n.contentUnavailable}',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _type,
-              decoration: const InputDecoration(labelText: 'Type registrering'),
-              items: const [
-                DropdownMenuItem(value: 'all', child: Text('Alle')),
-                DropdownMenuItem(value: 'mortality', child: Text('Dødelighet')),
-                DropdownMenuItem(value: 'feed', child: Text('Fôr')),
-                DropdownMenuItem(value: 'weight', child: Text('Snittvekt')),
+              decoration:
+                  InputDecoration(labelText: context.l10n.registrationType),
+              items: [
+                DropdownMenuItem(value: 'all', child: Text(context.l10n.all)),
+                DropdownMenuItem(
+                    value: 'mortality', child: Text(context.l10n.mortality)),
+                DropdownMenuItem(value: 'feed', child: Text(context.l10n.feed)),
+                DropdownMenuItem(
+                    value: 'weight', child: Text(context.l10n.averageWeight)),
                 DropdownMenuItem(
                   value: 'temperature',
-                  child: Text('Temperatur'),
+                  child: Text(context.l10n.temperature),
                 ),
-                DropdownMenuItem(value: 'note', child: Text('Notater')),
+                DropdownMenuItem(
+                    value: 'note', child: Text(context.l10n.notes)),
               ],
               onChanged: (value) {
                 if (value == null) return;
@@ -214,8 +223,8 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
                     icon: const Icon(Icons.calendar_today),
                     label: Text(
                       _from == null
-                          ? 'Fra dato'
-                          : 'Fra ${_dateFormat.format(_from!)}',
+                          ? context.l10n.fromDate(context.l10n.noData)
+                          : context.l10n.fromDate(_dateFormat.format(_from!)),
                     ),
                     onPressed: () => _pickDate(isFrom: true),
                   ),
@@ -226,8 +235,8 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
                     icon: const Icon(Icons.event),
                     label: Text(
                       _to == null
-                          ? 'Til dato'
-                          : 'Til ${_dateFormat.format(_to!)}',
+                          ? context.l10n.toDate(context.l10n.noData)
+                          : context.l10n.toDate(_dateFormat.format(_to!)),
                     ),
                     onPressed: () => _pickDate(isFrom: false),
                   ),
@@ -238,7 +247,7 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 icon: const Icon(Icons.clear),
-                label: const Text('Nullstill filter'),
+                label: Text(context.l10n.resetFilter),
                 onPressed: _clearFilters,
               ),
             ),
@@ -274,26 +283,30 @@ class _TankHistoryScreenState extends State<TankHistoryScreen> {
     return Card(
       child: ListTile(
         leading: const Icon(Icons.history),
-        title: Text(date == null ? 'Ukjent dato' : _dateFormat.format(date)),
+        title: Text(
+            date == null ? context.l10n.unknownDate : _dateFormat.format(date)),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Død: $mortality  •  Fôr: ${_formatDecimal(feedKg)} kg'),
+              Text(context.l10n.mortalityAndFeed(
+                mortality.toString(),
+                _formatDecimal(feedKg),
+              )),
               if (feedKg > 0 && feedType.isNotEmpty)
                 Text(
-                  'Fôrtype: $feedType',
+                  context.l10n.feedTypeLine(feedType),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               if (feedKg > 0 && pelletSizeMm > 0)
-                Text('Pellet: ${_formatDecimal(pelletSizeMm)} mm'),
+                Text(context.l10n.pelletLine(_formatDecimal(pelletSizeMm))),
               Text(
-                'Vekt: ${_formatDecimal(avgWeight)} g  •  '
-                'Temp: ${_formatDecimal(temperature)} °C',
+                '${context.l10n.averageWeight}: ${_formatDecimal(avgWeight)} g  •  '
+                '${context.l10n.temperatureShort}: ${_formatDecimal(temperature)} °C',
               ),
-              if (note.isNotEmpty) Text('Notat: $note'),
+              if (note.isNotEmpty) Text(context.l10n.noteLine(note)),
             ],
           ),
         ),

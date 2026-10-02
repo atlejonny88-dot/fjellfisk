@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:fjellfisk/l10n/app_localizations.dart';
 import 'package:fjellfisk/screens/tank_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,9 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('nb'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: TankHistoryScreen(
           facilityId: 'f',
           sectionId: 'internal-section-id',
@@ -59,7 +63,8 @@ void main() {
       final db = FakeFirebaseFirestore();
       await db.doc(sectionPath).set({if (name != null) 'name': name});
       await openHistory(tester, db);
-      expectHistory(tester, 'Navn ikke tilgjengelig');
+      expectHistory(
+          tester, 'Det tilhørende innholdet er ikke tilgjengelig nå.');
     });
   }
 
@@ -68,7 +73,7 @@ void main() {
   ) async {
     final db = FakeFirebaseFirestore();
     await openHistory(tester, db);
-    expectHistory(tester, 'Navn ikke tilgjengelig');
+    expectHistory(tester, 'Det tilhørende innholdet er ikke tilgjengelig nå.');
   });
 
   testWidgets('denied section read does not hide history', (tester) async {
@@ -85,6 +90,6 @@ service cloud.firestore {
 }
 ''');
     await openHistory(tester, db);
-    expectHistory(tester, 'Navn ikke tilgjengelig');
+    expectHistory(tester, 'Det tilhørende innholdet er ikke tilgjengelig nå.');
   });
 }

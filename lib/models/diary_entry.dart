@@ -42,7 +42,7 @@ class DiaryEntry {
     final email = createdByEmail.trim();
     if (email.isNotEmpty) return email;
 
-    return 'Ukjent bruker';
+    return '';
   }
 
   factory DiaryEntry.fromDoc(
@@ -51,7 +51,7 @@ class DiaryEntry {
     final data = document.data() ?? const <String, dynamic>{};
     return DiaryEntry(
       id: document.id,
-      title: _text(data['title'], fallback: 'Uten tittel'),
+      title: _text(data['title']),
       body: _text(data['body']),
       category: _text(data['category'], fallback: 'Annet'),
       createdAt: _date(data['createdAt']),

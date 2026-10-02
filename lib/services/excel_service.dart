@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/production_report.dart';
 import '../utils/data_values.dart';
 import 'excel_downloader.dart';
@@ -13,14 +15,15 @@ class ExcelService {
   static Future<String?> exportFacility({
     required String facilityId,
     required String facilityName,
+    required AppLocalizations labels,
   }) async {
     final excel = Excel.createExcel();
-    const sheetName = 'Anlegg';
+    final sheetName = labels.excelSheetFacility;
     final sheet = excel[sheetName];
     excel.setDefaultSheet(sheetName);
     _deleteDefaultSheet(excel);
 
-    _appendHeader(sheet);
+    _appendHeader(sheet, labels);
 
     final facilitySnap =
         await _db.collection('facilities').doc(facilityId).get();
@@ -100,14 +103,15 @@ class ExcelService {
     required String sectionId,
     required String tankId,
     required String tankName,
+    required AppLocalizations labels,
   }) async {
     final excel = Excel.createExcel();
-    const sheetName = 'Kar';
+    final sheetName = labels.excelSheetTank;
     final sheet = excel[sheetName];
     excel.setDefaultSheet(sheetName);
     _deleteDefaultSheet(excel);
 
-    _appendHeader(sheet);
+    _appendHeader(sheet, labels);
 
     final facilityRef = _db.collection('facilities').doc(facilityId);
     final facilitySnap = await facilityRef.get();
@@ -176,9 +180,13 @@ class ExcelService {
   static Future<String?> exportProductionReport({
     required ProductionReport report,
     required String facilityName,
+    required AppLocalizations labels,
   }) async {
-    final excel =
-        productionReportWorkbook(report: report, facilityName: facilityName);
+    final excel = productionReportWorkbook(
+      report: report,
+      facilityName: facilityName,
+      labels: labels,
+    );
     final fileName =
         'produksjonsrapport_${_safeFileName(report.filterLabel)}_${DateFormat('yyyyMMdd').format(report.from)}_${DateFormat('yyyyMMdd').format(report.to)}.xlsx';
     return ExcelDownloader.download(excel, fileName);
@@ -187,131 +195,135 @@ class ExcelService {
   static Excel productionReportWorkbook({
     required ProductionReport report,
     required String facilityName,
+    AppLocalizations? labels,
   }) {
+    final l10n = labels ?? lookupAppLocalizations(const Locale('nb'));
     final excel = Excel.createExcel();
-    const summaryName = 'Sammendrag';
+    final summaryName = l10n.excelSheetSummary;
     final summary = excel[summaryName];
-    final tanks = excel['Karoversikt'];
-    final logs = excel['Registreringer'];
+    final tanks = excel[l10n.excelSheetTankOverview];
+    final logs = excel[l10n.excelSheetRegistrations];
     excel.setDefaultSheet(summaryName);
     _deleteDefaultSheet(excel);
 
     summary.appendRow([
-      TextCellValue('Produksjonsrapport'),
+      TextCellValue(l10n.productionReportTitle),
       TextCellValue(facilityName),
     ]);
     summary.appendRow([
-      TextCellValue('Periode'),
+      TextCellValue(l10n.period),
       TextCellValue('${_dateFormat.format(report.from)} - '
           '${_dateFormat.format(report.to)}'),
     ]);
     summary.appendRow([
-      TextCellValue('Filter'),
-      TextCellValue(report.filterLabel),
+      TextCellValue(l10n.filter),
+      TextCellValue(report.filterLabel == 'Hele anlegget'
+          ? l10n.entireFacility
+          : report.filterLabel),
     ]);
     summary.appendRow([]);
     summary.appendRow([
-      TextCellValue('KPI'),
-      TextCellValue('Verdi'),
+      TextCellValue(l10n.keyFigures),
+      TextCellValue(l10n.value),
     ]);
     summary.appendRow([
-      TextCellValue('Fôr brukt'),
+      TextCellValue(l10n.feedUsed),
       DoubleCellValue(report.feedKg),
     ]);
     summary.appendRow([
-      TextCellValue('Dødelighet'),
+      TextCellValue(l10n.mortality),
       IntCellValue(report.mortality),
     ]);
     summary.appendRow([
-      TextCellValue('Registrert biomasse kg'),
+      TextCellValue(l10n.registeredBiomassKg),
       DoubleCellValue(report.biomassKg),
     ]);
     summary.appendRow([
-      TextCellValue('Siste snittvekt g'),
-      _doubleOrText(report.latestAvgWeight, 'Ikke nok data'),
+      TextCellValue(l10n.latestAverageWeightGram),
+      _doubleOrText(report.latestAvgWeight, l10n.notEnoughData),
     ]);
     summary.appendRow([
-      TextCellValue('Vektendring g'),
+      TextCellValue(l10n.weightChangeGram),
       report.weightChange == 0 || !report.weightChange.isFinite
-          ? TextCellValue('Ikke nok data')
+          ? TextCellValue(l10n.notEnoughData)
           : DoubleCellValue(report.weightChange),
     ]);
     summary.appendRow([
       TextCellValue('FCR'),
       report.fcr == null
-          ? TextCellValue('FCR kan ikke beregnes')
+          ? TextCellValue(l10n.fcrUnavailable)
           : DoubleCellValue(report.fcr!),
     ]);
     summary.appendRow([
-      TextCellValue('Aktive kar'),
+      TextCellValue(l10n.activeTanks),
       IntCellValue(report.activeTanks),
     ]);
     summary.appendRow([
-      TextCellValue('Tomme kar'),
+      TextCellValue(l10n.emptyTanksLabel),
       IntCellValue(report.emptyTanks),
     ]);
     summary.appendRow([
-      TextCellValue('Registreringer'),
+      TextCellValue(l10n.registrations),
       IntCellValue(report.registrations),
     ]);
     summary.appendRow([
-      TextCellValue('Temperatur gjennomsnitt'),
+      TextCellValue(l10n.averageTemperatureLabel),
       report.avgTemperature == null
-          ? TextCellValue('Ikke nok data')
+          ? TextCellValue(l10n.notEnoughData)
           : DoubleCellValue(report.avgTemperature!),
     ]);
     summary.appendRow([
-      TextCellValue('Temperatur minimum'),
+      TextCellValue(l10n.minimumTemperatureLabel),
       report.minTemperature == null
-          ? TextCellValue('Ikke nok data')
+          ? TextCellValue(l10n.notEnoughData)
           : DoubleCellValue(report.minTemperature!),
     ]);
     summary.appendRow([
-      TextCellValue('Temperatur maksimum'),
+      TextCellValue(l10n.maximumTemperatureLabel),
       report.maxTemperature == null
-          ? TextCellValue('Ikke nok data')
+          ? TextCellValue(l10n.notEnoughData)
           : DoubleCellValue(report.maxTemperature!),
     ]);
 
     tanks.appendRow([
-      TextCellValue('Seksjon'),
-      TextCellValue('Kar'),
-      TextCellValue('Fisk'),
-      TextCellValue('Snittvekt'),
-      TextCellValue('Biomasse'),
-      TextCellValue('Fôr'),
-      TextCellValue('Dødelighet'),
+      TextCellValue(l10n.section),
+      TextCellValue(l10n.tank),
+      TextCellValue(l10n.fish),
+      TextCellValue(l10n.averageWeight),
+      TextCellValue(l10n.biomass),
+      TextCellValue(l10n.feed),
+      TextCellValue(l10n.mortality),
       TextCellValue('FCR'),
-      TextCellValue('Temperatur'),
+      TextCellValue(l10n.temperature),
     ]);
     for (final row in report.tanks) {
       tanks.appendRow([
         TextCellValue(row.sectionName),
         TextCellValue(row.tankName),
         IntCellValue(row.fishCount),
-        _doubleOrText(row.latestWeight, 'Ikke nok data'),
-        _doubleOrText(row.biomassKg, 'Ikke nok data'),
+        _doubleOrText(row.latestWeight, l10n.notEnoughData),
+        _doubleOrText(row.biomassKg, l10n.notEnoughData),
         DoubleCellValue(row.feedKg),
         IntCellValue(row.mortality),
         row.fcr == null
-            ? TextCellValue('Ikke nok data')
+            ? TextCellValue(l10n.notEnoughData)
             : DoubleCellValue(row.fcr!),
         row.latestTemperature == null
-            ? TextCellValue('Ikke nok data')
+            ? TextCellValue(l10n.notEnoughData)
             : DoubleCellValue(row.latestTemperature!),
       ]);
     }
 
     logs.appendRow([
-      TextCellValue('Dato'),
-      TextCellValue('Seksjon'),
-      TextCellValue('Kar'),
-      TextCellValue('Dødelighet'),
-      TextCellValue('Fôr'),
-      TextCellValue('Snittvekt'),
-      TextCellValue('Temperatur'),
-      TextCellValue('Fôrtype'),
-      TextCellValue('Pelletstørrelse'),
+      TextCellValue(l10n.date),
+      TextCellValue(l10n.section),
+      TextCellValue(l10n.tank),
+      TextCellValue(l10n.mortality),
+      TextCellValue(l10n.feed),
+      TextCellValue(l10n.averageWeight),
+      TextCellValue(l10n.temperature),
+      TextCellValue(l10n.feedType),
+      TextCellValue(l10n.pelletSize),
     ]);
     for (final log in report.registrationsList) {
       logs.appendRow([
@@ -330,18 +342,18 @@ class ExcelService {
     return excel;
   }
 
-  static void _appendHeader(Sheet sheet) {
+  static void _appendHeader(Sheet sheet, AppLocalizations labels) {
     sheet.appendRow([
-      TextCellValue('Anleggsnavn'),
-      TextCellValue('Seksjon/bygg'),
-      TextCellValue('Kar'),
-      TextCellValue('Fisketall'),
-      TextCellValue('Dato'),
-      TextCellValue('Dødelighet'),
-      TextCellValue('Fôr kg'),
-      TextCellValue('Temperatur'),
-      TextCellValue('Snittvekt'),
-      TextCellValue('Notater'),
+      TextCellValue(labels.facilityName),
+      TextCellValue(labels.sectionBuilding),
+      TextCellValue(labels.tank),
+      TextCellValue(labels.numberOfFish),
+      TextCellValue(labels.date),
+      TextCellValue(labels.mortality),
+      TextCellValue(labels.feedKg),
+      TextCellValue(labels.temperature),
+      TextCellValue(labels.averageWeight),
+      TextCellValue(labels.notes),
     ]);
   }
 

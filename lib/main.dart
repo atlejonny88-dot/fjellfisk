@@ -5,8 +5,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'firebase_options.dart';
+import 'l10n/language_controller.dart';
+import 'l10n/localizations.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/invite_registration_screen.dart';
 import 'screens/login_screen.dart';
@@ -29,13 +32,21 @@ class FjellfiskApp extends StatefulWidget {
 class _FjellfiskAppState extends State<FjellfiskApp> {
   late Future<void> _firebaseInitFuture;
   late final String? _inviteToken;
+  late final LanguageController _languageController;
   bool _inviteCompleted = false;
 
   @override
   void initState() {
     super.initState();
     _inviteToken = _inviteTokenFromUri(Uri.base);
+    _languageController = LanguageController();
     _firebaseInitFuture = _initializeFirebase();
+  }
+
+  @override
+  void dispose() {
+    _languageController.dispose();
+    super.dispose();
   }
 
   String? _inviteTokenFromUri(Uri uri) {
@@ -89,46 +100,64 @@ class _FjellfiskAppState extends State<FjellfiskApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Fjellfisk',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      initialRoute: '/',
-      home: FutureBuilder<void>(
-        future: _firebaseInitFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const _LoadingScaffold(message: 'Starter Fjellfisk...');
-          }
+    return AnimatedBuilder(
+      animation: _languageController,
+      builder: (context, child) => LanguageScope(
+        controller: _languageController,
+        child: MaterialApp(
+          title: 'Fjellfisk',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          locale: _languageController.locale,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('nb'), Locale('en'), Locale('pl')],
+          initialRoute: '/',
+          home: FutureBuilder<void>(
+            future: _firebaseInitFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return _LoadingScaffold(message: context.l10n.startingApp);
+              }
 
-          if (snapshot.hasError) {
-            debugPrint('Fjellfisk Firebase startup error: ${snapshot.error}');
-            return _ErrorScaffold(
-              title: 'Kunne ikke starte appen',
-              message: 'Sjekk internettforbindelsen og prøv igjen. Hvis feilen '
-                  'fortsetter, kontakt admin.',
-              actionLabel: 'Prøv igjen',
-              icon: Icons.cloud_off,
-              onAction: _retryStartup,
-            );
-          }
+              if (snapshot.hasError) {
+                debugPrint(
+                    'Fjellfisk Firebase startup error: ${snapshot.error}');
+                return _ErrorScaffold(
+                  title: context.l10n.startupFailedTitle,
+                  message: context.l10n.startupFailedMessage,
+                  actionLabel: context.l10n.retry,
+                  icon: Icons.cloud_off,
+                  onAction: _retryStartup,
+                );
+              }
 
-          if (_inviteToken != null && !_inviteCompleted) {
-            return InviteRegistrationScreen(
-              inviteToken: _inviteToken!,
-              onAccepted: _completeInvite,
-            );
-          }
+              if (_inviteToken != null && !_inviteCompleted) {
+                return InviteRegistrationScreen(
+                  inviteToken: _inviteToken!,
+                  onAccepted: _completeInvite,
+                );
+              }
 
-          return const _AuthGate();
-        },
+              return _AuthGate(
+                onUserLanguageLoaded: _languageController.loadForCurrentUser,
+              );
+            },
+          ),
+        ),
       ),
     );
   }
 }
 
 class _AuthGate extends StatefulWidget {
-  const _AuthGate();
+  const _AuthGate({required this.onUserLanguageLoaded});
+
+  final Future<void> Function() onUserLanguageLoaded;
 
   @override
   State<_AuthGate> createState() => _AuthGateState();
@@ -137,17 +166,22 @@ class _AuthGate extends StatefulWidget {
 class _AuthGateState extends State<_AuthGate> {
   int _authRetry = 0;
 
-  Stream<User?> _authStateStream() {
-    return FirebaseAuth.instance.authStateChanges().map((user) {
+  Stream<User?> _authStateStream() async* {
+    final auth = FirebaseAuth.instance;
+    User? lastUser = await auth.authStateChanges().first.timeout(
+          const Duration(seconds: 15),
+          onTimeout: () => auth.currentUser,
+        );
+
+    RegistrationRound.session.setUser(lastUser?.uid);
+    yield lastUser;
+
+    await for (final user in auth.authStateChanges()) {
+      if (user?.uid == lastUser?.uid) continue;
+      lastUser = user;
       RegistrationRound.session.setUser(user?.uid);
-      return user;
-    }).timeout(
-      const Duration(seconds: 15),
-      onTimeout: (sink) {
-        debugPrint('Fjellfisk auth state timeout, using currentUser fallback.');
-        sink.add(FirebaseAuth.instance.currentUser);
-      },
-    );
+      yield user;
+    }
   }
 
   void _retryAuth() {
@@ -163,16 +197,15 @@ class _AuthGateState extends State<_AuthGate> {
       stream: _authStateStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingScaffold(message: 'Sjekker innlogging...');
+          return _LoadingScaffold(message: context.l10n.checkingLogin);
         }
 
         if (snapshot.hasError) {
           debugPrint('Fjellfisk auth state error: ${snapshot.error}');
           return _ErrorScaffold(
-            title: 'Kunne ikke sjekke innlogging',
-            message:
-                'Appen fikk ikke kontakt med innloggingstjenesten. Prøv igjen.',
-            actionLabel: 'Prøv igjen',
+            title: context.l10n.loginCheckFailedTitle,
+            message: context.l10n.loginCheckFailedMessage,
+            actionLabel: context.l10n.retry,
             icon: Icons.lock_clock,
             onAction: _retryAuth,
           );
@@ -182,7 +215,10 @@ class _AuthGateState extends State<_AuthGate> {
           return const LoginScreen();
         }
 
-        return UserAccessGate(userId: snapshot.data!.uid);
+        return UserAccessGate(
+          userId: snapshot.data!.uid,
+          onUserLanguageLoaded: widget.onUserLanguageLoaded,
+        );
       },
     );
   }
@@ -192,9 +228,11 @@ class UserAccessGate extends StatefulWidget {
   const UserAccessGate({
     super.key,
     required this.userId,
+    required this.onUserLanguageLoaded,
   });
 
   final String userId;
+  final Future<void> Function() onUserLanguageLoaded;
 
   @override
   State<UserAccessGate> createState() => _UserAccessGateState();
@@ -220,9 +258,11 @@ class _UserAccessGateState extends State<UserAccessGate> {
   Future<String> _loadRole() async {
     await UserService.createUserDocumentIfMissing()
         .timeout(const Duration(seconds: 15));
-    return UserService.getCurrentUserRole().timeout(
+    final role = await UserService.getCurrentUserRole().timeout(
       const Duration(seconds: 15),
     );
+    await widget.onUserLanguageLoaded();
+    return role;
   }
 
   void _retryRoleLoad() {
@@ -237,7 +277,7 @@ class _UserAccessGateState extends State<UserAccessGate> {
       future: _roleFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingScaffold(message: 'Sjekker tilgang...');
+          return _LoadingScaffold(message: context.l10n.checkingAccess);
         }
 
         if (snapshot.hasError) {
@@ -367,7 +407,9 @@ class _AccessErrorScaffold extends StatelessWidget {
               const Icon(Icons.lock_outline, size: 48),
               const SizedBox(height: 12),
               Text(
-                accessDenied ? 'Ingen tilgang' : 'Kunne ikke sjekke tilgang',
+                accessDenied
+                    ? context.l10n.accessDeniedTitle
+                    : context.l10n.roleCheckFailedTitle,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 20,
@@ -377,9 +419,8 @@ class _AccessErrorScaffold extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 accessDenied
-                    ? 'Du har ikke tilgang til Fjellfisk. Kontakt administrator.'
-                    : 'Appen fikk ikke lest brukerrollen din. Kontakt admin hvis '
-                        'du nylig har fått bruker eller rolle.',
+                    ? context.l10n.accessDeniedMessage
+                    : context.l10n.roleCheckFailedMessage,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -390,12 +431,12 @@ class _AccessErrorScaffold extends StatelessWidget {
                 children: [
                   FilledButton.icon(
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Prøv igjen'),
+                    label: Text(context.l10n.retry),
                     onPressed: onRetry,
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.logout),
-                    label: const Text('Logg ut'),
+                    label: Text(context.l10n.logout),
                     onPressed: _signOut,
                   ),
                 ],
@@ -426,22 +467,22 @@ class _DisabledUserScaffold extends StatelessWidget {
             children: [
               const Icon(Icons.person_off, size: 48),
               const SizedBox(height: 12),
-              const Text(
-                'Brukeren er deaktivert',
-                style: TextStyle(
+              Text(
+                context.l10n.userDisabledTitle,
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Kontakt admin hvis du trenger tilgang igjen.',
+              Text(
+                context.l10n.userDisabledDetail,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
                 icon: const Icon(Icons.logout),
-                label: const Text('Logg ut'),
+                label: Text(context.l10n.logout),
                 onPressed: _signOut,
               ),
             ],
