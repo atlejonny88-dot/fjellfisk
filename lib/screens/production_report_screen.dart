@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/production_report.dart';
+import '../l10n/localizations.dart';
 import '../services/excel_service.dart';
 import '../services/production_report_service.dart';
 
@@ -96,18 +97,18 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
       await ExcelService.exportProductionReport(
         report: report,
         facilityName: widget.facilityName,
+        labels: context.l10n,
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Excel eksport fullført')),
+        SnackBar(content: Text(context.l10n.excelExportComplete)),
       );
     } catch (error) {
       debugPrint('Rapporteksport: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Kunne ikke eksportere rapporten. Prøv igjen.')),
+        SnackBar(content: Text(context.l10n.reportExportFailed)),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -120,7 +121,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Produksjonsrapport'),
+        title: Text(context.l10n.productionReport),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -137,11 +138,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             _filters(),
             const SizedBox(height: 12),
             if (reportFuture == null)
-              const Card(
+              Card(
                 child: ListTile(
-                  leading: Icon(Icons.info),
-                  title: Text('Velg bygg eller kar'),
-                  subtitle: Text('Rapporten vises når valget er komplett.'),
+                  leading: const Icon(Icons.info),
+                  title: Text(context.l10n.selectBuildingOrTank),
+                  subtitle: Text(context.l10n.reportSelectionHint),
                 ),
               )
             else
@@ -153,12 +154,11 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   }
                   if (snapshot.hasError) {
                     debugPrint('Rapport: ${snapshot.error}');
-                    return const Card(
+                    return Card(
                       child: ListTile(
-                        leading: Icon(Icons.error_outline),
-                        title: Text('Kunne ikke lage rapport'),
-                        subtitle:
-                            Text('Prøv igjen. Kontroller nettverk og tilgang.'),
+                        leading: const Icon(Icons.error_outline),
+                        title: Text(context.l10n.reportCreationFailed),
+                        subtitle: Text(context.l10n.reportCreationHint),
                       ),
                     );
                   }
@@ -190,15 +190,19 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           children: [
             DropdownButtonFormField<String>(
               initialValue: _period,
-              decoration: const InputDecoration(labelText: 'Periode'),
-              items: const [
-                DropdownMenuItem(value: 'today', child: Text('I dag')),
-                DropdownMenuItem(value: '7d', child: Text('Siste 7 dager')),
-                DropdownMenuItem(value: '30d', child: Text('Siste 30 dager')),
-                DropdownMenuItem(value: 'month', child: Text('Denne måneden')),
+              decoration: InputDecoration(labelText: context.l10n.period),
+              items: [
+                DropdownMenuItem(
+                    value: 'today', child: Text(context.l10n.today)),
+                DropdownMenuItem(
+                    value: '7d', child: Text(context.l10n.last7Days)),
+                DropdownMenuItem(
+                    value: '30d', child: Text(context.l10n.last30Days)),
+                DropdownMenuItem(
+                    value: 'month', child: Text(context.l10n.currentMonth)),
                 DropdownMenuItem(
                   value: 'custom',
-                  child: Text('Egendefinert periode'),
+                  child: Text(context.l10n.customPeriod),
                 ),
               ],
               onChanged: (value) {
@@ -213,7 +217,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.calendar_today),
                       label: Text(
-                        'Fra ${ProductionReportService.dateFormat.format(_from)}',
+                        context.l10n.fromDate(
+                          ProductionReportService.dateFormat.format(_from),
+                        ),
                       ),
                       onPressed: () => _pickDate(isFrom: true),
                     ),
@@ -223,7 +229,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.event),
                       label: Text(
-                        'Til ${ProductionReportService.dateFormat.format(_to)}',
+                        context.l10n.toDate(
+                          ProductionReportService.dateFormat.format(_to),
+                        ),
                       ),
                       onPressed: () => _pickDate(isFrom: false),
                     ),
@@ -234,12 +242,20 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _scope,
-              decoration: const InputDecoration(labelText: 'Rapport for'),
-              items: const [
+              decoration: InputDecoration(labelText: context.l10n.reportFor),
+              items: [
                 DropdownMenuItem(
-                    value: 'facility', child: Text('Hele anlegget')),
-                DropdownMenuItem(value: 'section', child: Text('Bygg/seksjon')),
-                DropdownMenuItem(value: 'tank', child: Text('Enkelt kar')),
+                  value: 'facility',
+                  child: Text(context.l10n.entireFacility),
+                ),
+                DropdownMenuItem(
+                  value: 'section',
+                  child: Text(context.l10n.buildingOrSection),
+                ),
+                DropdownMenuItem(
+                  value: 'tank',
+                  child: Text(context.l10n.singleTank),
+                ),
               ],
               onChanged: (value) {
                 if (value == null) return;
@@ -258,8 +274,9 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   final sections = snapshot.data ?? const <ReportOption>[];
                   return DropdownButtonFormField<String>(
                     initialValue: _sectionId,
-                    decoration:
-                        const InputDecoration(labelText: 'Bygg/seksjon'),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.buildingOrSection,
+                    ),
                     isExpanded: true,
                     items: sections
                         .map(
@@ -290,7 +307,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   final tanks = snapshot.data ?? const <ReportOption>[];
                   return DropdownButtonFormField<String>(
                     initialValue: _tankId,
-                    decoration: const InputDecoration(labelText: 'Kar'),
+                    decoration: InputDecoration(labelText: context.l10n.tank),
                     isExpanded: true,
                     items: tanks
                         .map(
@@ -323,7 +340,7 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
             title: Text('${widget.facilityName} - ${report.filterLabel}'),
             subtitle: Text(period),
             trailing: IconButton(
-              tooltip: 'Eksporter til Excel',
+              tooltip: context.l10n.exportToExcel,
               onPressed: _isExporting ? null : () => _exportReport(report),
               icon: _isExporting
                   ? const SizedBox(
@@ -336,18 +353,17 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
           ),
         ),
         if (report.registrations == 0)
-          const Card(
+          Card(
             child: ListTile(
-              leading: Icon(Icons.info_outline),
-              title: Text('Ingen registreringer i valgt periode'),
-              subtitle: Text(
-                'Karstatus og siste biomasse vises der datagrunnlag finnes.',
-              ),
+              leading: const Icon(Icons.info_outline),
+              title: Text(context.l10n.noRecordsSelectedPeriod),
+              subtitle: Text(context.l10n.reportDataAvailability),
             ),
           ),
         _kpiGrid(report),
         const SizedBox(height: 12),
-        Text('Karoversikt', style: Theme.of(context).textTheme.titleMedium),
+        Text(context.l10n.tankOverview,
+            style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         _tankOverview(report),
       ],
@@ -356,28 +372,37 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
   Widget _kpiGrid(ProductionReport report) {
     final metrics = [
-      _Metric('Fôr brukt', '${report.feedKg.toStringAsFixed(1)} kg',
+      _Metric(context.l10n.feedUsed, '${report.feedKg.toStringAsFixed(1)} kg',
           Icons.restaurant),
-      _Metric('Dødelighet', report.mortality.toString(), Icons.warning),
-      _Metric('Biomasse', _kgOrFallback(report.biomassKg, tonnes: true),
-          Icons.scale),
-      _Metric('Siste snittvekt', _gramsOrFallback(report.latestAvgWeight),
-          Icons.monitor_weight),
-      _Metric('Vektendring', _signedGramsOrFallback(report.weightChange),
-          Icons.trending_up),
-      _Metric('FCR', report.fcr?.toStringAsFixed(2) ?? 'FCR kan ikke beregnes',
-          Icons.show_chart),
-      _Metric('Aktive kar', report.activeTanks.toString(), Icons.water),
-      _Metric('Tomme kar', report.emptyTanks.toString(), Icons.pause_circle),
       _Metric(
-        'Registreringer',
+          context.l10n.mortality, report.mortality.toString(), Icons.warning),
+      _Metric(context.l10n.biomass,
+          _kgOrFallback(context, report.biomassKg, tonnes: true), Icons.scale),
+      _Metric(
+          context.l10n.latestAverageWeight,
+          _gramsOrFallback(context, report.latestAvgWeight),
+          Icons.monitor_weight),
+      _Metric(
+          context.l10n.weightChange,
+          _signedGramsOrFallback(context, report.weightChange),
+          Icons.trending_up),
+      _Metric(
+          'FCR',
+          report.fcr?.toStringAsFixed(2) ?? context.l10n.fcrUnavailable,
+          Icons.show_chart),
+      _Metric(
+          context.l10n.activeTanks, report.activeTanks.toString(), Icons.water),
+      _Metric(context.l10n.emptyTanksLabel, report.emptyTanks.toString(),
+          Icons.pause_circle),
+      _Metric(
+        context.l10n.registrations,
         report.registrations.toString(),
         Icons.format_list_numbered,
       ),
       _Metric(
-        'Temperatur',
+        context.l10n.temperature,
         report.avgTemperature == null
-            ? 'Ikke nok data'
+            ? context.l10n.notEnoughData
             : '${report.avgTemperature!.toStringAsFixed(1)} °C\n'
                 '${report.minTemperature!.toStringAsFixed(1)}-${report.maxTemperature!.toStringAsFixed(1)} °C',
         Icons.thermostat,
@@ -413,8 +438,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
 
   Widget _tankOverview(ProductionReport report) {
     if (report.tanks.isEmpty) {
-      return const Card(
-        child: ListTile(title: Text('Ingen kar funnet for valgt filter')),
+      return Card(
+        child: ListTile(title: Text(context.l10n.noTanksForFilter)),
       );
     }
 
@@ -429,16 +454,16 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            columns: const [
-              DataColumn(label: Text('Seksjon')),
-              DataColumn(label: Text('Kar')),
-              DataColumn(label: Text('Fisk')),
-              DataColumn(label: Text('Snittvekt')),
-              DataColumn(label: Text('Biomasse')),
-              DataColumn(label: Text('Fôr')),
-              DataColumn(label: Text('Død')),
-              DataColumn(label: Text('FCR')),
-              DataColumn(label: Text('Temp')),
+            columns: [
+              DataColumn(label: Text(context.l10n.section)),
+              DataColumn(label: Text(context.l10n.tank)),
+              DataColumn(label: Text(context.l10n.fish)),
+              DataColumn(label: Text(context.l10n.averageWeight)),
+              DataColumn(label: Text(context.l10n.biomass)),
+              DataColumn(label: Text(context.l10n.feed)),
+              DataColumn(label: Text(context.l10n.dead)),
+              const DataColumn(label: Text('FCR')),
+              DataColumn(label: Text(context.l10n.temperatureShort)),
             ],
             rows: report.tanks.map((row) {
               return DataRow(
@@ -449,8 +474,8 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
                   DataCell(Text(row.sectionName)),
                   DataCell(Text(row.tankName)),
                   DataCell(Text(row.fishCount.toString())),
-                  DataCell(Text(_gramsOrFallback(row.latestWeight))),
-                  DataCell(Text(_kgOrFallback(row.biomassKg))),
+                  DataCell(Text(_gramsOrFallback(context, row.latestWeight))),
+                  DataCell(Text(_kgOrFallback(context, row.biomassKg))),
                   DataCell(Text('${row.feedKg.toStringAsFixed(1)} kg')),
                   DataCell(Text(row.mortality.toString())),
                   DataCell(Text(row.fcr?.toStringAsFixed(2) ?? '-')),
@@ -494,14 +519,17 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
               spacing: 12,
               runSpacing: 8,
               children: [
-                _smallValue('Fisk', row.fishCount.toString()),
-                _smallValue('Snittvekt', _gramsOrFallback(row.latestWeight)),
-                _smallValue('Biomasse', _kgOrFallback(row.biomassKg)),
-                _smallValue('Fôr', '${row.feedKg.toStringAsFixed(1)} kg'),
-                _smallValue('Død', row.mortality.toString()),
+                _smallValue(context.l10n.fish, row.fishCount.toString()),
+                _smallValue(context.l10n.averageWeight,
+                    _gramsOrFallback(context, row.latestWeight)),
+                _smallValue(context.l10n.biomass,
+                    _kgOrFallback(context, row.biomassKg)),
+                _smallValue(
+                    context.l10n.feed, '${row.feedKg.toStringAsFixed(1)} kg'),
+                _smallValue(context.l10n.dead, row.mortality.toString()),
                 _smallValue('FCR', row.fcr?.toStringAsFixed(2) ?? '-'),
                 _smallValue(
-                  'Temp',
+                  context.l10n.temperatureShort,
                   row.latestTemperature == null
                       ? '-'
                       : '${row.latestTemperature!.toStringAsFixed(1)} °C',
@@ -565,19 +593,20 @@ class _ProductionReportScreenState extends State<ProductionReportScreen> {
     );
   }
 
-  String _gramsOrFallback(double value) {
-    if (value <= 0) return 'Ikke nok data';
+  String _gramsOrFallback(BuildContext context, double value) {
+    if (value <= 0) return context.l10n.notEnoughData;
     return '${value.toStringAsFixed(1)} g';
   }
 
-  String _signedGramsOrFallback(double value) {
-    if (value == 0) return 'Ikke nok data';
+  String _signedGramsOrFallback(BuildContext context, double value) {
+    if (value == 0) return context.l10n.notEnoughData;
     final prefix = value > 0 ? '+' : '';
     return '$prefix${value.toStringAsFixed(1)} g';
   }
 
-  String _kgOrFallback(double value, {bool tonnes = false}) {
-    if (value <= 0) return 'Ikke nok data';
+  String _kgOrFallback(BuildContext context, double value,
+      {bool tonnes = false}) {
+    if (value <= 0) return context.l10n.notEnoughData;
     if (tonnes) return '${(value / 1000).toStringAsFixed(2)} t';
     return '${value.toStringAsFixed(1)} kg';
   }

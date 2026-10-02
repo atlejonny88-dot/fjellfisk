@@ -1,6 +1,8 @@
 import 'data_values.dart';
 
 class TankStatus {
+  static const highMortality7dThreshold = 100;
+
   static int fishCountFrom(Object? value) {
     if (value == null) return 0;
     if (value is int) return value < 0 ? 0 : value;
@@ -19,5 +21,9 @@ class TankStatus {
 
   static bool isActiveData(Map<String, dynamic> data) {
     return isActiveFishCount(fishCountFrom(data['fishCount']));
+  }
+
+  static bool hasHighMortality7d(int mortality) {
+    return mortality >= highMortality7dThreshold;
   }
 }

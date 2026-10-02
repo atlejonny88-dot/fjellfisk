@@ -1,4 +1,5 @@
 import 'package:fjellfisk/theme/app_theme.dart';
+import 'package:fjellfisk/l10n/app_localizations.dart';
 import 'package:fjellfisk/widgets/dashboard_v3_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,9 @@ void main() {
   Widget testDashboard({required bool desktop}) {
     return MaterialApp(
       theme: AppTheme.lightTheme,
+      locale: const Locale('nb'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         drawer: desktop ? null : const Drawer(),
         appBar: DashboardTopBar(
@@ -118,6 +122,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme,
+        locale: const Locale('nb'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: DashboardHeading(
             facilityName: 'Arctic Hardanger',
@@ -133,6 +140,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme,
+        locale: const Locale('nb'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: DashboardHeading(
             facilityName: 'Arctic Hardanger',

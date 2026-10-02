@@ -5,10 +5,11 @@ const {initializeTestEnvironment, assertSucceeds, assertFails} = require('@fireb
 const {doc, getDoc, setDoc, updateDoc, writeBatch, serverTimestamp, Timestamp} = require('firebase/firestore');
 let env;
 const tank = 'facilities/f/sections/s/tanks/t';
+const emulatorPort = Number(process.env.FIRESTORE_EMULATOR_PORT || 8080);
 before(async () => {
   if (!process.env.FIRESTORE_EMULATOR_HOST) throw Error('Local emulator required; production is forbidden');
   env = await initializeTestEnvironment({projectId: 'demo-fjellfisk-qa', firestore: {
-    host: '127.0.0.1', port: 8787,
+    host: '127.0.0.1', port: emulatorPort,
     rules: fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf8')
   }});
   await env.withSecurityRulesDisabled(async ctx => {
@@ -37,6 +38,46 @@ test('reader can read but cannot modify tank, log, stock, sample, note or roles'
     tank+'/tankNotes/reader', 'feed_inventory/f', 'users/leser']) {
     await assertFails(setDoc(doc(store, p), {role: 'admin', disabled: false, fishCount: 0}));
   }
+});
+test('notifications are private and readers can only update their own read state', async () => {
+  const store = db('leser');
+  const notification = {
+    userId: 'leser', eventKey: 'diary:f:entry', type: 'diaryEntry',
+    title: 'Nytt dagbokinnlegg', body: 'Local test', facilityId: 'f',
+    sectionId: '', sectionName: '', tankId: '', tankName: '', relatedId: 'entry',
+    targetFishCount: 0, primaryValue: 0, secondaryValue: 0, occurredAt: Timestamp.now(),
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), isRead: false,
+    readAt: null
+  };
+  const path = 'users/leser/notifications/n';
+  await assertSucceeds(setDoc(doc(store, path), notification));
+  await assertSucceeds(updateDoc(doc(store, path), {
+    isRead: true, readAt: serverTimestamp(), updatedAt: serverTimestamp()
+  }));
+  await assertFails(setDoc(doc(store, 'users/admin/notifications/not-yours'), {
+    ...notification, userId: 'admin'
+  }));
+  await assertFails(updateDoc(doc(store, path), {title: 'Changed'}));
+  await assertSucceeds(setDoc(doc(store, 'users/leser/notificationStates/state'), {
+    key: 'low-feed:f', active: true, cycle: 1, updatedAt: serverTimestamp()
+  }));
+  await assertFails(setDoc(doc(store, 'users/admin/notificationStates/state'), {
+    key: 'low-feed:f', active: true, cycle: 1, updatedAt: serverTimestamp()
+  }));
+});
+test('active users can only update their own preferred language', async () => {
+  await assertSucceeds(updateDoc(doc(db('leser'), 'users/leser'), {
+    preferredLanguage: 'pl'
+  }));
+  await assertFails(updateDoc(doc(db('leser'), 'users/leser'), {
+    preferredLanguage: 'de'
+  }));
+  await assertFails(updateDoc(doc(db('leser'), 'users/leser'), {
+    role: 'admin'
+  }));
+  await assertFails(updateDoc(doc(db('leser'), 'users/admin'), {
+    preferredLanguage: 'en'
+  }));
 });
 test('employee can atomically register log, stock and sample but not roles/structure', async () => {
   const store = db('ansatt');

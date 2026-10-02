@@ -42,6 +42,18 @@ service cloud.firestore {
       return value in ['admin', 'ansatt', 'leser'];
     }
 
+    function validPreferredLanguage(value) {
+      return value in ['nb', 'en', 'pl'];
+    }
+
+    function canUpdateOwnPreferredLanguage(userId) {
+      return activeUser()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['preferredLanguage'])
+        && validPreferredLanguage(request.resource.data.preferredLanguage);
+    }
+
     function validInviteCreate(inviteId, data) {
       return data.keys().hasAll([
           'email', 'emailLower', 'displayName', 'role', 'status',
@@ -137,16 +149,105 @@ service cloud.firestore {
         && data.status in ['active', 'archived'];
     }
 
+    function validNotificationCreate(data, userId) {
+      return data.keys().hasAll([
+          'userId', 'eventKey', 'type', 'title', 'body', 'facilityId',
+          'sectionId', 'sectionName', 'tankId', 'tankName', 'relatedId',
+          'targetFishCount', 'primaryValue', 'secondaryValue', 'occurredAt',
+          'createdAt', 'updatedAt',
+          'isRead', 'readAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'eventKey', 'type', 'title', 'body', 'facilityId',
+          'sectionId', 'sectionName', 'tankId', 'tankName', 'relatedId',
+          'targetFishCount', 'primaryValue', 'secondaryValue', 'occurredAt',
+          'createdAt', 'updatedAt',
+          'isRead', 'readAt'
+        ])
+        && data.userId == userId
+        && data.eventKey is string
+        && data.eventKey.size() > 0
+        && data.eventKey.size() <= 320
+        && data.type in [
+          'highMortality', 'lowFeedStock', 'tankNote', 'diaryEntry',
+          'appUpdate'
+        ]
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 160
+        && data.body is string
+        && data.body.size() <= 400
+        && data.facilityId is string
+        && data.sectionId is string
+        && data.sectionName is string
+        && data.tankId is string
+        && data.tankName is string
+        && data.relatedId is string
+        && data.targetFishCount is int
+        && data.targetFishCount >= 0
+        && data.primaryValue is number
+        && data.primaryValue >= 0
+        && data.secondaryValue is number
+        && data.secondaryValue >= 0
+        && data.occurredAt is timestamp
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.isRead == false
+        && data.readAt == null;
+    }
+
+    function validNotificationReadUpdate(data) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isRead', 'readAt', 'updatedAt'
+        ])
+        && resource.data.isRead == false
+        && data.isRead == true
+        && data.readAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validNotificationState(data) {
+      return data.keys().hasAll(['key', 'active', 'cycle', 'updatedAt'])
+        && data.keys().hasOnly(['key', 'active', 'cycle', 'updatedAt'])
+        && data.key is string
+        && data.key.size() > 0
+        && data.key.size() <= 320
+        && data.active is bool
+        && data.cycle is int
+        && data.cycle >= 0
+        && data.updatedAt == request.time;
+    }
+
     match /users/{userId} {
       allow create: if validInvitedProfile(userId, request.resource.data);
 
       allow read: if signedIn()
         && (request.auth.uid == userId || isAdmin());
 
-      allow update: if isAdmin()
-        && validRole(request.resource.data.role)
-        && request.resource.data.disabled is bool;
+      allow update: if (isAdmin()
+          && validRole(request.resource.data.role)
+          && request.resource.data.disabled is bool)
+        || canUpdateOwnPreferredLanguage(userId);
       allow delete: if isAdmin();
+
+      match /notifications/{notificationId} {
+        allow read: if activeUser() && request.auth.uid == userId;
+        allow create: if activeUser()
+          && request.auth.uid == userId
+          && validNotificationCreate(request.resource.data, userId);
+        allow update: if activeUser()
+          && request.auth.uid == userId
+          && validNotificationReadUpdate(request.resource.data);
+        allow delete: if false;
+      }
+
+      match /notificationStates/{stateId} {
+        allow read: if activeUser() && request.auth.uid == userId;
+        allow create, update: if activeUser()
+          && request.auth.uid == userId
+          && validNotificationState(request.resource.data);
+        allow delete: if false;
+      }
     }
 
     match /userInvites/{inviteId} {

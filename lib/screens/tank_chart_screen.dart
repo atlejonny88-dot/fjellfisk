@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../utils/data_values.dart';
+import '../l10n/localizations.dart';
 
 class TankChartScreen extends StatelessWidget {
   final String facilityId;
@@ -58,13 +59,15 @@ class TankChartScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Vekst – $tankName'),
+        title: Text(context.l10n.weightGrowthTitle(tankName)),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _logsQuery.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text(loadErrorMessage(snapshot.error)));
+            return Center(
+              child: Text(loadErrorMessage(context, snapshot.error)),
+            );
           }
 
           if (!snapshot.hasData) {
@@ -77,8 +80,8 @@ class TankChartScreen extends StatelessWidget {
           }).toList();
 
           if (docs.isEmpty) {
-            return const Center(
-              child: Text('Ingen vektregistreringer ennå'),
+            return Center(
+              child: Text(context.l10n.noWeightRecords),
             );
           }
 
@@ -98,7 +101,7 @@ class TankChartScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Snittvekt over tid',
+                  context.l10n.averageWeightOverTime,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
@@ -138,7 +141,7 @@ class TankChartScreen extends StatelessWidget {
                     title: const Text('SGR'),
                     subtitle: Text(
                       sgr == null
-                          ? 'Ikke nok data'
+                          ? context.l10n.notEnoughData
                           : '${sgr.toStringAsFixed(2)} % / dag',
                     ),
                   ),
@@ -146,7 +149,7 @@ class TankChartScreen extends StatelessWidget {
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.scale),
-                    title: const Text('Siste snittvekt'),
+                    title: Text(context.l10n.latestAverageWeight),
                     subtitle: Text(
                       '${DataValues.weight(docs.last.data()).toStringAsFixed(1)} g',
                     ),

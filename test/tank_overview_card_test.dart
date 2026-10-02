@@ -1,4 +1,5 @@
 import 'package:fjellfisk/theme/app_theme.dart';
+import 'package:fjellfisk/l10n/app_localizations.dart';
 import 'package:fjellfisk/widgets/tank_overview_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme,
+        locale: const Locale('nb'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -43,7 +47,7 @@ void main() {
     expect(find.text('Snittvekt'), findsOneWidget);
     expect(find.text('Fôr 24t'), findsOneWidget);
     expect(find.text('Døde 7d'), findsOneWidget);
-    expect(find.text('Temp'), findsOneWidget);
+    expect(find.text('Temperatur'), findsOneWidget);
     expect(find.text('Gjennomgått i denne økten'), findsOneWidget);
     expect(find.text('Kontroller filteret'), findsOneWidget);
     expect(find.text('Alt innen normale verdier'), findsOneWidget);

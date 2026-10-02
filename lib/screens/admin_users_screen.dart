@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../models/user_invite.dart';
 import '../services/user_invite_service.dart';
 import '../services/user_service.dart';
+import '../l10n/localizations.dart';
 
 class AdminUsersScreen extends StatelessWidget {
   const AdminUsersScreen({super.key});
@@ -23,7 +24,7 @@ class AdminUsersScreen extends StatelessWidget {
         }
         if (snapshot.data != 'admin') {
           return Scaffold(
-            appBar: AppBar(title: const Text('Brukere & Tilganger')),
+            appBar: AppBar(title: Text(context.l10n.usersAndAccess)),
             body: const _AccessDenied(),
           );
         }
@@ -112,23 +113,23 @@ class _PageHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Brukere & Tilganger',
-                style: TextStyle(
+                context.l10n.usersAndAccess,
+                style: const TextStyle(
                   color: Color(0xFF0A1733),
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
                   height: 1.15,
                 ),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
-                'Administrer interne brukere, roller og invitasjoner.',
-                style: TextStyle(color: Color(0xFF5F7088), fontSize: 14),
+                context.l10n.manageUsersSubtitle,
+                style: const TextStyle(color: Color(0xFF5F7088), fontSize: 14),
               ),
             ],
           ),
@@ -138,7 +139,7 @@ class _PageHeader extends StatelessWidget {
           FilledButton.icon(
             onPressed: onInvite,
             icon: const Icon(Icons.person_add_alt_1_outlined),
-            label: const Text('Inviter bruker'),
+            label: Text(context.l10n.inviteUser),
           ),
         ],
       ],
@@ -193,7 +194,7 @@ class _UsersPanelState extends State<_UsersPanel> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kunne ikke oppdatere brukeren')),
+        SnackBar(content: Text(context.l10n.couldNotUpdateUser)),
       );
     }
   }
@@ -208,7 +209,7 @@ class _UsersPanelState extends State<_UsersPanel> {
             if (kDebugMode) {
               debugPrint('Brukerlesing feilet: ${snapshot.error}');
             }
-            return const _PanelError('Kunne ikke hente brukerne akkurat nå.');
+            return _PanelError(context.l10n.usersUnavailable);
           }
           if (!snapshot.hasData) {
             return const SizedBox(
@@ -231,25 +232,25 @@ class _UsersPanelState extends State<_UsersPanel> {
             children: [
               _PanelHeader(
                 icon: Icons.group_outlined,
-                title: 'Brukere',
+                title: context.l10n.usersAndAccess,
                 count: snapshot.data!.docs.length,
                 trailing: SizedBox(
                   width: 230,
                   child: TextField(
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Søk etter bruker...',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.searchUsers,
+                      prefixIcon: const Icon(Icons.search),
                     ),
                   ),
                 ),
               ),
               const Divider(height: 1),
               if (users.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(30),
-                  child: Text('Ingen brukere funnet'),
+                Padding(
+                  padding: const EdgeInsets.all(30),
+                  child: Text(context.l10n.noUsersFound),
                 )
               else
                 for (final document in users)
@@ -260,14 +261,16 @@ class _UsersPanelState extends State<_UsersPanel> {
                         userId: document.id,
                         role: role,
                       ),
-                      'Rolle oppdatert',
+                      context.l10n.roleUpdated,
                     ),
                     onDisabled: (disabled) => _update(
                       () => UserService.setUserDisabled(
                         userId: document.id,
                         disabled: disabled,
                       ),
-                      disabled ? 'Bruker deaktivert' : 'Bruker aktivert',
+                      disabled
+                          ? context.l10n.userDisabled
+                          : context.l10n.userEnabled,
                     ),
                   ),
             ],
@@ -292,7 +295,7 @@ class _UserRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = document.data();
-    final email = (data['email'] ?? 'Ukjent e-post').toString();
+    final email = (data['email'] ?? context.l10n.unknownEmail).toString();
     final name = (data['name'] ?? '').toString().trim();
     final role = _safeRole(data['role']);
     final disabled = data['disabled'] == true;
@@ -319,7 +322,9 @@ class _UserRow extends StatelessWidget {
                           ),
                         ),
                         _StatusBadge(
-                          label: disabled ? 'Deaktivert' : 'Aktiv',
+                          label: disabled
+                              ? context.l10n.statusDisabled
+                              : context.l10n.statusActive,
                           color: disabled
                               ? const Color(0xFF7F8997)
                               : const Color(0xFF0BA765),
@@ -337,8 +342,9 @@ class _UserRow extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         IconButton.filledTonal(
-                          tooltip:
-                              disabled ? 'Aktiver bruker' : 'Deaktiver bruker',
+                          tooltip: disabled
+                              ? context.l10n.activateUser
+                              : context.l10n.deactivateUser,
                           onPressed: isCurrentUser
                               ? null
                               : () => onDisabled(!disabled),
@@ -369,7 +375,9 @@ class _UserRow extends StatelessWidget {
                     Expanded(
                       flex: 2,
                       child: _StatusBadge(
-                        label: disabled ? 'Deaktivert' : 'Aktiv',
+                        label: disabled
+                            ? context.l10n.statusDisabled
+                            : context.l10n.statusActive,
                         color: disabled
                             ? const Color(0xFF7F8997)
                             : const Color(0xFF0BA765),
@@ -378,7 +386,10 @@ class _UserRow extends StatelessWidget {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        _formatDate(data['lastActive'] ?? data['updatedAt']),
+                        _formatDate(
+                          context,
+                          data['lastActive'] ?? data['updatedAt'],
+                        ),
                         style: const TextStyle(
                           color: Color(0xFF5F7088),
                           fontSize: 12,
@@ -386,14 +397,16 @@ class _UserRow extends StatelessWidget {
                       ),
                     ),
                     PopupMenuButton<String>(
-                      tooltip: 'Handlinger',
+                      tooltip: context.l10n.actions,
                       enabled: !isCurrentUser,
                       onSelected: (_) => onDisabled(!disabled),
                       itemBuilder: (context) => [
                         PopupMenuItem(
                           value: disabled ? 'activate' : 'disable',
                           child: Text(
-                            disabled ? 'Aktiver bruker' : 'Deaktiver bruker',
+                            disabled
+                                ? context.l10n.activateUser
+                                : context.l10n.deactivateUser,
                           ),
                         ),
                       ],
@@ -477,10 +490,12 @@ class _RoleDropdown extends StatelessWidget {
         value: value,
         isDense: true,
         borderRadius: BorderRadius.circular(7),
-        items: const [
-          DropdownMenuItem(value: 'admin', child: Text('Admin')),
-          DropdownMenuItem(value: 'ansatt', child: Text('Ansatt')),
-          DropdownMenuItem(value: 'leser', child: Text('Leser')),
+        items: [
+          DropdownMenuItem(value: 'admin', child: Text(context.l10n.roleAdmin)),
+          DropdownMenuItem(
+              value: 'ansatt', child: Text(context.l10n.roleEmployee)),
+          DropdownMenuItem(
+              value: 'leser', child: Text(context.l10n.roleReader)),
         ],
         onChanged: (value) {
           if (value != null && value != this.value) onChanged(value);
@@ -499,7 +514,7 @@ class _InvitesPanel extends StatelessWidget {
     );
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Invitasjonslenke kopiert')),
+      SnackBar(content: Text(context.l10n.invitationLinkCopied)),
     );
   }
 
@@ -507,16 +522,16 @@ class _InvitesPanel extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Trekke tilbake invitasjonen?'),
+        title: Text(context.l10n.revokeInvitationQuestion),
         content: Text(invite.email),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Trekk tilbake'),
+            child: Text(context.l10n.revokeInvitation),
           ),
         ],
       ),
@@ -526,13 +541,13 @@ class _InvitesPanel extends StatelessWidget {
       await UserInviteService.revokeInvite(invite.id);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invitasjonen er trukket tilbake')),
+        SnackBar(content: Text(context.l10n.invitationRevoked)),
       );
     } catch (error, stackTrace) {
       if (kDebugMode) debugPrint('Tilbakekalling feilet: $error\n$stackTrace');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kunne ikke trekke invitasjonen')),
+        SnackBar(content: Text(context.l10n.couldNotRevokeInvitation)),
       );
     }
   }
@@ -545,9 +560,7 @@ class _InvitesPanel extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             if (kDebugMode) debugPrint('Invitasjonslesing: ${snapshot.error}');
-            return const _PanelError(
-              'Invitasjoner er ikke tilgjengelige ennå.',
-            );
+            return _PanelError(context.l10n.invitationsUnavailable);
           }
           if (!snapshot.hasData) {
             return const SizedBox(
@@ -560,14 +573,14 @@ class _InvitesPanel extends StatelessWidget {
             children: [
               _PanelHeader(
                 icon: Icons.mark_email_unread_outlined,
-                title: 'Invitasjoner',
+                title: context.l10n.invitations,
                 count: invites.length,
               ),
               const Divider(height: 1),
               if (invites.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(28),
-                  child: Text('Ingen invitasjoner er opprettet'),
+                Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Text(context.l10n.noInvitations),
                 )
               else
                 for (final invite in invites)
@@ -628,7 +641,7 @@ class _InviteRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${_roleLabel(invite.role)} · utløper ${DateFormat('dd.MM.yyyy').format(invite.expiresAt)}',
+                  '${_roleLabel(context, invite.role)} · ${context.l10n.expiresOn(DateFormat('dd.MM.yyyy').format(invite.expiresAt))}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -639,23 +652,26 @@ class _InviteRow extends StatelessWidget {
               ],
             ),
           ),
-          _StatusBadge(label: invite.statusLabel, color: color),
+          _StatusBadge(
+            label: _inviteStatusLabel(context, invite.effectiveStatus),
+            color: color,
+          ),
           PopupMenuButton<String>(
-            tooltip: 'Invitasjonshandlinger',
+            tooltip: context.l10n.invitationActions,
             onSelected: (value) {
               if (value == 'copy') onCopy();
               if (value == 'revoke') onRevoke?.call();
             },
             itemBuilder: (context) => [
               if (invite.canBeUsed)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'copy',
-                  child: Text('Kopier invitasjonslenke'),
+                  child: Text(context.l10n.copyInvitationLink),
                 ),
               if (onRevoke != null)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'revoke',
-                  child: Text('Trekk tilbake invitasjon'),
+                  child: Text(context.l10n.revokeInvitation),
                 ),
             ],
           ),
@@ -701,13 +717,15 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
       if (!mounted) return;
       setState(() => _created = invite);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invitasjon opprettet')),
+        SnackBar(content: Text(context.l10n.invitationCreated)),
       );
     } on UserInviteException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) setState(() => _error = _inviteErrorMessage(context, error));
     } catch (error, stackTrace) {
       if (kDebugMode) debugPrint('Invitasjon feilet: $error\n$stackTrace');
-      if (mounted) setState(() => _error = 'Kunne ikke opprette invitasjonen');
+      if (mounted) {
+        setState(() => _error = context.l10n.couldNotCreateInvitation);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -717,7 +735,7 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Invitasjonslenke kopiert')),
+      SnackBar(content: Text(context.l10n.invitationLinkCopied)),
     );
   }
 
@@ -729,16 +747,16 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.person_add_alt_1_outlined,
                   color: Color(0xFF0B63E5),
                 ),
-                SizedBox(width: 9),
+                const SizedBox(width: 9),
                 Text(
-                  'Inviter bruker',
-                  style: TextStyle(
+                  context.l10n.invitePanelTitle,
+                  style: const TextStyle(
                     color: Color(0xFF0A1733),
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
@@ -749,9 +767,9 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
             const SizedBox(height: 18),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Navn (valgfritt)',
-                hintText: 'Skriv inn fullt navn',
+              decoration: InputDecoration(
+                labelText: context.l10n.nameOptional,
+                hintText: context.l10n.fullNameHint,
               ),
             ),
             const SizedBox(height: 12),
@@ -759,19 +777,22 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
-              decoration: const InputDecoration(
-                labelText: 'E-post',
-                hintText: 'navn@epost.no',
+              decoration: InputDecoration(
+                labelText: context.l10n.email,
+                hintText: context.l10n.emailHint,
               ),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _role,
-              decoration: const InputDecoration(labelText: 'Rolle'),
-              items: const [
-                DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                DropdownMenuItem(value: 'ansatt', child: Text('Ansatt')),
-                DropdownMenuItem(value: 'leser', child: Text('Leser')),
+              decoration: InputDecoration(labelText: context.l10n.role),
+              items: [
+                DropdownMenuItem(
+                    value: 'admin', child: Text(context.l10n.roleAdmin)),
+                DropdownMenuItem(
+                    value: 'ansatt', child: Text(context.l10n.roleEmployee)),
+                DropdownMenuItem(
+                    value: 'leser', child: Text(context.l10n.roleReader)),
               ],
               onChanged: _loading
                   ? null
@@ -780,9 +801,9 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
                     },
             ),
             const SizedBox(height: 10),
-            const Text(
-              'Rollen låses til invitasjonen. Lenken er gyldig i 7 dager.',
-              style: TextStyle(color: Color(0xFF708096), fontSize: 11),
+            Text(
+              context.l10n.invitationRoleInfo,
+              style: const TextStyle(color: Color(0xFF708096), fontSize: 11),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
@@ -806,7 +827,7 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.send_outlined),
-                label: const Text('Opprett invitasjon'),
+                label: Text(context.l10n.createInvitation),
               ),
             ),
             if (_created != null) ...[
@@ -818,11 +839,11 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
                   borderRadius: BorderRadius.circular(7),
                   border: Border.all(color: const Color(0xFFC9DEFA)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Color(0xFF0B63E5)),
-                    SizedBox(width: 8),
-                    Expanded(child: Text('Invitasjonen er klar til å sendes.')),
+                    const Icon(Icons.check_circle, color: Color(0xFF0B63E5)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(context.l10n.invitationReady)),
                   ],
                 ),
               ),
@@ -834,16 +855,15 @@ class _InviteFormPanelState extends State<_InviteFormPanel> {
                     UserInviteService.inviteLink(_created!.id),
                   ),
                   icon: const Icon(Icons.link),
-                  label: const Text('Kopier invitasjonslenke'),
+                  label: Text(context.l10n.copyInvitationLink),
                 ),
               ),
               SizedBox(
                 width: double.infinity,
                 child: TextButton.icon(
-                  onPressed: () =>
-                      _copy(UserInviteService.invitationText(_created!)),
+                  onPressed: () => _copy(_invitationText(context, _created!)),
                   icon: const Icon(Icons.content_copy),
-                  label: const Text('Kopier invitasjonstekst'),
+                  label: Text(context.l10n.copyInvitationText),
                 ),
               ),
             ],
@@ -1002,13 +1022,13 @@ class _AccessDenied extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Text(
-          'Du har ikke tilgang til å administrere brukere',
+          context.l10n.accessDeniedUserAdmin,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -1020,15 +1040,47 @@ String _safeRole(Object? value) {
   return UserService.roles.contains(role) ? role : 'leser';
 }
 
-String _roleLabel(String role) {
-  if (role == 'admin') return 'Admin';
-  if (role == 'ansatt') return 'Ansatt';
-  return 'Leser';
+String _roleLabel(BuildContext context, String role) {
+  if (role == 'admin') return context.l10n.roleAdmin;
+  if (role == 'ansatt') return context.l10n.roleEmployee;
+  return context.l10n.roleReader;
 }
 
-String _formatDate(Object? value) {
-  if (value is! Timestamp) return 'Ikke registrert';
+String _formatDate(BuildContext context, Object? value) {
+  if (value is! Timestamp) return context.l10n.notRegistered;
   return DateFormat('dd.MM.yyyy').format(value.toDate());
+}
+
+String _inviteStatusLabel(BuildContext context, String status) {
+  return switch (status) {
+    'accepted' => context.l10n.invitationStatusAccepted,
+    'revoked' => context.l10n.invitationStatusRevoked,
+    'expired' => context.l10n.invitationStatusExpired,
+    _ => context.l10n.invitationStatusPending,
+  };
+}
+
+String _inviteErrorMessage(BuildContext context, UserInviteException error) {
+  return switch (error.code) {
+    'invalid-email' => context.l10n.invalidEmail,
+    'invalid-role' => context.l10n.invalidRole,
+    'user-exists' => context.l10n.emailAlreadyRegistered,
+    'invite-exists' => context.l10n.activeInvitationExists,
+    'permission-denied' => context.l10n.accessDeniedUserAdmin,
+    'unavailable' => context.l10n.inviteServiceUnavailable,
+    _ => context.l10n.couldNotCreateInvitation,
+  };
+}
+
+String _invitationText(BuildContext context, UserInvite invite) {
+  final name = invite.displayName.trim();
+  final greeting = name.isEmpty
+      ? context.l10n.invitationGreeting
+      : context.l10n.invitationGreetingNamed(name);
+  return '$greeting\n\n${context.l10n.invitationCopyBody(
+    invite.email,
+    UserInviteService.inviteLink(invite.id),
+  )}';
 }
 
 Color _inviteStatusColor(String status) {

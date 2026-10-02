@@ -5,16 +5,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/language_controller.dart';
+import '../l10n/localizations.dart';
 import '../services/excel_service.dart';
+import '../services/notification_service.dart';
 import '../services/user_service.dart';
+import '../services/web_update_guard.dart';
+import '../models/app_notification.dart';
 import '../utils/tank_status.dart';
+import '../utils/ui_motion.dart';
 import '../widgets/dashboard_v3_widgets.dart';
 import '../widgets/diary_log_panel.dart';
+import '../widgets/notification_center.dart';
 import 'admin_users_screen.dart';
 import 'feed_inventory_screen.dart';
 import 'production_report_screen.dart';
 import 'section_screen.dart';
+import 'tank_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String facilityId;
@@ -37,8 +46,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final GlobalKey _diaryKey = GlobalKey();
   late Future<Map<String, dynamic>> _dashboardFuture;
   late Future<String> _roleFuture;
+  late Stream<List<AppNotification>> _notificationStream;
   bool _isRefreshing = false;
   int _diaryRefreshKey = 0;
+  Timer? _webUpdateTimer;
 
   CollectionReference<Map<String, dynamic>> get _sectionsRef {
     return FirebaseFirestore.instance
@@ -52,11 +63,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _dashboardFuture = _loadDashboard().timeout(_loadTimeout);
     _roleFuture = UserService.getCurrentUserRole();
+    _notificationStream = NotificationService.notificationsStream();
+    unawaited(_syncNotifications());
+    _webUpdateTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _syncWebUpdateNotification(),
+    );
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _webUpdateTimer?.cancel();
     super.dispose();
   }
 
@@ -65,10 +83,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await ExcelService.exportFacility(
         facilityId: widget.facilityId,
         facilityName: widget.facilityName,
+        labels: context.l10n,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Excel eksport fullført')),
+        SnackBar(content: Text(context.l10n.excelExportComplete)),
       );
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -76,9 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kunne ikke eksportere Excel. Prøv igjen.'),
-        ),
+        SnackBar(content: Text(context.l10n.excelExportFailed)),
       );
     }
   }
@@ -282,9 +299,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     try {
       await future;
+      unawaited(_syncNotifications());
       if (!mounted || !showFeedback) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dashboard oppdatert')),
+        SnackBar(content: Text(context.l10n.dashboardUpdated)),
       );
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -300,20 +318,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _refreshFromUser() => _refresh(showFeedback: true);
 
+  Future<void> _changeLanguage(AppLanguage language) async {
+    try {
+      await LanguageScope.of(context).select(language);
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+            'Fjellfisk språkvalg kunne ikke lagres: $error\n$stackTrace');
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.languageSaveFailed)),
+      );
+    }
+  }
+
+  Future<void> _syncNotifications() async {
+    await NotificationService.syncOperationalNotifications(
+      facilityId: widget.facilityId,
+    );
+    await _syncWebUpdateNotification();
+  }
+
+  Future<void> _syncWebUpdateNotification() {
+    final buildId = webUpdateAvailableBuild();
+    if (buildId == null || buildId.isEmpty) return Future.value();
+    return NotificationService.syncWebUpdateNotification(
+      facilityId: widget.facilityId,
+      buildId: buildId,
+    );
+  }
+
   Future<void> _logout() async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logg ut?'),
-        content: const Text('Er du sikker på at du vil logge ut?'),
+        title: Text(context.l10n.logoutQuestion),
+        content: Text(context.l10n.logoutConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton.icon(
             icon: const Icon(Icons.logout),
-            label: const Text('Logg ut'),
+            label: Text(context.l10n.logout),
             onPressed: () => Navigator.of(context).pop(true),
           ),
         ],
@@ -351,10 +400,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ).then((_) => _refresh());
   }
 
+  Future<void> _openNotifications() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Align(
+        alignment: Alignment.bottomCenter,
+        child: NotificationCenterSheet(
+          notifications: _notificationStream,
+          onMarkRead: NotificationService.markRead,
+          onMarkAllRead: NotificationService.markAllRead,
+          onOpen: _openNotificationTarget,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openNotificationTarget(AppNotification notification) async {
+    switch (notification.type) {
+      case AppNotificationType.highMortality:
+      case AppNotificationType.tankNote:
+        await _openTankFromNotification(notification);
+      case AppNotificationType.lowFeedStock:
+        _openFeedInventory();
+      case AppNotificationType.diaryEntry:
+        _scrollToDiary();
+      case AppNotificationType.appUpdate:
+        requestWebUpdate();
+    }
+  }
+
+  Future<void> _openTankFromNotification(
+    AppNotification notification,
+  ) async {
+    final tankUnavailable = context.l10n.tankUnavailable;
+    if (notification.sectionId.isEmpty || notification.tankId.isEmpty) {
+      _showNotificationNavigationError();
+      return;
+    }
+
+    try {
+      final tank = await FirebaseFirestore.instance
+          .collection('facilities')
+          .doc(widget.facilityId)
+          .collection('sections')
+          .doc(notification.sectionId)
+          .collection('tanks')
+          .doc(notification.tankId)
+          .get();
+      if (!tank.exists) {
+        _showNotificationNavigationError(
+          tankUnavailable,
+        );
+        return;
+      }
+      if (!mounted) return;
+      final data = tank.data() ?? const <String, dynamic>{};
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TankScreen(
+            facilityId: widget.facilityId,
+            sectionId: notification.sectionId,
+            tankId: notification.tankId,
+            tankName: (data['name'] ?? notification.tankName).toString(),
+            fishCount: TankStatus.fishCountFrom(data['fishCount']),
+          ),
+        ),
+      );
+      if (mounted) _refresh();
+    } on FirebaseException catch (error) {
+      if (kDebugMode) {
+        debugPrint('Fjellfisk varsel-navigering: ${error.code} $error');
+      }
+      _showNotificationNavigationError();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Fjellfisk varsel-navigering: $error\n$stackTrace');
+      }
+      _showNotificationNavigationError();
+    }
+  }
+
+  void _showNotificationNavigationError([String? message]) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? context.l10n.contentUnavailable)));
+  }
+
   void _openSection(Map<String, dynamic> section) {
     Navigator.push(
       context,
-      MaterialPageRoute(
+      subtleFadeSlideRoute(
+        context: context,
         builder: (_) => SectionScreen(
           facilityId: widget.facilityId,
           sectionId: section['id'].toString(),
@@ -384,9 +523,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  String _decimal(num value, [int digits = 1]) {
-    return value.toStringAsFixed(digits).replaceAll('.', ',');
-  }
+  String _decimal(num value, [int digits = 1]) =>
+      NumberFormat.decimalPatternDigits(
+        locale: LanguageScope.of(context).language.code,
+        decimalDigits: digits,
+      ).format(value);
 
   String _biomassLabel(double biomassKg) {
     if (biomassKg >= 1000) {
@@ -397,23 +538,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _dashboardErrorMessage(Object? error) {
     if (error is TimeoutException) {
-      return 'Det tok for lang tid å hente driftsdata. Kontroller nettet og prøv igjen.';
+      return context.l10n.dashboardLoadTimeout;
     }
     if (error is FirebaseException) {
       if (error.code == 'permission-denied') {
-        return 'Brukeren mangler tilgang til driftsdata. Kontakt administrator.';
+        return context.l10n.dashboardPermissionDenied;
       }
       if (error.code == 'unavailable') {
-        return 'Driftsdata er midlertidig utilgjengelige. Kontroller nettet og prøv igjen.';
+        return context.l10n.dashboardUnavailable;
       }
     }
-    return 'Dashboardet kunne ikke lastes akkurat nå. Prøv igjen.';
+    return context.l10n.dashboardLoadFailed;
   }
 
   @override
   Widget build(BuildContext context) {
     final userLabel =
-        FirebaseAuth.instance.currentUser?.email ?? 'Innlogget bruker';
+        FirebaseAuth.instance.currentUser?.email ?? context.l10n.signedInUser;
     return LayoutBuilder(
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 1080;
@@ -424,6 +565,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             userLabel: userLabel,
             isDesktop: isDesktop,
             isRefreshing: _isRefreshing,
+            notificationStream: _notificationStream,
+            onNotifications: _openNotifications,
+            language: LanguageScope.of(context).language,
+            onLanguageChanged: _changeLanguage,
             onRefresh: _refreshFromUser,
             onLogout: _logout,
           ),
@@ -484,6 +629,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _dashboardContent(Map<String, dynamic> data) {
+    final l10n = context.l10n;
     final sectionRows = data['sectionRows'] as List<Map<String, dynamic>>;
     final biomassKg = data['biomassKg'] as double;
     final recommendedFeedKg = data['recommendedFeedKg'] as double;
@@ -515,48 +661,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     minItemWidth: 190,
                     children: [
                       DashboardKpiCard(
-                        title: 'Aktive kar',
+                        title: l10n.activeTanks,
                         value: '${data['activeTanks']}',
-                        detail: 'av ${data['tanks']} kar',
-                        note: '${data['emptyTanks']} tomme kar',
+                        detail: l10n.tanksOfTotal(data['tanks'] as int),
+                        note: l10n.emptyTanks(data['emptyTanks'] as int),
                         icon: Icons.radar,
                         accent: const Color(0xFF0B63E5),
                       ),
                       DashboardKpiCard(
-                        title: 'Biomasse',
+                        title: l10n.biomass,
                         value: _biomassLabel(biomassKg),
-                        detail: '${data['fish']} fisk',
-                        note: 'Aktiv biomasse',
+                        detail: l10n.fishCount(data['fish'] as int),
+                        note: l10n.activeBiomass,
                         icon: Icons.scale_outlined,
                         accent: const Color(0xFF15945C),
                       ),
                       DashboardKpiCard(
-                        title: 'Fôr i dag',
+                        title: l10n.feedToday,
                         value: '${_decimal(feedTodayKg)} kg',
-                        detail: 'Faktisk registrert',
-                        note: 'Anbefalt ${_decimal(recommendedFeedKg)} kg',
+                        detail: l10n.actualRecorded,
+                        note: l10n.recommendedFeed(_decimal(recommendedFeedKg)),
                         icon: Icons.set_meal_outlined,
                         accent: const Color(0xFF6C55C7),
                       ),
                       DashboardKpiCard(
-                        title: 'Døde i dag',
+                        title: l10n.deadToday,
                         value: '${data['mortalityToday']}',
-                        detail: 'Registrert dødelighet',
+                        detail: l10n.recordedMortality,
                         note: data['mortalityToday'] == 0
-                            ? 'Ingen registrert i dag'
-                            : 'Antall fisk',
+                            ? l10n.noneRecordedToday
+                            : l10n.numberOfFish,
                         icon: Icons.warning_amber_rounded,
                         accent: const Color(0xFFD43838),
                       ),
                       DashboardKpiCard(
-                        title: 'Snittemperatur',
+                        title: l10n.averageTemperature,
                         value: avgTemp > 0
                             ? '${_decimal(avgTemp)} °C'
-                            : 'Ingen data',
-                        detail: 'Registrerte målinger',
+                            : l10n.noData,
+                        detail: l10n.recordedMeasurements,
                         note: avgTemp > 0
-                            ? 'Oppdatert fra karlogger'
-                            : 'Ikke nok data',
+                            ? l10n.updatedFromTankLogs
+                            : l10n.notEnoughData,
                         icon: Icons.device_thermostat,
                         accent: const Color(0xFF1678D2),
                       ),
@@ -573,11 +719,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 26),
                   DashboardSectionHeading(
-                    title: 'Bygg',
-                    subtitle:
-                        '${data['sections']} seksjoner med ${data['tanks']} kar',
+                    title: l10n.buildings,
+                    subtitle: l10n.sectionsWithTanks(
+                      data['sections'] as int,
+                      data['tanks'] as int,
+                    ),
                     action: IconButton.outlined(
-                      tooltip: 'Eksporter anlegget til Excel',
+                      tooltip: l10n.exportFacilityToExcel,
                       onPressed: _exportExcel,
                       icon: const Icon(Icons.download_outlined),
                     ),
@@ -604,9 +752,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       }).toList(),
                     ),
                   const SizedBox(height: 28),
-                  const DashboardSectionHeading(
-                    title: 'Driftsverktøy',
-                    subtitle: 'Rapporter, lager og administrasjon',
+                  DashboardSectionHeading(
+                    title: l10n.operationalTools,
+                    subtitle: l10n.operationalToolsSubtitle,
                   ),
                   const SizedBox(height: 12),
                   _actionGrid(),
@@ -631,25 +779,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _actionGrid() {
+    final l10n = context.l10n;
     return FutureBuilder<String>(
       future: _roleFuture,
       builder: (context, snapshot) {
         final actions = <Widget>[
           DashboardActionCard(
-            title: 'Produksjonsrapport',
-            subtitle: 'Se nøkkeltall for valgt periode',
+            title: l10n.productionReport,
+            subtitle: l10n.reportSubtitle,
             icon: Icons.summarize_outlined,
             onTap: _openProductionReport,
           ),
           DashboardActionCard(
-            title: 'Fôrlager',
-            subtitle: 'Se beholdning og lagerhistorikk',
+            title: l10n.feedInventory,
+            subtitle: l10n.feedInventorySubtitle,
             icon: Icons.inventory_2_outlined,
             onTap: _openFeedInventory,
           ),
           DashboardActionCard(
-            title: 'Excel-eksport',
-            subtitle: 'Eksporter komplett anleggsoversikt',
+            title: l10n.excelExport,
+            subtitle: l10n.excelSubtitle,
             icon: Icons.download_outlined,
             onTap: _exportExcel,
           ),
@@ -657,8 +806,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (snapshot.data == 'admin') {
           actions.add(
             DashboardActionCard(
-              title: 'Brukere & Tilganger',
-              subtitle: 'Endre roller og tilgang',
+              title: l10n.usersAndAccess,
+              subtitle: l10n.accessSubtitle,
               icon: Icons.admin_panel_settings_outlined,
               onTap: _openAdminUsers,
             ),

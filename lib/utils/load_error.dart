@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
-String loadErrorMessage(Object? error) {
+import '../l10n/localizations.dart';
+
+String loadErrorMessage(BuildContext context, Object? error) {
   debugPrint('Kunne ikke hente data: $error');
   if (error is FirebaseException && error.code == 'permission-denied') {
-    return 'Du har ikke tilgang til disse dataene. Kontakt administrator.';
+    return context.l10n.dataPermissionDenied;
   }
-  return 'Kunne ikke hente data. Kontroller nettverket og prøv igjen.';
+  return context.l10n.dataLoadFailed;
 }

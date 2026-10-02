@@ -35,6 +35,7 @@ class UserInviteService {
     return '$hostingBaseUrl/#/invite/$token';
   }
 
+  /// Legacy fallback for callers outside the localized UI.
   static String invitationText(UserInvite invite) {
     final name = invite.displayName.trim();
     final greeting = name.isEmpty ? 'Hei!' : 'Hei $name!';

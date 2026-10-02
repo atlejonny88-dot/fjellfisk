@@ -69,6 +69,25 @@
     }
     window.location.replace(url.href);
   }
+  async function requestAvailableUpdate() {
+    if (!latest) return;
+    if (window.fjellfiskSaving) {
+      if (banner) {
+        banner.querySelector('[data-fjellfisk-update-message]').textContent =
+          'Vent til registreringen er ferdig lagret før du oppdaterer.';
+      }
+      return;
+    }
+    if (!window.confirm('Appen lastes på nytt. Har du lagret endringene dine?')) return;
+    if (banner) {
+      var updateButton = banner.querySelector('[data-fjellfisk-update-button]');
+      if (updateButton) updateButton.disabled = true;
+      banner.querySelector('[data-fjellfisk-update-message]').textContent =
+        'Oppdaterer Fjellfisk ...';
+    }
+    await reloadLatest();
+  }
+  window.fjellfiskRequestUpdate = requestAvailableUpdate;
   var checker = createChecker({
     current: current,
     read: async function () {
@@ -84,6 +103,10 @@
     },
     available: function (id) {
       latest = id;
+      window.fjellfiskLatestBuild = id;
+      window.dispatchEvent(new CustomEvent('fjellfisk-update-available', {
+        detail: { buildId: id }
+      }));
       if (banner) return;
       banner = document.createElement('aside');
       banner.setAttribute('role', 'status');
@@ -91,6 +114,7 @@
       banner.id = 'fjellfisk-update';
       banner.style.cssText = 'position:fixed;bottom:16px;left:16px;right:16px;max-width:540px;margin:auto;padding:16px;background:white;color:#173c67;border:1px solid #bdd3e9;border-radius:8px;box-shadow:0 4px 20px #0002;z-index:2147483647;font:15px/1.5 Arial,sans-serif;box-sizing:border-box';
       var message = document.createElement('p');
+      message.setAttribute('data-fjellfisk-update-message', 'true');
       message.textContent = 'Ny versjon av Fjellfisk er tilgjengelig.';
       message.style.margin = '0 0 10px';
       banner.appendChild(message);
@@ -104,15 +128,9 @@
         return element;
       }
       var update = button('Oppdater nå', async function () {
-        if (window.fjellfiskSaving) {
-          message.textContent = 'Vent til registreringen er ferdig lagret før du oppdaterer.';
-          return;
-        }
-        if (!window.confirm('Appen lastes på nytt. Har du lagret endringene dine?')) return;
-        update.disabled = true;
-        message.textContent = 'Oppdaterer Fjellfisk ...';
-        await reloadLatest();
+        await requestAvailableUpdate();
       });
+      update.setAttribute('data-fjellfisk-update-button', 'true');
       update.style.background = '#0b63e5';
       update.style.color = 'white';
       button('Senere', function () {
