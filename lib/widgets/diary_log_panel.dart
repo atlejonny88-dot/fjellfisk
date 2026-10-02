@@ -9,6 +9,7 @@ import '../models/diary_entry.dart';
 import '../services/diary_print_service.dart';
 import '../services/diary_service.dart';
 import '../services/user_service.dart';
+import '../l10n/localizations.dart';
 
 class DiaryLogPanel extends StatefulWidget {
   const DiaryLogPanel({
@@ -33,7 +34,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
   Timer? _initialLoadTimer;
   DiaryPeriod _period = DiaryPeriod.day;
   DateTime _focusDate = DateTime.now();
-  String _category = 'Alle kategorier';
+  String _category = 'all';
   bool _busy = false;
   bool _waitingForFirstEntries = true;
   bool _initialLoadTimedOut = false;
@@ -121,7 +122,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${entries.length} innlegg i visningen',
+                        context.l10n.diaryEntriesInView(entries.length),
                         style: const TextStyle(
                           color: Color(0xFF61718A),
                           fontSize: 13,
@@ -142,7 +143,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            '${entries.length - 5} flere innlegg finnes i full dagbok.',
+                            context.l10n.moreDiaryEntries(entries.length - 5),
                             style: const TextStyle(color: Color(0xFF61718A)),
                           ),
                         ),
@@ -162,15 +163,15 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
   }
 
   Widget _header({required bool canCreate}) {
-    const title = Row(
+    final title = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _DiaryHeaderIcon(),
-        SizedBox(width: 11),
+        const _DiaryHeaderIcon(),
+        const SizedBox(width: 11),
         Flexible(
           child: Text(
-            'Dagbok / Driftslogg',
-            style: TextStyle(
+            context.l10n.diary,
+            style: const TextStyle(
               color: Color(0xFF0A1733),
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -182,7 +183,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
     final button = FilledButton.icon(
       onPressed: canCreate && !_busy ? _createEntry : null,
       icon: const Icon(Icons.add),
-      label: const Text('Nytt innlegg'),
+      label: Text(context.l10n.newDiaryEntry),
     );
 
     return LayoutBuilder(
@@ -199,7 +200,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         }
         return Row(
           children: [
-            const Expanded(child: title),
+            Expanded(child: title),
             const SizedBox(width: 12),
             button,
           ],
@@ -210,10 +211,11 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
 
   Widget _periodControl() {
     return SegmentedButton<DiaryPeriod>(
-      segments: const [
-        ButtonSegment(value: DiaryPeriod.day, label: Text('Dag')),
-        ButtonSegment(value: DiaryPeriod.month, label: Text('Måned')),
-        ButtonSegment(value: DiaryPeriod.year, label: Text('År')),
+      segments: [
+        ButtonSegment(value: DiaryPeriod.day, label: Text(context.l10n.day)),
+        ButtonSegment(
+            value: DiaryPeriod.month, label: Text(context.l10n.month)),
+        ButtonSegment(value: DiaryPeriod.year, label: Text(context.l10n.year)),
       ],
       selected: {_period},
       showSelectedIcon: false,
@@ -230,7 +232,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
     return Row(
       children: [
         IconButton.outlined(
-          tooltip: _previousTooltip,
+          tooltip: _previousTooltip(context),
           onPressed: () => _shiftFocus(-1),
           icon: const Icon(Icons.chevron_left),
         ),
@@ -248,13 +250,13 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         ),
         const SizedBox(width: 8),
         IconButton.outlined(
-          tooltip: _nextTooltip,
+          tooltip: _nextTooltip(context),
           onPressed: () => _shiftFocus(1),
           icon: const Icon(Icons.chevron_right),
         ),
         const SizedBox(width: 8),
         IconButton(
-          tooltip: 'Gå til i dag',
+          tooltip: context.l10n.goToToday,
           onPressed: () {
             setState(() {
               _focusDate = DateTime.now();
@@ -271,24 +273,27 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
     final search = TextField(
       controller: _searchController,
       onChanged: (_) => setState(() {}),
-      decoration: const InputDecoration(
-        labelText: 'Søk i innlegg',
-        prefixIcon: Icon(Icons.search),
+      decoration: InputDecoration(
+        labelText: context.l10n.searchEntries,
+        prefixIcon: const Icon(Icons.search),
         isDense: true,
       ),
     );
     final category = DropdownButtonFormField<String>(
       initialValue: _category,
-      decoration: const InputDecoration(
-        labelText: 'Kategori',
-        prefixIcon: Icon(Icons.category_outlined),
+      decoration: InputDecoration(
+        labelText: context.l10n.category,
+        prefixIcon: const Icon(Icons.category_outlined),
         isDense: true,
       ),
       items: [
-        'Alle kategorier',
+        'all',
         ...DiaryService.categories,
       ].map((value) {
-        return DropdownMenuItem(value: value, child: Text(value));
+        return DropdownMenuItem(
+          value: value,
+          child: Text(value == 'all' ? context.l10n.allCategories : value),
+        );
       }).toList(),
       onChanged: (value) {
         if (value != null) setState(() => _category = value);
@@ -325,12 +330,12 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         OutlinedButton.icon(
           onPressed: _busy ? null : _printMonth,
           icon: const Icon(Icons.calendar_month_outlined),
-          label: const Text('Skriv ut måned'),
+          label: Text(context.l10n.printMonth),
         ),
         OutlinedButton.icon(
           onPressed: _busy ? null : _printYear,
           icon: const Icon(Icons.event_note_outlined),
-          label: const Text('Skriv ut år'),
+          label: Text(context.l10n.printYear),
         ),
       ],
     );
@@ -345,14 +350,15 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFE0E7F0)),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.menu_book_outlined, size: 36, color: Color(0xFF7A8AA0)),
-          SizedBox(height: 10),
+          const Icon(Icons.menu_book_outlined,
+              size: 36, color: Color(0xFF7A8AA0)),
+          const SizedBox(height: 10),
           Text(
-            'Ingen dagbokinnlegg i valgt periode',
+            context.l10n.noDiaryEntries,
             textAlign: TextAlign.center,
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -381,8 +387,8 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
           Expanded(
             child: Text(
               permissionDenied
-                  ? 'Driftsloggen er ikke tilgjengelig før tilgangsreglene er oppdatert.'
-                  : 'Driftsloggen kunne ikke lastes akkurat nå. Resten av dashboardet fungerer som normalt.',
+                  ? context.l10n.diaryUnavailablePermission
+                  : context.l10n.diaryLoadFailed,
             ),
           ),
         ],
@@ -403,16 +409,16 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         children: [
           const Icon(Icons.cloud_off_outlined, color: Color(0xFF61718A)),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Driftsloggen bruker lang tid på å svare. Resten av dashboardet fungerer som normalt.',
+              context.l10n.diaryLoadingLong,
             ),
           ),
           const SizedBox(width: 12),
           TextButton.icon(
             onPressed: _retryEntries,
             icon: const Icon(Icons.refresh),
-            label: const Text('Prøv igjen'),
+            label: Text(context.l10n.retry),
           ),
         ],
       ),
@@ -422,7 +428,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
   List<DiaryEntry> _filterEntries(List<DiaryEntry> entries) {
     final query = _searchController.text.trim().toLowerCase();
     return entries.where((entry) {
-      if (_category != 'Alle kategorier' && entry.category != _category) {
+      if (_category != 'all' && entry.category != _category) {
         return false;
       }
       if (query.isEmpty) return true;
@@ -487,8 +493,8 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         facilityId: widget.facilityId,
         draft: draft,
       ),
-      success: 'Dagbokinnlegg lagret',
-      failure: 'Kunne ikke lagre dagbokinnlegg',
+      success: context.l10n.diaryEntrySaved,
+      failure: context.l10n.couldNotSaveDiaryEntry,
     );
   }
 
@@ -505,8 +511,8 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         entry: entry,
         draft: draft,
       ),
-      success: 'Dagbokinnlegg oppdatert',
-      failure: 'Kunne ikke oppdatere dagbokinnlegg',
+      success: context.l10n.diaryEntryUpdated,
+      failure: context.l10n.couldNotUpdateDiaryEntry,
     );
   }
 
@@ -514,16 +520,16 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Arkiver innlegg?'),
-        content: Text('«${entry.title}» fjernes fra den aktive dagboken.'),
+        title: Text(context.l10n.archiveEntryQuestion),
+        content: Text(context.l10n.archiveEntryBody(_entryTitle(entry))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Arkiver'),
+            child: Text(context.l10n.archive),
           ),
         ],
       ),
@@ -535,8 +541,8 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
         facilityId: widget.facilityId,
         entry: entry,
       ),
-      success: 'Dagbokinnlegg arkivert',
-      failure: 'Kunne ikke arkivere dagbokinnlegg',
+      success: context.l10n.diaryEntryArchived,
+      failure: context.l10n.couldNotArchiveDiaryEntry,
     );
   }
 
@@ -545,8 +551,9 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
       action: () => DiaryPrintService.printEntry(
         entry: entry,
         facilityName: widget.facilityName,
+        labels: _printLabels(context),
       ),
-      failure: 'Kunne ikke åpne utskrift',
+      failure: context.l10n.couldNotOpenPrint,
     );
   }
 
@@ -575,6 +582,7 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
     required String periodLabel,
     required String fileName,
   }) async {
+    final labels = _printLabels(context);
     await _runAction(
       action: () async {
         final entries = await DiaryService.fetchEntries(
@@ -586,10 +594,27 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
           facilityName: widget.facilityName,
           periodLabel: periodLabel,
           fileName: fileName,
+          labels: labels,
         );
       },
-      failure: 'Kunne ikke åpne utskrift',
+      failure: context.l10n.couldNotOpenPrint,
     );
+  }
+
+  DiaryPrintLabels _printLabels(BuildContext context) {
+    final l10n = context.l10n;
+    return DiaryPrintLabels(
+      title: l10n.diaryPdfTitle,
+      emptyPeriod: l10n.noDiaryEntriesForPeriod,
+      dateMissing: l10n.dateMissing,
+      unknownUser: l10n.unknownUser,
+      untitled: l10n.untitled,
+      pageOf: l10n.pageOf,
+    );
+  }
+
+  String _entryTitle(DiaryEntry entry) {
+    return entry.title.trim().isEmpty ? context.l10n.untitled : entry.title;
   }
 
   Future<void> _runAction({
@@ -629,17 +654,9 @@ class _DiaryLogPanelState extends State<DiaryLogPanel> {
     }
   }
 
-  String get _previousTooltip => switch (_period) {
-        DiaryPeriod.day => 'Forrige dag',
-        DiaryPeriod.month => 'Forrige måned',
-        DiaryPeriod.year => 'Forrige år',
-      };
+  String _previousTooltip(BuildContext context) => context.l10n.previousPeriod;
 
-  String get _nextTooltip => switch (_period) {
-        DiaryPeriod.day => 'Neste dag',
-        DiaryPeriod.month => 'Neste måned',
-        DiaryPeriod.year => 'Neste år',
-      };
+  String _nextTooltip(BuildContext context) => context.l10n.nextPeriod;
 }
 
 class _DiaryHeaderIcon extends StatelessWidget {
@@ -700,7 +717,11 @@ class _DiaryEditorDialogState extends State<_DiaryEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.entry == null ? 'Nytt innlegg' : 'Rediger innlegg'),
+      title: Text(
+        widget.entry == null
+            ? context.l10n.newDiaryEntry
+            : context.l10n.editEntry,
+      ),
       content: SizedBox(
         width: 560,
         child: Form(
@@ -713,17 +734,18 @@ class _DiaryEditorDialogState extends State<_DiaryEditorDialog> {
                   controller: _titleController,
                   autofocus: true,
                   maxLength: 160,
-                  decoration: const InputDecoration(labelText: 'Tittel'),
+                  decoration:
+                      InputDecoration(labelText: context.l10n.entryTitle),
                   validator: (value) {
                     return value == null || value.trim().isEmpty
-                        ? 'Skriv inn en tittel'
+                        ? context.l10n.enterEntryTitle
                         : null;
                   },
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _category,
-                  decoration: const InputDecoration(labelText: 'Kategori'),
+                  decoration: InputDecoration(labelText: context.l10n.category),
                   items: DiaryService.categories.map((category) {
                     return DropdownMenuItem(
                       value: category,
@@ -740,13 +762,13 @@ class _DiaryEditorDialogState extends State<_DiaryEditorDialog> {
                   minLines: 5,
                   maxLines: 10,
                   maxLength: 10000,
-                  decoration: const InputDecoration(
-                    labelText: 'Tekst / innhold',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.entryContent,
                     alignLabelWithHint: true,
                   ),
                   validator: (value) {
                     return value == null || value.trim().isEmpty
-                        ? 'Skriv inn hva som har skjedd eller er gjort'
+                        ? context.l10n.enterEntryContent
                         : null;
                   },
                 ),
@@ -762,8 +784,8 @@ class _DiaryEditorDialogState extends State<_DiaryEditorDialog> {
                     Expanded(
                       child: Text(
                         widget.entry == null
-                            ? 'Dato og klokkeslett lagres automatisk.'
-                            : 'Opprinnelig dato beholdes. Endringstid lagres automatisk.',
+                            ? context.l10n.dateTimeSavedAutomatically
+                            : context.l10n.originalDatePreserved,
                         style: const TextStyle(
                           color: Color(0xFF61718A),
                           fontSize: 13,
@@ -780,12 +802,12 @@ class _DiaryEditorDialogState extends State<_DiaryEditorDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Avbryt'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton.icon(
           onPressed: _submit,
           icon: const Icon(Icons.save_outlined),
-          label: const Text('Lagre'),
+          label: Text(context.l10n.save),
         ),
       ],
     );
@@ -865,7 +887,7 @@ class _DiaryEntryCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(child: _meta(context)),
-        _actions(),
+        _actions(context),
       ],
     );
   }
@@ -876,7 +898,9 @@ class _DiaryEntryCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          date == null ? 'Dato mangler' : DateFormat('dd.MM.yyyy').format(date),
+          date == null
+              ? context.l10n.unknownDate
+              : DateFormat('dd.MM.yyyy').format(date),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 3),
@@ -886,7 +910,9 @@ class _DiaryEntryCard extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         Text(
-          entry.authorLabel,
+          entry.authorLabel.trim().isEmpty
+              ? context.l10n.unknownUser
+              : entry.authorLabel,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Color(0xFF53657D), fontSize: 13),
@@ -904,7 +930,9 @@ class _DiaryEntryCard extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                entry.title,
+                entry.title.trim().isEmpty
+                    ? context.l10n.untitled
+                    : entry.title,
                 style: const TextStyle(
                   color: Color(0xFF0A1733),
                   fontWeight: FontWeight.w800,
@@ -915,7 +943,7 @@ class _DiaryEntryCard extends StatelessWidget {
             _CategoryBadge(category: entry.category),
             if (showActions) ...[
               const SizedBox(width: 4),
-              _actions(),
+              _actions(context),
             ],
           ],
         ),
@@ -932,39 +960,39 @@ class _DiaryEntryCard extends StatelessWidget {
     );
   }
 
-  Widget _actions() {
+  Widget _actions(BuildContext context) {
     return PopupMenuButton<String>(
-      tooltip: 'Handlinger for innlegg',
+      tooltip: context.l10n.entryActions,
       onSelected: (value) {
         if (value == 'print') onPrint();
         if (value == 'edit') onEdit();
         if (value == 'archive') onArchive();
       },
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'print',
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.print_outlined),
-            title: Text('Skriv ut innlegg'),
+            leading: const Icon(Icons.print_outlined),
+            title: Text(context.l10n.printEntry),
           ),
         ),
         if (canEdit)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'edit',
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.edit_outlined),
-              title: Text('Rediger'),
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(context.l10n.edit),
             ),
           ),
         if (canArchive)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'archive',
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.archive_outlined),
-              title: Text('Arkiver'),
+              leading: const Icon(Icons.archive_outlined),
+              title: Text(context.l10n.archive),
             ),
           ),
       ],

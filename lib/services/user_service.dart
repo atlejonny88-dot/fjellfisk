@@ -106,4 +106,33 @@ class UserService {
 
     return _db.collection('users').doc(user.uid).snapshots();
   }
+
+  static Future<String> getCurrentUserPreferredLanguage() async {
+    final user = _auth.currentUser;
+    if (user == null) return 'nb';
+
+    final snapshot = await _db.collection('users').doc(user.uid).get();
+    final value = snapshot.data()?['preferredLanguage']?.toString().trim();
+    return switch (value) {
+      'en' => 'en',
+      'pl' => 'pl',
+      'nb' || 'no' => 'nb',
+      _ => 'nb',
+    };
+  }
+
+  static Future<void> setCurrentUserPreferredLanguage(
+      String languageCode) async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('Ingen bruker er logget inn');
+
+    final normalized = switch (languageCode.trim().toLowerCase()) {
+      'en' => 'en',
+      'pl' => 'pl',
+      _ => 'nb',
+    };
+    await _db.collection('users').doc(user.uid).update({
+      'preferredLanguage': normalized,
+    });
+  }
 }

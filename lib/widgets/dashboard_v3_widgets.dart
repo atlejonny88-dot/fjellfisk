@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/language_controller.dart';
+import '../l10n/localizations.dart';
+import '../models/app_notification.dart';
+import '../utils/ui_motion.dart';
+import 'notification_center.dart';
+
 class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   const DashboardTopBar({
     super.key,
@@ -7,6 +13,10 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.userLabel,
     required this.isDesktop,
     this.isRefreshing = false,
+    this.notificationStream,
+    this.onNotifications,
+    this.language = AppLanguage.norwegian,
+    this.onLanguageChanged,
     required this.onRefresh,
     required this.onLogout,
   });
@@ -15,6 +25,10 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
   final String userLabel;
   final bool isDesktop;
   final bool isRefreshing;
+  final Stream<List<AppNotification>>? notificationStream;
+  final VoidCallback? onNotifications;
+  final AppLanguage language;
+  final ValueChanged<AppLanguage>? onLanguageChanged;
   final VoidCallback onRefresh;
   final VoidCallback onLogout;
 
@@ -35,6 +49,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       titleSpacing: isDesktop ? 28 : 0,
       title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (isDesktop) ...[
             Container(
@@ -72,18 +87,20 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         if (isDesktop)
           IconButton(
-            tooltip: 'Oppdater dashboard',
+            tooltip: context.l10n.refreshDashboard,
             onPressed: isRefreshing ? null : onRefresh,
-            icon: isRefreshing
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.refresh),
+            icon: _RefreshIcon(
+              isRefreshing: isRefreshing,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
+        if (onLanguageChanged != null)
+          _LanguageMenuButton(
+            language: language,
+            onSelected: onLanguageChanged!,
+          ),
+        if (onNotifications != null) _notificationsButton(),
         if (isDesktop) ...[
           const SizedBox(width: 8),
           Container(
@@ -132,12 +149,151 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
         ],
         if (isDesktop)
           IconButton(
-            tooltip: 'Logg ut',
+            tooltip: context.l10n.logout,
             onPressed: onLogout,
             icon: const Icon(Icons.logout),
           ),
         const SizedBox(width: 8),
       ],
+    );
+  }
+
+  Widget _notificationsButton() {
+    final callback = onNotifications;
+    final stream = notificationStream;
+    if (callback == null || stream == null) return const SizedBox.shrink();
+
+    return StreamBuilder<List<AppNotification>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final unread = snapshot.hasData
+            ? snapshot.data!
+                .where((notification) => !notification.isRead)
+                .length
+            : 0;
+        return NotificationBell(unreadCount: unread, onPressed: callback);
+      },
+    );
+  }
+}
+
+class _RefreshIcon extends StatefulWidget {
+  const _RefreshIcon({
+    required this.isRefreshing,
+    required this.size,
+    this.color,
+  });
+
+  final bool isRefreshing;
+  final double size;
+  final Color? color;
+
+  @override
+  State<_RefreshIcon> createState() => _RefreshIconState();
+}
+
+class _RefreshIconState extends State<_RefreshIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 850),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RefreshIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isRefreshing != widget.isRefreshing) _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    if (widget.isRefreshing && !uiMotionDisabled(context)) {
+      _controller.repeat();
+      return;
+    }
+    _controller
+      ..stop()
+      ..value = 0;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Icon(Icons.refresh, size: widget.size, color: widget.color);
+    if (!widget.isRefreshing || uiMotionDisabled(context)) return icon;
+    return RotationTransition(turns: _controller, child: icon);
+  }
+}
+
+class _LanguageMenuButton extends StatelessWidget {
+  const _LanguageMenuButton({
+    required this.language,
+    required this.onSelected,
+  });
+
+  final AppLanguage language;
+  final ValueChanged<AppLanguage> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return PopupMenuButton<AppLanguage>(
+      tooltip: l10n.changeLanguage,
+      onSelected: onSelected,
+      color: Colors.white,
+      itemBuilder: (context) => [
+        _item(AppLanguage.norwegian, l10n.norwegian),
+        _item(AppLanguage.english, 'English'),
+        _item(AppLanguage.polish, 'Polski'),
+      ],
+      child: Container(
+        width: 38,
+        height: 38,
+        alignment: Alignment.center,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        ),
+        child: AnimatedSwitcher(
+          duration: uiMotionDuration(context),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+          child: Text(
+            language.flag,
+            key: ValueKey(language.code),
+            style: const TextStyle(fontSize: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuEntry<AppLanguage> _item(AppLanguage value, String label) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Text(value.flag, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Text(label),
+        ],
+      ),
     );
   }
 }
@@ -181,6 +337,7 @@ class DashboardNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -194,34 +351,34 @@ class DashboardNavigation extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  const DashboardNavLabel('OVERSIKT'),
+                  DashboardNavLabel(l10n.overview),
                   const SizedBox(height: 7),
                   DashboardNavTile(
-                    label: 'Dashboard',
+                    label: l10n.dashboard,
                     icon: Icons.dashboard_outlined,
                     selected: true,
                     onTap: () => _run(context, onDashboard),
                   ),
                   DashboardNavTile(
-                    label: 'Dagbok / Driftslogg',
+                    label: l10n.diary,
                     icon: Icons.menu_book_outlined,
                     onTap: () => _run(context, onDiary),
                   ),
                   const SizedBox(height: 14),
-                  const DashboardNavLabel('VERKTØY'),
+                  DashboardNavLabel(l10n.tools),
                   const SizedBox(height: 7),
                   DashboardNavTile(
-                    label: 'Produksjonsrapport',
+                    label: l10n.productionReport,
                     icon: Icons.summarize_outlined,
                     onTap: () => _run(context, onReport),
                   ),
                   DashboardNavTile(
-                    label: 'Fôrlager',
+                    label: l10n.feedInventory,
                     icon: Icons.inventory_2_outlined,
                     onTap: () => _run(context, onFeedInventory),
                   ),
                   DashboardNavTile(
-                    label: 'Excel-eksport',
+                    label: l10n.excelExport,
                     icon: Icons.download_outlined,
                     onTap: () => _run(context, onExport),
                   ),
@@ -232,7 +389,7 @@ class DashboardNavigation extends StatelessWidget {
                         return const SizedBox.shrink();
                       }
                       return DashboardNavTile(
-                        label: 'Brukere & Tilganger',
+                        label: l10n.usersAndAccess,
                         icon: Icons.admin_panel_settings_outlined,
                         onTap: () => _run(context, onAdminUsers),
                       );
@@ -252,9 +409,9 @@ class DashboardNavigation extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Anlegg',
-                    style: TextStyle(
+                  Text(
+                    l10n.facility,
+                    style: const TextStyle(
                       color: Color(0xFF687A92),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -268,9 +425,9 @@ class DashboardNavigation extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Bruker',
-                    style: TextStyle(
+                  Text(
+                    l10n.user,
+                    style: const TextStyle(
                       color: Color(0xFF687A92),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -287,7 +444,7 @@ class DashboardNavigation extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () => _run(context, onLogout),
                     icon: const Icon(Icons.logout),
-                    label: const Text('Logg ut'),
+                    label: Text(l10n.logout),
                   ),
                 ],
               ),
@@ -399,14 +556,15 @@ class DashboardHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return LayoutBuilder(
       builder: (context, constraints) {
         final title = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Dashboard',
-              style: TextStyle(
+            Text(
+              l10n.dashboard,
+              style: const TextStyle(
                 color: Color(0xFF0A1733),
                 fontSize: 27,
                 fontWeight: FontWeight.w800,
@@ -429,13 +587,11 @@ class DashboardHeading extends StatelessWidget {
             Expanded(child: title),
             OutlinedButton.icon(
               onPressed: isRefreshing ? null : onRefresh,
-              icon: isRefreshing
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh),
-              label: Text(isRefreshing ? 'Oppdaterer' : 'Oppdater'),
+              icon: _RefreshIcon(
+                isRefreshing: isRefreshing,
+                size: 18,
+              ),
+              label: Text(isRefreshing ? l10n.updating : l10n.refresh),
             ),
           ],
         );
@@ -545,16 +701,26 @@ class DashboardKpiCard extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              maxLines: 1,
-              style: const TextStyle(
-                color: Color(0xFF07142D),
-                fontSize: 29,
-                fontWeight: FontWeight.w800,
+          AnimatedSwitcher(
+            duration: uiMotionDuration(context),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+            child: FittedBox(
+              key: ValueKey(value),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Color(0xFF07142D),
+                  fontSize: 29,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -649,6 +815,7 @@ class DashboardSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Material(
       color: Colors.white,
       shape: RoundedRectangleBorder(
@@ -698,13 +865,13 @@ class DashboardSectionCard extends StatelessWidget {
               const Divider(height: 1),
               const SizedBox(height: 13),
               DashboardSectionMetric(
-                label: 'Kar',
-                value: '$activeTanks aktive / $emptyTanks tomme',
+                label: l10n.tanks,
+                value: l10n.activeAndEmptyTanks(activeTanks, emptyTanks),
               ),
-              DashboardSectionMetric(label: 'Fisk', value: '$fishCount'),
-              DashboardSectionMetric(label: 'Biomasse', value: biomassLabel),
+              DashboardSectionMetric(label: l10n.fish, value: '$fishCount'),
+              DashboardSectionMetric(label: l10n.biomass, value: biomassLabel),
               DashboardSectionMetric(
-                label: 'Anbefalt fôr',
+                label: l10n.recommendedFeedLabel,
                 value: feedLabel,
               ),
             ],
@@ -832,6 +999,7 @@ class DashboardEmptySections extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
@@ -840,13 +1008,14 @@ class DashboardEmptySections extends StatelessWidget {
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: const Color(0xFFDCE4EE)),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.factory_outlined, size: 34, color: Color(0xFF7A8AA0)),
-          SizedBox(height: 9),
+          const Icon(Icons.factory_outlined,
+              size: 34, color: Color(0xFF7A8AA0)),
+          const SizedBox(height: 9),
           Text(
-            'Ingen bygg er opprettet',
-            style: TextStyle(fontWeight: FontWeight.w700),
+            '${l10n.noData}: ${l10n.buildings.toLowerCase()}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -859,13 +1028,13 @@ class DashboardLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 14),
-          Text('Henter driftsdata ...'),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 14),
+          Text(context.l10n.loading),
         ],
       ),
     );
@@ -884,6 +1053,7 @@ class DashboardErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -905,10 +1075,11 @@ class DashboardErrorState extends StatelessWidget {
                   color: Color(0xFF61718A),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Kunne ikke laste dashboardet',
+                Text(
+                  '${l10n.dashboard}: ${l10n.noData}',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                      fontSize: 19, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
                 Text(message, textAlign: TextAlign.center),
@@ -916,7 +1087,7 @@ class DashboardErrorState extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Prøv igjen'),
+                  label: Text(l10n.retry),
                 ),
               ],
             ),

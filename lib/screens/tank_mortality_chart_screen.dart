@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../utils/data_values.dart';
+import '../l10n/localizations.dart';
 
 class TankMortalityChartScreen extends StatelessWidget {
   final String facilityId;
@@ -34,13 +35,15 @@ class TankMortalityChartScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Dødelighet – $tankName'),
+        title: Text(context.l10n.mortalityTitle(tankName)),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _logsQuery.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text(loadErrorMessage(snapshot.error)));
+            return Center(
+              child: Text(loadErrorMessage(context, snapshot.error)),
+            );
           }
 
           if (!snapshot.hasData) {
@@ -50,8 +53,8 @@ class TankMortalityChartScreen extends StatelessWidget {
           final docs = snapshot.data!.docs;
 
           if (docs.isEmpty) {
-            return const Center(
-              child: Text('Ingen dødelighetsdata ennå'),
+            return Center(
+              child: Text(context.l10n.noMortalityRecords),
             );
           }
 
@@ -84,7 +87,7 @@ class TankMortalityChartScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Dødelighet per registrering',
+                  context.l10n.mortalityPerRegistration,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 16),
@@ -114,14 +117,14 @@ class TankMortalityChartScreen extends StatelessWidget {
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.warning),
-                    title: const Text('Total dødelighet'),
-                    subtitle: Text('$totalDead fisk'),
+                    title: Text(context.l10n.totalMortality),
+                    subtitle: Text(context.l10n.fishCount(totalDead)),
                   ),
                 ),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.list),
-                    title: const Text('Antall registreringer'),
+                    title: Text(context.l10n.numberOfRegistrations),
                     subtitle: Text('${docs.length}'),
                   ),
                 ),

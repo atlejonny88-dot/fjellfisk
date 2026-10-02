@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-class TankOverviewCard extends StatelessWidget {
+import '../l10n/localizations.dart';
+import '../utils/ui_motion.dart';
+
+class TankOverviewCard extends StatefulWidget {
   const TankOverviewCard({
     super.key,
     required this.name,
@@ -45,120 +49,224 @@ class TankOverviewCard extends StatelessWidget {
   final bool reviewed;
 
   @override
-  Widget build(BuildContext context) {
-    final borderColor =
-        isActive ? const Color(0xFFDCE5EF) : const Color(0xFFD4DAE2);
+  State<TankOverviewCard> createState() => _TankOverviewCardState();
+}
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isActive ? Colors.white : const Color(0xFFF2F4F7),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A082C51),
-            blurRadius: 14,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _TankCardHeader(
-                  name: name,
-                  statusLabel: statusLabel,
-                  statusColor: statusColor,
-                  onDelete: onDelete,
-                ),
-                if (reviewed) ...[
-                  const SizedBox(height: 8),
-                  const Row(
+class _TankOverviewCardState extends State<TankOverviewCard> {
+  bool _shown = false;
+  bool _hovering = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _shown = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final duration = uiMotionDuration(context);
+    final reduceMotion = uiMotionDisabled(context);
+    final canHover =
+        kIsWeb && MediaQuery.sizeOf(context).width >= 700 && !reduceMotion;
+    final borderColor =
+        widget.isActive ? const Color(0xFFDCE5EF) : const Color(0xFFD4DAE2);
+
+    return AnimatedOpacity(
+      duration: duration,
+      curve: Curves.easeOut,
+      opacity: reduceMotion || _shown ? 1 : 0,
+      child: AnimatedScale(
+        duration: duration,
+        curve: Curves.easeOutCubic,
+        scale: canHover && _hovering
+            ? 1.012
+            : (reduceMotion || _shown ? 1 : 0.996),
+        child: MouseRegion(
+          cursor: canHover ? SystemMouseCursors.click : MouseCursor.defer,
+          onEnter: canHover ? (_) => setState(() => _hovering = true) : null,
+          onExit: canHover ? (_) => setState(() => _hovering = false) : null,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: widget.isActive ? Colors.white : const Color(0xFFF2F4F7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: canHover && _hovering
+                    ? const Color(0xFFB5D1EE)
+                    : borderColor,
+              ),
+              boxShadow: _hovering
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x16082C51),
+                        blurRadius: 20,
+                        offset: Offset(0, 8),
+                      ),
+                    ]
+                  : const [
+                      BoxShadow(
+                        color: Color(0x0A082C51),
+                        blurRadius: 14,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: widget.onTap,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.check_circle_outline,
-                          size: 16, color: Color(0xFF557268)),
-                      SizedBox(width: 6),
-                      Expanded(
-                          child: Text('Gjennomgått i denne økten',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFF557268)))),
+                      _TankCardHeader(
+                        name: widget.name,
+                        statusLabel: widget.statusLabel,
+                        statusColor: widget.statusColor,
+                        onDelete: widget.onDelete,
+                      ),
+                      AnimatedSize(
+                        duration: duration,
+                        curve: Curves.easeOut,
+                        child: AnimatedSwitcher(
+                          duration: duration,
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(
+                              scale: Tween<double>(begin: 0.97, end: 1)
+                                  .animate(animation),
+                              alignment: Alignment.centerLeft,
+                              child: child,
+                            ),
+                          ),
+                          child: widget.reviewed
+                              ? Padding(
+                                  key: const ValueKey('reviewed'),
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle_outline,
+                                          size: 16, color: Color(0xFF557268)),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          l10n.reviewedThisSession,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF557268),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : const SizedBox(key: ValueKey('not-reviewed')),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _TankVisualSummary(
+                        isActive: widget.isActive,
+                        fishCountLabel: widget.fishCountLabel,
+                        biomassLabel: widget.biomassLabel,
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _TankMetric(
+                              icon: Icons.monitor_weight_outlined,
+                              label: l10n.averageWeight,
+                              value: widget.weightLabel,
+                              isMuted: !widget.isActive,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: _TankMetric(
+                              icon: Icons.inventory_2_outlined,
+                              label: l10n.feedLast24Hours,
+                              value: widget.feedLabel,
+                              isMuted: !widget.isActive,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: _TankMetric(
+                              icon: Icons.heart_broken_outlined,
+                              label: l10n.deathsLast7DaysShort,
+                              value: widget.mortalityLabel,
+                              color:
+                                  widget.statusColor == const Color(0xFFD53C3C)
+                                      ? widget.statusColor
+                                      : null,
+                              isMuted: !widget.isActive,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: _TankMetric(
+                              icon: Icons.device_thermostat_outlined,
+                              label: l10n.temperature,
+                              value: widget.temperatureLabel,
+                              isMuted: !widget.isActive,
+                            ),
+                          ),
+                        ],
+                      ),
+                      AnimatedSize(
+                        duration: duration,
+                        curve: Curves.easeOut,
+                        child: AnimatedSwitcher(
+                          duration: duration,
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, -0.03),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          ),
+                          child: widget.noteText != null
+                              ? Padding(
+                                  key: ValueKey(
+                                    'note-${widget.noteText}-${widget.noteMeta}',
+                                  ),
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: _NoteStrip(
+                                    text: widget.noteText!,
+                                    meta: widget.noteMeta,
+                                    onTap: widget.onNoteTap,
+                                  ),
+                                )
+                              : widget.notesUnavailable
+                                  ? const Padding(
+                                      key: ValueKey('notes-unavailable'),
+                                      padding: EdgeInsets.only(top: 10),
+                                      child: _UnavailableNotesStrip(),
+                                    )
+                                  : const SizedBox(key: ValueKey('no-note')),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _StatusStrip(
+                        label: widget.statusMessage,
+                        color: widget.statusColor,
+                        icon: widget.statusIcon,
+                      ),
                     ],
                   ),
-                ],
-                const SizedBox(height: 14),
-                _TankVisualSummary(
-                  isActive: isActive,
-                  fishCountLabel: fishCountLabel,
-                  biomassLabel: biomassLabel,
                 ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _TankMetric(
-                        icon: Icons.monitor_weight_outlined,
-                        label: 'Snittvekt',
-                        value: weightLabel,
-                        isMuted: !isActive,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _TankMetric(
-                        icon: Icons.inventory_2_outlined,
-                        label: 'Fôr 24t',
-                        value: feedLabel,
-                        isMuted: !isActive,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _TankMetric(
-                        icon: Icons.heart_broken_outlined,
-                        label: 'Døde 7d',
-                        value: mortalityLabel,
-                        color: statusColor == const Color(0xFFD53C3C)
-                            ? statusColor
-                            : null,
-                        isMuted: !isActive,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _TankMetric(
-                        icon: Icons.device_thermostat_outlined,
-                        label: 'Temp',
-                        value: temperatureLabel,
-                        isMuted: !isActive,
-                      ),
-                    ),
-                  ],
-                ),
-                if (noteText != null) ...[
-                  const SizedBox(height: 10),
-                  _NoteStrip(
-                    text: noteText!,
-                    meta: noteMeta,
-                    onTap: onNoteTap,
-                  ),
-                ] else if (notesUnavailable) ...[
-                  const SizedBox(height: 10),
-                  const _UnavailableNotesStrip(),
-                ],
-                const SizedBox(height: 10),
-                _StatusStrip(
-                  label: statusMessage,
-                  color: statusColor,
-                  icon: statusIcon,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -229,19 +337,19 @@ class _TankCardHeader extends StatelessWidget {
         if (onDelete != null) ...[
           const SizedBox(width: 4),
           PopupMenuButton<String>(
-            tooltip: 'Flere valg',
+            tooltip: context.l10n.moreOptions,
             icon: const Icon(Icons.more_horiz, size: 21),
             onSelected: (value) {
               if (value == 'delete') onDelete!();
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline, color: Color(0xFFD53C3C)),
-                    SizedBox(width: 8),
-                    Text('Slett kar'),
+                    const Icon(Icons.delete_outline, color: Color(0xFFD53C3C)),
+                    const SizedBox(width: 8),
+                    Text(context.l10n.deleteTank),
                   ],
                 ),
               ),
@@ -304,7 +412,7 @@ class _TankVisualSummary extends StatelessWidget {
                 'assets/images/aquaculture_tank.png',
                 fit: BoxFit.contain,
                 cacheWidth: 512,
-                semanticLabel: 'Illustrasjon av oppdrettskar',
+                semanticLabel: context.l10n.tankIllustration,
               ),
             ),
           ),
@@ -320,9 +428,9 @@ class _TankVisualSummary extends StatelessWidget {
                   label: fishCountLabel,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Biomasse',
-                  style: TextStyle(
+                Text(
+                  context.l10n.biomass,
+                  style: const TextStyle(
                     color: Color(0xFF708096),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -514,14 +622,14 @@ class _UnavailableNotesStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        Icon(Icons.info_outline, size: 15, color: Color(0xFF7F8997)),
-        SizedBox(width: 6),
+        const Icon(Icons.info_outline, size: 15, color: Color(0xFF7F8997)),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
-            'Driftsnotater er ikke tilgjengelige',
-            style: TextStyle(color: Color(0xFF7F8997), fontSize: 11),
+            context.l10n.tankNotesUnavailable,
+            style: const TextStyle(color: Color(0xFF7F8997), fontSize: 11),
           ),
         ),
       ],

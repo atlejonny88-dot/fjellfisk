@@ -8,6 +8,7 @@ import '../services/user_service.dart';
 import '../services/weight_sample_service.dart';
 import '../services/web_update_guard.dart';
 import '../utils/tank_status.dart';
+import '../l10n/localizations.dart';
 
 class WeightSamplesScreen extends StatefulWidget {
   final String facilityId;
@@ -68,7 +69,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
     final result = WeightSampleService.parseWeights(_sampleWeightCtrl.text);
 
     if (result.validWeights.isEmpty && result.invalidValues.isEmpty) {
-      _showMessage('Skriv inn en vekt først.');
+      _showMessage(context.l10n.enterWeightFirst);
       return;
     }
 
@@ -79,7 +80,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
 
     if (result.invalidValues.isNotEmpty) {
       _showMessage(
-        'Noen verdier ble ikke lagt til: ${result.invalidValues.join(', ')}',
+        context.l10n.invalidValuesNotAdded(result.invalidValues.join(', ')),
       );
     }
   }
@@ -87,7 +88,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
   Future<void> _saveSingleWeight() async {
     final result = WeightSampleService.parseWeights(_singleWeightCtrl.text);
     if (result.validWeights.length != 1 || result.invalidValues.isNotEmpty) {
-      _showMessage('Ugyldig snittvekt');
+      _showMessage(context.l10n.invalidAverageWeight);
       return;
     }
 
@@ -102,12 +103,12 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         temperature: 0,
         registrationId: _sampleId,
       );
-    }, 'Snittvekt lagret');
+    }, context.l10n.averageWeightSaved);
   }
 
   Future<void> _saveSample() async {
     if (_weights.isEmpty) {
-      _showMessage('Legg til minst én vekt før lagring.');
+      _showMessage(context.l10n.addWeightBeforeSaving);
       return;
     }
 
@@ -120,21 +121,22 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         note: _noteCtrl.text,
         sampleId: _sampleId,
       );
-    }, 'Vektprøve lagret');
+    }, context.l10n.weightSampleSaved);
   }
 
   Future<void> _save(Future<void> Function() action, String successText) async {
     if (_isSaving || _leaving) return;
     if (!_isActive()) {
-      _showMessage('Karet er tomt. Legg inn fisketall før vekt registreres.');
+      _showMessage(context.l10n.emptyTankBeforeWeight);
       return;
     }
 
     setState(() => _isSaving = true);
     setWebSavePending(true);
+    final noWriteAccess = context.l10n.noWriteAccess;
     try {
       if (!_canWrite(await UserService.getCurrentUserRole())) {
-        throw StateError('Ingen skrivetilgang');
+        throw StateError(noWriteAccess);
       }
       await action();
       if (!mounted) return;
@@ -144,7 +146,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
     } catch (error) {
       if (!mounted) return;
       debugPrint('Kunne ikke lagre vekt: $error');
-      _showMessage('Kunne ikke lagre vekten. Verdiene er beholdt. Prøv igjen.');
+      _showMessage(context.l10n.couldNotSaveWeight);
     } finally {
       setWebSavePending(false);
       if (mounted) setState(() => _isSaving = false);
@@ -163,7 +165,9 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         return PopScope(
             canPop: !_isSaving || _leaving,
             child: Scaffold(
-              appBar: AppBar(title: Text('Vektprøve - ${widget.tankName}')),
+              appBar: AppBar(
+                title: Text(context.l10n.weightSampleForTank(widget.tankName)),
+              ),
               body: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -171,19 +175,16 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.visibility),
-                        title: const Text('Lesetilgang'),
-                        subtitle:
-                            Text('Du er logget inn som $role og kan kun se.'),
+                        title: Text(context.l10n.readerAccess),
+                        subtitle: Text(context.l10n.readOnlyRole(role)),
                       ),
                     ),
                   if (!isActive)
-                    const Card(
+                    Card(
                       child: ListTile(
-                        leading: Icon(Icons.pause_circle),
-                        title: Text('Tomt kar'),
-                        subtitle: Text(
-                          'Vektprøve kan registreres når karet har fisk.',
-                        ),
+                        leading: const Icon(Icons.pause_circle),
+                        title: Text(context.l10n.emptyTank),
+                        subtitle: Text(context.l10n.emptyTankDescription),
                       ),
                     ),
                   if (canWrite && isActive)
@@ -209,22 +210,22 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Registrer vekt',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              context.l10n.registerWeight,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             SegmentedButton<String>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: 'single',
-                  label: Text('Vanlig snittvekt'),
-                  icon: Icon(Icons.monitor_weight),
+                  label: Text(context.l10n.simpleAverageWeight),
+                  icon: const Icon(Icons.monitor_weight),
                 ),
                 ButtonSegment(
                   value: 'sample',
-                  label: Text('Enkeltvekter'),
-                  icon: Icon(Icons.format_list_numbered),
+                  label: Text(context.l10n.individualWeights),
+                  icon: const Icon(Icons.format_list_numbered),
                 ),
               ],
               selected: {_mode},
@@ -238,9 +239,9 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
                 controller: _singleWeightCtrl,
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Snittvekt (g)',
-                  helperText: 'Støtter 250, 250.5 og 250,5',
+                decoration: InputDecoration(
+                  labelText: context.l10n.averageWeightGram,
+                  helperText: context.l10n.averageWeightInputHelp,
                 ),
                 onSubmitted: (_) => _isSaving ? null : _saveSingleWeight(),
               ),
@@ -248,7 +249,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
               ElevatedButton.icon(
                 onPressed: _isSaving ? null : _saveSingleWeight,
                 icon: const Icon(Icons.save),
-                label: const Text('Lagre snittvekt'),
+                label: Text(context.l10n.saveAverageWeight),
               ),
             ] else ...[
               TextField(
@@ -257,10 +258,9 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
                 textInputAction: TextInputAction.done,
                 minLines: 1,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Vekt i gram',
-                  helperText:
-                      'Én eller flere vekter. Bruk komma, mellomrom eller linjeskift.',
+                decoration: InputDecoration(
+                  labelText: context.l10n.weightInGrams,
+                  helperText: context.l10n.weightSampleInputHelp,
                 ),
                 onSubmitted: (_) => _addWeightsFromInput(),
               ),
@@ -271,7 +271,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _addWeightsFromInput,
                       icon: const Icon(Icons.add),
-                      label: const Text('Legg til'),
+                      label: Text(context.l10n.add),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -281,7 +281,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
                           ? null
                           : () => setState(_weights.clear),
                       icon: const Icon(Icons.delete_outline),
-                      label: const Text('Tøm liste'),
+                      label: Text(context.l10n.clearList),
                     ),
                   ),
                 ],
@@ -306,9 +306,9 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
                 TextField(
                   controller: _noteCtrl,
                   maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Kommentar',
-                    hintText: 'Valgfritt',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.comment,
+                    hintText: context.l10n.optional,
                   ),
                 ),
               ],
@@ -316,7 +316,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
               ElevatedButton.icon(
                 onPressed: _isSaving ? null : _saveSample,
                 icon: const Icon(Icons.save),
-                label: const Text('Lagre vektprøve'),
+                label: Text(context.l10n.saveWeightSample),
               ),
             ],
           ],
@@ -337,13 +337,17 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         spacing: 16,
         runSpacing: 8,
         children: [
-          _smallValue('Antall', stats.count.toString()),
-          _smallValue('Snitt', '${stats.averageGram.toStringAsFixed(1)} g'),
-          _smallValue('Median', '${stats.medianGram.toStringAsFixed(1)} g'),
-          _smallValue('Min', '${stats.minGram.toStringAsFixed(1)} g'),
-          _smallValue('Maks', '${stats.maxGram.toStringAsFixed(1)} g'),
+          _smallValue(context.l10n.count, stats.count.toString()),
+          _smallValue(context.l10n.average,
+              '${stats.averageGram.toStringAsFixed(1)} g'),
           _smallValue(
-            'Std.avvik',
+              context.l10n.median, '${stats.medianGram.toStringAsFixed(1)} g'),
+          _smallValue(
+              context.l10n.minimum, '${stats.minGram.toStringAsFixed(1)} g'),
+          _smallValue(
+              context.l10n.maximum, '${stats.maxGram.toStringAsFixed(1)} g'),
+          _smallValue(
+            context.l10n.standardDeviation,
             '${stats.standardDeviationGram.toStringAsFixed(1)} g',
           ),
         ],
@@ -363,22 +367,22 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
           if (kDebugMode) {
             debugPrint('Kunne ikke laste vektprøver: ${snapshot.error}');
           }
-          return const Card(
+          return Card(
             child: ListTile(
-              leading: Icon(Icons.error_outline),
-              title: Text('Vektprøver'),
-              subtitle: Text('Vektprøver er ikke tilgjengelige nå.'),
+              leading: const Icon(Icons.error_outline),
+              title: Text(context.l10n.weightSamples),
+              subtitle: Text(context.l10n.weightSamplesUnavailable),
             ),
           );
         }
 
         final samples = snapshot.data ?? const <WeightSample>[];
         if (samples.isEmpty) {
-          return const Card(
+          return Card(
             child: ListTile(
-              leading: Icon(Icons.monitor_weight),
-              title: Text('Vektprøver'),
-              subtitle: Text('Ingen vektprøver er registrert ennå.'),
+              leading: const Icon(Icons.monitor_weight),
+              title: Text(context.l10n.weightSamples),
+              subtitle: Text(context.l10n.noWeightSamples),
             ),
           );
         }
@@ -387,11 +391,12 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Siste vektprøve',
+            Text(context.l10n.latestWeightSample,
                 style: Theme.of(context).textTheme.titleMedium),
             _sampleCard(latest, initiallyExpanded: true),
             const SizedBox(height: 12),
-            Text('Historikk', style: Theme.of(context).textTheme.titleMedium),
+            Text(context.l10n.history,
+                style: Theme.of(context).textTheme.titleMedium),
             ...samples.skip(1).map(_sampleCard),
           ],
         );
@@ -408,8 +413,10 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
         initiallyExpanded: initiallyExpanded,
         leading: const Icon(Icons.monitor_weight),
         title: Text(
-          '${sample.averageGram.toStringAsFixed(1)} g snitt '
-          '(${sample.count} fisk)',
+          context.l10n.sampleSummary(
+            sample.averageGram.toStringAsFixed(1),
+            sample.count,
+          ),
         ),
         subtitle: Text(
           '${_formatDate(sample.date)}\n${sample.createdByEmail}',
@@ -435,7 +442,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('Kommentar: ${sample.note}'),
+              child: Text(context.l10n.commentLine(sample.note)),
             ),
           ],
         ],
@@ -445,7 +452,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
 
   Widget _distribution(Map<String, int> distribution) {
     final total = distribution.values.fold<int>(0, (sum, value) => sum + value);
-    if (total == 0) return const Text('Ingen fordeling tilgjengelig.');
+    if (total == 0) return Text(context.l10n.noDistribution);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,7 +495,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
   }
 
   String _formatDate(DateTime? date) {
-    if (date == null) return 'Ukjent tidspunkt';
+    if (date == null) return context.l10n.unknownTime;
     return DateFormat('yyyy-MM-dd HH:mm').format(date);
   }
 }

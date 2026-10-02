@@ -4,6 +4,7 @@ import '../services/fish_transfer_service.dart';
 import '../services/user_service.dart';
 import '../services/web_update_guard.dart';
 import '../utils/data_values.dart';
+import '../l10n/localizations.dart';
 
 class MoveFishScreen extends StatefulWidget {
   final String facilityId;
@@ -72,10 +73,12 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
 
   Future<void> _moveFish() async {
     if (_saving || _completed) return;
+    final noWriteAccess = context.l10n.noWriteAccess;
     final amount = int.tryParse(amountCtrl.text.trim()) ?? 0;
     if (amount <= 0 || selectedTankPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Velg mottakerkar og et antall større enn null.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.moveFishValidation)),
+      );
       return;
     }
     setState(() => _saving = true);
@@ -83,7 +86,7 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
     try {
       final role = await UserService.getCurrentUserRole();
       if (role != 'admin' && role != 'ansatt') {
-        throw const FormatException('Du har ikke skrivetilgang.');
+        throw FormatException(noWriteAccess);
       }
       final db = FirebaseFirestore.instance;
       final from = db
@@ -107,9 +110,10 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
       debugPrint('Flytting feilet: $error\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(error is FormatException
-                ? error.message
-                : 'Kunne ikke flytte fisk. Prøv igjen.')));
+            content: Text(
+                error is FormatException && error.message == noWriteAccess
+                    ? noWriteAccess
+                    : context.l10n.couldNotMoveFish)));
       }
     } finally {
       setWebSavePending(false);
@@ -123,7 +127,7 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
         canPop: !_saving || _completed,
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('Flytt fisk'),
+            title: Text(context.l10n.moveFish),
           ),
           body:
               FutureBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
@@ -131,8 +135,7 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 debugPrint('Kar for flytting: ${snapshot.error}');
-                return const Center(
-                    child: Text('Kunne ikke hente kar. Prøv igjen.'));
+                return Center(child: Text(context.l10n.couldNotLoadTanks));
               }
 
               if (!snapshot.hasData) {
@@ -142,8 +145,8 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
               final tanks = snapshot.data!;
 
               if (tanks.isEmpty) {
-                return const Center(
-                  child: Text('Ingen andre kar å flytte til'),
+                return Center(
+                  child: Text(context.l10n.noOtherTanks),
                 );
               }
 
@@ -154,26 +157,29 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
                     children: [
                       Card(
                         child: ListTile(
-                          title: const Text('Fra kar'),
+                          title: Text(context.l10n.fromTank),
                           subtitle: Text(widget.fromTankName),
-                          trailing: Text('${widget.fromFishCount} fisk'),
+                          trailing: Text(
+                              context.l10n.fishCount(widget.fromFishCount)),
                         ),
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         initialValue: selectedTankPath,
-                        decoration: const InputDecoration(
-                          labelText: 'Flytt til kar',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.moveToTank,
                         ),
                         items: tanks.map((doc) {
                           final data = doc.data();
                           final name =
-                              (data['name'] ?? 'Ukjent kar').toString();
+                              (data['name'] ?? context.l10n.unknownTank)
+                                  .toString();
                           final count = DataValues.integer(data['fishCount']);
 
                           return DropdownMenuItem(
                             value: doc.reference.path,
-                            child: Text('$name ($count fisk)'),
+                            child: Text(
+                                '$name (${context.l10n.fishCount(count)})'),
                             onTap: () {
                               selectedTankName = name;
                             },
@@ -189,15 +195,15 @@ class _MoveFishScreenState extends State<MoveFishScreen> {
                       TextField(
                         controller: amountCtrl,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Antall fisk som skal flyttes',
-                          hintText: 'F.eks. 2000',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.fishToMove,
+                          hintText: context.l10n.fishCountExample,
                         ),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.swap_horiz),
-                        label: const Text('Flytt fisk'),
+                        label: Text(context.l10n.moveFish),
                         onPressed: _saving || _completed ? null : _moveFish,
                       ),
                     ],

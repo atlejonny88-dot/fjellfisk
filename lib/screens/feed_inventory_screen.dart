@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../services/user_service.dart';
 import '../services/firestore_service.dart';
 import '../services/web_update_guard.dart';
+import '../l10n/localizations.dart';
 
 class FeedInventoryScreen extends StatefulWidget {
   const FeedInventoryScreen({super.key});
@@ -23,18 +24,20 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
     if (_mutationBusy) return;
     _mutationBusy = true;
     setWebSavePending(true);
+    final noWriteAccess = context.l10n.noWriteAccess;
     try {
       if (!_canWrite(await UserService.getCurrentUserRole())) {
-        throw const FormatException('Du har ikke skrivetilgang.');
+        throw FormatException(noWriteAccess);
       }
       await operation();
     } catch (error, stack) {
       debugPrint('Fôrlager: $error\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(error is FormatException
-              ? error.message
-              : 'Kunne ikke oppdatere fôrlageret. Prøv igjen.'),
+          content: Text(
+              error is FormatException && error.message == noWriteAccess
+                  ? noWriteAccess
+                  : context.l10n.couldNotUpdateFeedInventory),
         ));
       }
     } finally {
@@ -147,19 +150,19 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
     await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Juster $name'),
+        title: Text(context.l10n.adjustBagsForFeed(name)),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Antall sekker (+ / -)',
-            hintText: 'F.eks. 10 eller -3',
+          decoration: InputDecoration(
+            labelText: context.l10n.bagsToAdjust,
+            hintText: context.l10n.bagsAdjustHint,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () => _runMutation(() async {
@@ -174,7 +177,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
 
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             }),
-            child: const Text('Lagre'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -193,19 +196,19 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
     await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Kg per sekk - $name'),
+        title: Text(context.l10n.kgPerBagForFeed(name)),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Kg per sekk',
-            hintText: 'F.eks. 25',
+          decoration: InputDecoration(
+            labelText: context.l10n.kgPerBag,
+            hintText: context.l10n.kgPerBagExample,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () => _runMutation(() async {
@@ -234,7 +237,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
               await batch.commit();
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             }),
-            child: const Text('Lagre'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -265,7 +268,9 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
     await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(isEditing ? 'Endre fôrtype' : 'Ny fôrtype'),
+        title: Text(
+          isEditing ? context.l10n.editFeedType : context.l10n.newFeedType,
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -273,9 +278,9 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
               TextField(
                 controller: nameController,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Navn',
-                  hintText: 'F.eks. Nutra Olympic 3.0',
+                decoration: InputDecoration(
+                  labelText: context.l10n.feedName,
+                  hintText: context.l10n.feedNameExample,
                 ),
               ),
               const SizedBox(height: 12),
@@ -283,9 +288,9 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                 controller: pelletController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Pelletstørrelse mm',
-                  hintText: 'F.eks. 3.0',
+                decoration: InputDecoration(
+                  labelText: context.l10n.pelletSize,
+                  hintText: context.l10n.pelletSizeExample,
                 ),
               ),
               const SizedBox(height: 12),
@@ -295,11 +300,9 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText: 'Kg per sekk',
-                  hintText: 'F.eks. 25',
-                  helperText: isEditing
-                      ? 'Bruk blyanten på kortet for å endre kg per sekk.'
-                      : null,
+                  labelText: context.l10n.kgPerBag,
+                  hintText: context.l10n.kgPerBagExample,
+                  helperText: isEditing ? context.l10n.editKgHint : null,
                 ),
               ),
             ],
@@ -308,7 +311,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Avbryt'),
+            child: Text(context.l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () => _runMutation(() async {
@@ -318,8 +321,8 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
 
               if (name.isEmpty || pellet == null || pellet <= 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Navn og pelletstørrelse må fylles ut.'),
+                  SnackBar(
+                    content: Text(context.l10n.feedNameAndPelletRequired),
                   ),
                 );
                 return;
@@ -372,7 +375,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
               await batch.commit();
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             }),
-            child: const Text('Lagre'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -389,8 +392,8 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
 
     if (!nextActive && stockKg > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Fôrtype med sekker på lager kan ikke deaktiveres.'),
+        SnackBar(
+          content: Text(context.l10n.cannotDeactivateFeedWithStock),
         ),
       );
       return;
@@ -423,7 +426,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
   }
 
   String _formatPellet(double pellet) {
-    if (pellet <= 0) return 'Pellet ikke satt';
+    if (pellet <= 0) return context.l10n.pelletNotSet;
     return '${pellet.toStringAsFixed(1)} mm';
   }
 
@@ -467,10 +470,10 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Fôrlager'),
+            title: Text(context.l10n.feedInventory),
             actions: [
               IconButton(
-                tooltip: 'Historikk',
+                tooltip: context.l10n.history,
                 icon: const Icon(Icons.history),
                 onPressed: _openHistory,
               ),
@@ -480,7 +483,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
               ? FloatingActionButton.extended(
                   onPressed: _openFeedTypeDialog,
                   icon: const Icon(Icons.add),
-                  label: const Text('Ny fôrtype'),
+                  label: Text(context.l10n.newFeedType),
                 )
               : null,
           body: FutureBuilder<void>(
@@ -490,7 +493,8 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
             builder: (context, setupSnapshot) {
               if (setupSnapshot.hasError) {
                 return Center(
-                    child: Text(loadErrorMessage(setupSnapshot.error)));
+                  child: Text(loadErrorMessage(context, setupSnapshot.error)),
+                );
               }
 
               if (setupSnapshot.connectionState == ConnectionState.waiting) {
@@ -502,7 +506,8 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return Center(
-                        child: Text(loadErrorMessage(snapshot.error)));
+                      child: Text(loadErrorMessage(context, snapshot.error)),
+                    );
                   }
 
                   if (!snapshot.hasData) {
@@ -527,7 +532,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                       Card(
                         child: ListTile(
                           leading: const Icon(Icons.inventory_2),
-                          title: const Text('Aktivt fôrlager'),
+                          title: Text(context.l10n.activeFeedInventory),
                           subtitle: Text(_formatKg(totalKg)),
                         ),
                       ),
@@ -535,9 +540,9 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                         Card(
                           child: ListTile(
                             leading: const Icon(Icons.visibility),
-                            title: const Text('Lesetilgang'),
+                            title: Text(context.l10n.readerAccess),
                             subtitle: Text(
-                              'Du er logget inn som $role og kan kun se lager.',
+                              context.l10n.readOnlyInventoryRole(role),
                             ),
                           ),
                         ),
@@ -590,7 +595,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                                           ),
                                           if (!active)
                                             Text(
-                                              'Inaktiv fôrtype',
+                                              context.l10n.inactiveFeedType,
                                               style: TextStyle(
                                                 color: Colors.grey.shade700,
                                                 fontWeight: FontWeight.w600,
@@ -623,13 +628,13 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                                     ),
                                     _chip(
                                       icon: Icons.shopping_bag,
-                                      label: '$bags sekker',
+                                      label: context.l10n.bags(bags),
                                       color: const Color(0xFF328CC1),
                                     ),
                                     _chip(
                                       icon: Icons.scale,
                                       label:
-                                          '${kgPerBag.toStringAsFixed(1)} kg/sekk',
+                                          '${kgPerBag.toStringAsFixed(1)} ${context.l10n.kgPerBag.toLowerCase()}',
                                       color: const Color(0xFF1565C0),
                                     ),
                                     _chip(
@@ -646,7 +651,7 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                                       Expanded(
                                         child: ElevatedButton.icon(
                                           icon: const Icon(Icons.add),
-                                          label: const Text('Juster sekker'),
+                                          label: Text(context.l10n.adjustBags),
                                           onPressed: active
                                               ? () => _adjustBags(
                                                     docId: doc.id,
@@ -658,13 +663,13 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
                                       ),
                                       const SizedBox(width: 10),
                                       IconButton(
-                                        tooltip: 'Endre fôrtype',
+                                        tooltip: context.l10n.editFeedType,
                                         icon: const Icon(Icons.edit_note),
                                         onPressed: () =>
                                             _openFeedTypeDialog(doc: doc),
                                       ),
                                       IconButton(
-                                        tooltip: 'Endre kg per sekk',
+                                        tooltip: context.l10n.editKgPerBag,
                                         icon: const Icon(Icons.edit),
                                         onPressed: () => _editKgPerBag(
                                           docId: doc.id,
@@ -726,8 +731,8 @@ class _FeedInventoryScreenState extends State<FeedInventoryScreen> {
 class FeedInventoryHistoryScreen extends StatelessWidget {
   const FeedInventoryHistoryScreen({super.key});
 
-  String _formatDate(Timestamp? timestamp) {
-    if (timestamp == null) return 'Ukjent dato';
+  String _formatDate(BuildContext context, Timestamp? timestamp) {
+    if (timestamp == null) return context.l10n.unknownDate;
     final date = timestamp.toDate();
 
     final day = date.day.toString().padLeft(2, '0');
@@ -747,13 +752,15 @@ class FeedInventoryHistoryScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lagerhistorikk'),
+        title: Text(context.l10n.inventoryHistory),
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: historyRef.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text(loadErrorMessage(snapshot.error)));
+            return Center(
+              child: Text(loadErrorMessage(context, snapshot.error)),
+            );
           }
 
           if (!snapshot.hasData) {
@@ -763,8 +770,8 @@ class FeedInventoryHistoryScreen extends StatelessWidget {
           final docs = snapshot.data!.docs;
 
           if (docs.isEmpty) {
-            return const Center(
-              child: Text('Ingen lagerhistorikk ennå'),
+            return Center(
+              child: Text(context.l10n.noInventoryHistory),
             );
           }
 
@@ -774,7 +781,8 @@ class FeedInventoryHistoryScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final data = docs[index].data();
 
-              final feedType = (data['feedType'] ?? 'Ukjent fôr').toString();
+              final feedType =
+                  (data['feedType'] ?? context.l10n.unknownFeed).toString();
               final user = (data['user'] ?? 'ukjent').toString();
               final timestamp = data['timestamp'];
               final note = (data['note'] ?? '').toString();
@@ -813,11 +821,11 @@ class FeedInventoryHistoryScreen extends StatelessWidget {
                   title: Text(feedType),
                   subtitle: Text(
                     isKgChange
-                        ? 'Kg/sekk: $kgBefore -> $kgAfter\n'
-                            '$user • ${_formatDate(timestamp is Timestamp ? timestamp : null)}'
-                        : '${change > 0 ? '+' : ''}$change sekker'
-                            '${bagsAfter != null ? ' • Etter: $bagsAfter sekker' : ''}\n'
-                            '$user • ${_formatDate(timestamp is Timestamp ? timestamp : null)}'
+                        ? '${context.l10n.kgPerBag}: $kgBefore -> $kgAfter\n'
+                            '$user • ${_formatDate(context, timestamp is Timestamp ? timestamp : null)}'
+                        : '${change > 0 ? '+' : change < 0 ? '-' : ''}${context.l10n.bags(change.abs())}'
+                            '${bagsAfter != null ? ' • ${context.l10n.afterBags(bagsAfter.toString())}' : ''}\n'
+                            '$user • ${_formatDate(context, timestamp is Timestamp ? timestamp : null)}'
                             '${note.isNotEmpty ? '\n$note' : ''}',
                   ),
                 ),
