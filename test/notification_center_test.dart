@@ -78,6 +78,51 @@ void main() {
     expect(allMarks, 1);
   });
 
+  testWidgets('center stays visible when opened as a bottom sheet',
+      (tester) async {
+    final notification = _notification(id: 'bottom-sheet');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        locale: const Locale('nb'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => Align(
+                    alignment: Alignment.bottomCenter,
+                    child: NotificationCenterSheet(
+                      notifications: Stream.value([notification]),
+                      onMarkRead: (_) async {},
+                      onMarkAllRead: (_) async {},
+                      onOpen: (_) async {},
+                    ),
+                  ),
+                ),
+                child: const Text('Open notifications'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open notifications'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Varsler'), findsOneWidget);
+    expect(find.text('Kort varseltekst'), findsOneWidget);
+    expect(tester.getSize(find.byType(NotificationCenterSheet)).height,
+        greaterThan(200));
+  });
+
   testWidgets('notification tap marks read before opening target',
       (tester) async {
     final events = <String>[];

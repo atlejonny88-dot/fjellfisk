@@ -63,7 +63,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _dashboardFuture = _loadDashboard().timeout(_loadTimeout);
     _roleFuture = UserService.getCurrentUserRole();
-    _notificationStream = NotificationService.notificationsStream();
+    // The bell and the sheet can listen at the same time.
+    _notificationStream =
+        NotificationService.notificationsStream().asBroadcastStream();
     unawaited(_syncNotifications());
     _webUpdateTimer = Timer.periodic(
       const Duration(seconds: 30),
