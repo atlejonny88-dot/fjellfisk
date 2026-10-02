@@ -5,11 +5,15 @@ const {initializeTestEnvironment, assertSucceeds, assertFails} = require('@fireb
 const {doc, getDoc, setDoc, updateDoc, writeBatch, serverTimestamp, Timestamp} = require('firebase/firestore');
 let env;
 const tank = 'facilities/f/sections/s/tanks/t';
-const emulatorPort = Number(process.env.FIRESTORE_EMULATOR_PORT || 8080);
+const emulatorAddress = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+const [emulatorHost, emulatorPortValue] = emulatorAddress.split(':');
+const emulatorPort = Number(
+  process.env.FIRESTORE_EMULATOR_PORT || emulatorPortValue || 8080,
+);
 before(async () => {
   if (!process.env.FIRESTORE_EMULATOR_HOST) throw Error('Local emulator required; production is forbidden');
   env = await initializeTestEnvironment({projectId: 'demo-fjellfisk-qa', firestore: {
-    host: '127.0.0.1', port: emulatorPort,
+    host: emulatorHost, port: emulatorPort,
     rules: fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf8')
   }});
   await env.withSecurityRulesDisabled(async ctx => {
