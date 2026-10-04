@@ -20,10 +20,12 @@ class ExcelDownloader {
           File('${directory.path}${Platform.pathSeparator}$safeFileName');
       await file.writeAsBytes(bytes, flush: true);
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: safeFileName,
-        text: 'Excel eksport fra Fjellfisk',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: safeFileName,
+          text: 'Excel eksport fra Fjellfisk',
+        ),
       );
 
       if (kDebugMode) {
