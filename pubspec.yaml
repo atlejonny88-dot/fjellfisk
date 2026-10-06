@@ -14,30 +14,30 @@ dependencies:
     sdk: flutter
 
   # Firebase
-  firebase_core: ^2.32.0
-  firebase_auth: ^4.20.0
-  cloud_firestore: ^4.17.5
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
 
   # Excel export
   excel: ^4.0.6
   path_provider: ^2.1.5
-  share_plus: 10.0.0
+  share_plus: ^13.3.1
 
   # Dagbokutskrift
   pdf: 3.12.0
 
   # Charts
-  fl_chart: ^0.68.0
+  fl_chart: ^1.2.0
 
   # Utils
   intl: ^0.20.2
 
 dev_dependencies:
-  fake_cloud_firestore: 2.5.2
+  fake_cloud_firestore: ^4.3.0
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   generate: true

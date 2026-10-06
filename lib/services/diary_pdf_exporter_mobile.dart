@@ -14,10 +14,12 @@ class DiaryPdfExporter {
       final file =
           File('${directory.path}${Platform.pathSeparator}$safeFileName');
       await file.writeAsBytes(bytes, flush: true);
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/pdf')],
-        subject: safeFileName,
-        text: 'Dagbok / Driftslogg fra Fjellfisk',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/pdf')],
+          subject: safeFileName,
+          text: 'Dagbok / Driftslogg fra Fjellfisk',
+        ),
       );
       return file.path;
     }
