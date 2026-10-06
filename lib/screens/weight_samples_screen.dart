@@ -33,6 +33,7 @@ class WeightSamplesScreen extends StatefulWidget {
 class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
   final _singleWeightCtrl = TextEditingController();
   final _sampleWeightCtrl = TextEditingController();
+  final _sampleWeightFocusNode = FocusNode();
   final _noteCtrl = TextEditingController();
   final _weights = <double>[];
   var _mode = 'single';
@@ -49,6 +50,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
   void dispose() {
     _singleWeightCtrl.dispose();
     _sampleWeightCtrl.dispose();
+    _sampleWeightFocusNode.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -65,11 +67,20 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  void _keepSampleWeightFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _sampleWeightFocusNode.requestFocus();
+      }
+    });
+  }
+
   void _addWeightsFromInput() {
     final result = WeightSampleService.parseWeights(_sampleWeightCtrl.text);
 
     if (result.validWeights.isEmpty && result.invalidValues.isEmpty) {
       _showMessage(context.l10n.enterWeightFirst);
+      _keepSampleWeightFocus();
       return;
     }
 
@@ -77,6 +88,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
       _weights.addAll(result.validWeights);
       _sampleWeightCtrl.clear();
     });
+    _keepSampleWeightFocus();
 
     if (result.invalidValues.isNotEmpty) {
       _showMessage(
@@ -254,6 +266,7 @@ class _WeightSamplesScreenState extends State<WeightSamplesScreen> {
             ] else ...[
               TextField(
                 controller: _sampleWeightCtrl,
+                focusNode: _sampleWeightFocusNode,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.done,
                 minLines: 1,
