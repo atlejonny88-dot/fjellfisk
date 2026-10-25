@@ -385,6 +385,23 @@ service cloud.firestore {
       }
     }
 
+    // Collector pairing records are server-only. Flutter uses callable Functions.
+    match /collectorDevices/{collectorId} {
+      allow read, write: if false;
+    }
+
+    match /collectorPairingCodes/{codeDigest} {
+      allow read, write: if false;
+    }
+
+    match /collectorAuditEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /collectorRateLimits/{rateLimitId} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

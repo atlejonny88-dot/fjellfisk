@@ -16,6 +16,7 @@ before(async () => {
     host: emulatorHost, port: emulatorPort,
     rules: fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf8')
   }});
+  await env.clearFirestore();
   await env.withSecurityRulesDisabled(async ctx => {
     const db = ctx.firestore();
     for (const role of ['admin', 'ansatt', 'leser']) {
@@ -141,4 +142,17 @@ test('employee can create, edit and resolve notes; reader can only read', async 
   await assertSucceeds(updateDoc(doc(db('ansatt'), p), {text:'Updated',status:'resolved'}));
   await assertSucceeds(getDoc(doc(db('leser'), p)));
   await assertFails(updateDoc(doc(db('leser'), p), {text:'Not allowed'}));
+});
+
+test('Collector pairing records are never directly available to Flutter clients', async () => {
+  const adminStore = db('admin');
+  for (const path of [
+    'collectorDevices/collector-1',
+    'collectorPairingCodes/digest-1',
+    'collectorAuditEvents/audit-1',
+    'collectorRateLimits/rate-1',
+  ]) {
+    await assertFails(getDoc(doc(adminStore, path)));
+    await assertFails(setDoc(doc(adminStore, path), {sensitive: 'blocked'}));
+  }
 });

@@ -1,0 +1,23 @@
+{
+  "name": "fjellfisk-collector-pairing-functions",
+  "private": true,
+  "main": "lib/src/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test \"lib/test/*.test.js\"",
+    "test:emulator": "npm run build && node -e \"if (!process.env.FIRESTORE_EMULATOR_HOST || process.env.FJELLFISK_FUNCTIONS_EMULATOR !== '1') { console.error('Firestore and Functions emulators are required.'); process.exit(1); }\" && node --test \"lib/test/*.test.js\"",
+    "test:collector-e2e": "node test/collector_emulator_e2e.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

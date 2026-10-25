@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x86</PlatformTarget>
+    <Platforms>x86</Platforms>
+    <AssemblyName>Fjellfisk.SensorCollector</AssemblyName>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <FjellfiskBuildId Condition="'$(FjellfiskBuildId)' == ''">local</FjellfiskBuildId>
+    <InformationalVersion>$(FileVersion)</InformationalVersion>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="6.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Fjellfisk.SensorCollector\SensorContracts.cs" Link="SensorContracts.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\CollectorIdentity.cs" Link="CollectorIdentity.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\OxyGuardVigoReader.cs" Link="OxyGuardVigoReader.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\VigoComScalarReadSession.cs" Link="VigoComScalarReadSession.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\ProductionDiscovery.cs" Link="ProductionDiscovery.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\ProductionRuntime.cs" Link="ProductionRuntime.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\ProductionCliPolicy.cs" Link="ProductionCliPolicy.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\ProductionPairing.cs" Link="ProductionPairing.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\PairingWindowProcessHost.cs" Link="PairingWindowProcessHost.cs" />
+  </ItemGroup>
+  <Target Name="PublishPairingUi" AfterTargets="Publish">
+    <PropertyGroup>
+      <PairingUiPublishDirectory>$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\publish\pairing-ui\</PairingUiPublishDirectory>
+    </PropertyGroup>
+    <MSBuild Projects="..\Fjellfisk.SensorCollector.PairingUi\Fjellfisk.SensorCollector.PairingUi.csproj"
+             Targets="Restore;Publish"
+             Properties="Configuration=$(Configuration);TargetFramework=net6.0-windows7.0;RuntimeIdentifier=win-x86;SelfContained=true;PlatformTarget=x86;NoRestore=false;PublishDir=$(PairingUiPublishDirectory)" />
+  </Target>
+</Project>
