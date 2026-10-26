@@ -1,9 +1,18 @@
-# Codex handoff: Fjellfisk plugin marketplace / multiple VACON drives
+# Codex handoff: Fjellfisk Add-ons / multiple VACON drives
 
 Work off `develop` into a separate branch. Inspect draft PR #20
 (`feature/vacon-remote-pump-scaffold`) for the pre-site UI/Modbus scaffold.
 Read `docs/plugin_platform_architecture.md` and
 `docs/vacon_remote_pump.md` before coding.
+
+## EXISTING LOCAL UI (verify before implementing)
+The user has shown a localhost **Add-ons** page with **Fjellfisk Collector**,
+**Connect collector**, and **Setup**. That local code is not yet visible in
+connected GitHub `develop`. Reconcile with that current local work first.
+Do **not** add a competing Plugins menu or duplicate collector. Audit the
+existing collector for VPN, long-running gateway, secure Modbus, multi-device
+handling, hardware safety and command authorization; adapt/reuse its code only
+where capabilities genuinely match. Do not overwrite local/unpushed changes.
 
 ## Mission
 Refactor VACON scaffold toward a reusable multi-tenant plugin platform where
@@ -19,9 +28,10 @@ but do NOT invent or embed prices or select a payment provider.
    `PluginEntitlement` models. Make device IDs and requested commands
    facility/site scoped and non-confusable.
 3. Implement facility selection in Flutter with safe membership checks.
-4. Implement plugin catalogue with VACON upgrade stub, OxyGuard
+4. Extend the existing Add-ons catalogue with VACON upgrade stub, OxyGuard
    upgrade stub (do NOT touch existing OxyGuard/Vigo integrations),
-   per-facility entitlement badges. No billing side effects.
+   per-facility entitlement badges; use the existing Add-ons screen
+   and Fjellfisk Collector experience as the starting point. No billing side effects.
 5. Replace simple VACON pump list with facility-scoped device inventory
    supporting multiple units and model profile selection. Unknown
    models must have no control capability.
