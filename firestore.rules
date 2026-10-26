@@ -308,9 +308,93 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    function validVaconPump(data) {
+      return data.keys().hasAll([
+          'name', 'ip', 'port', 'model', 'minHz', 'maxHz',
+          'commissioned', 'remoteControlEnabled', 'createdAt'
+        ])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.ip is string && data.ip.size() > 6 && data.ip.size() <= 45
+        && data.port is int && data.port > 0 && data.port <= 65535
+        && data.model is string && data.model.size() <= 100
+        && data.minHz is number && data.maxHz is number
+        && data.minHz >= 0 && data.maxHz > data.minHz && data.maxHz <= 200
+        && data.commissioned is bool
+        && data.remoteControlEnabled is bool;
+    }
+
+    function validVaconCommand(data, facilityId) {
+      let pumpPath = /databases/$(database)/documents/facilities/$(facilityId)/vaconPumps/$(data.pumpId);
+      let pump = get(pumpPath).data;
+      return isAdmin()
+        && data.keys().hasAll([
+          'pumpId', 'type', 'value', 'status', 'requestedByUid',
+          'requestedAt', 'expiresAt'
+        ])
+        && data.keys().hasOnly([
+          'pumpId', 'type', 'value', 'status', 'requestedByUid',
+          'requestedAt', 'expiresAt'
+        ])
+        && data.pumpId is string && data.pumpId.size() > 0
+        && exists(pumpPath)
+        && data.type in ['start', 'stop', 'setFrequency', 'faultReset']
+        && data.status == 'queued'
+        && data.requestedByUid == request.auth.uid
+        && data.requestedAt == request.time
+        && data.expiresAt is timestamp
+        && data.expiresAt > request.time
+        && data.expiresAt <= request.time + duration.value(30, 's')
+        && pump.commissioned == true
+        && pump.remoteControlEnabled == true
+        && pump.connection == 'online'
+        && pump.measuredAt is timestamp
+        && pump.measuredAt >= request.time - duration.value(20, 's')
+        && pump.measuredAt <= request.time
+        && (
+          (data.type == 'setFrequency' && data.value is number
+            && data.value >= pump.minHz && data.value <= pump.maxHz)
+          || (data.type != 'setFrequency' && data.value == null)
+        );
+    }
+
     match /facilities/{facilityId} {
       allow read: if activeUser();
       allow create, update, delete: if isAdmin();
+
+      // Client can register an INACTIVE device. Only a trusted gateway with
+      // Admin SDK credentials may commission a pump or publish telemetry.
+      match /vaconPumps/{pumpId} {
+        allow read: if activeUser();
+        allow create: if isAdmin()
+          && request.resource.data.keys().hasOnly([
+            'name', 'ip', 'port', 'model', 'minHz', 'maxHz',
+            'commissioned', 'remoteControlEnabled', 'createdAt'
+          ])
+          && validVaconPump(request.resource.data)
+          && request.resource.data.commissioned == false
+          && request.resource.data.remoteControlEnabled == false
+          && request.resource.data.createdAt == request.time;
+        allow update: if isAdmin() && resource.data.commissioned == false
+          && validVaconPump(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'ip', 'port', 'model', 'minHz', 'maxHz'
+          ]);
+        allow delete: if false;
+      }
+
+      // Immutable requests; no client may declare commands executed.
+      // Trusted gateway must re-check live interlocks, age, role, TTL and
+      // measured readback before any Modbus write and acknowledgement.
+      match /vaconPumpCommands/{commandId} {
+        allow read: if activeUser();
+        allow create: if validVaconCommand(request.resource.data, facilityId);
+        allow update, delete: if false;
+      }
+
+      match /vaconPumpAudit/{eventId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
 
       match /diaryEntries/{entryId} {
         allow read: if activeUser();
