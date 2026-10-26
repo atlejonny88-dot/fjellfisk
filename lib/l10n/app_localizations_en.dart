@@ -1941,4 +1941,113 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get collectorSaturationShort => 'Sat.';
+
+  @override
+  String get vaconControlName => 'VACON Control';
+
+  @override
+  String get vaconControlDescription =>
+      'Monitor and test frequency-converter configuration. Physical control is locked.';
+
+  @override
+  String get openVaconControl => 'Open VACON Control';
+
+  @override
+  String get vaconSimulationBadge => 'Simulated test mode';
+
+  @override
+  String get vaconPhysicalControlLocked =>
+      'Remote control of physical equipment is disabled. It can only be opened later through a controlled, approved commissioning process.';
+
+  @override
+  String get vaconEntitlementActive =>
+      'VACON Control is available for this facility.';
+
+  @override
+  String get vaconEntitlementInactive =>
+      'VACON Control is not enabled for this facility.';
+
+  @override
+  String get vaconDevices => 'VACON devices';
+
+  @override
+  String get vaconNoDevices => 'No VACON devices are configured.';
+
+  @override
+  String get vaconSite => 'Site';
+
+  @override
+  String get vaconModelProfile => 'Model profile';
+
+  @override
+  String get vaconConnection => 'Connection';
+
+  @override
+  String get vaconControlState => 'Control state';
+
+  @override
+  String get vaconTelemetry => 'Telemetry';
+
+  @override
+  String get vaconActualFrequency => 'Actual frequency';
+
+  @override
+  String get vaconReferenceFrequency => 'Reference';
+
+  @override
+  String get vaconMotorCurrent => 'Motor current';
+
+  @override
+  String get vaconMotorPower => 'Power';
+
+  @override
+  String get vaconLastMeasurement => 'Last measurement';
+
+  @override
+  String get vaconRunning => 'Running';
+
+  @override
+  String get vaconStopped => 'Stopped';
+
+  @override
+  String get vaconSimulationStart => 'Simulate start';
+
+  @override
+  String get vaconSimulationStop => 'Simulate stop';
+
+  @override
+  String get vaconSimulationFrequency => 'Simulate frequency';
+
+  @override
+  String get vaconSimulationReset => 'Simulate reset';
+
+  @override
+  String get vaconConfirmSimulation => 'Continue simulation';
+
+  @override
+  String get vaconCommandVerified =>
+      'Simulated command verified with readback.';
+
+  @override
+  String get vaconCommandBlocked =>
+      'The command was blocked by the safety checks.';
+
+  @override
+  String get vaconControlDisabled => 'Remote control disabled';
+
+  @override
+  String get vaconUnknownModel => 'Unknown model';
+
+  @override
+  String get vaconGatewayEndpoint => 'Gateway address';
+
+  @override
+  String get vaconUnitId => 'Unit ID';
+
+  @override
+  String get vaconPolling => 'Polling';
+
+  @override
+  String get vaconReadOnlySetup =>
+      'Read access and configuration follow existing roles. No physical command is sent from this app.';
 }

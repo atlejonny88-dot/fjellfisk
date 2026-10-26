@@ -60,6 +60,11 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Pairing URL permits only HTTPS or explicit loopback emulator", PairingBackendConfigurationIsSafeAsync),
     ("Pairing HTTP client follows the backend contract", PairingHttpClientUsesBackendContractAsync),
     ("Pairing state machine has no Vigo reader dependency", PairingStateDoesNotDependOnVigoAsync),
+    ("VACON simulation verifies only a safe local test command", VaconSimulationVerifiesLocalTestCommandAsync),
+    ("VACON simulation isolates facilities and rejects replay", VaconSimulationIsolatesFacilitiesAndReplayAsync),
+    ("VACON simulation rejects stale, offline and interlocked devices", VaconSimulationRejectsUnsafeStateAsync),
+    ("VACON simulation rejects physical and unknown-model devices", VaconSimulationRejectsPhysicalAndUnknownDevicesAsync),
+    ("VACON simulation exposes no physical write API", VaconSimulationHasNoPhysicalWriteApiAsync),
     ("Payload uses normalized fields", PayloadUsesNormalizedFieldsAsync),
     ("Normalizer validates scalar readings", NormalizerValidatesScalarReadingsAsync),
     ("Backoff follows safe schedule", BackoffFollowsSafeScheduleAsync),
@@ -1901,6 +1906,124 @@ static void ExpectThrows<TException>(Action action)
 
     throw new InvalidOperationException($"Expected {typeof(TException).Name}.");
 }
+
+static Task VaconSimulationVerifiesLocalTestCommandAsync()
+{
+    var now = DateTimeOffset.Parse("2026-10-26T10:00:00Z");
+    var gateway = new SimulatedVaconGateway(new[] { CreateVaconSimulationDevice(now) });
+    var result = gateway.Process(
+        CreateVaconSimulationRequest("request-1", now, VaconSimulationCommandType.Start),
+        CreateVaconSimulationAuthorization(),
+        now);
+
+    Assert(result.Status == VaconSimulationResultStatus.Verified, "Safe simulation command was not verified.");
+    Assert(result.Readback is { Running: true, ActualHz: 20m }, "Simulation did not return a deterministic readback.");
+    return Task.CompletedTask;
+}
+
+static Task VaconSimulationIsolatesFacilitiesAndReplayAsync()
+{
+    var now = DateTimeOffset.Parse("2026-10-26T10:00:00Z");
+    var gateway = new SimulatedVaconGateway(new[] { CreateVaconSimulationDevice(now) });
+    var crossFacility = gateway.Process(
+        new VaconSimulationRequest("request-cross", "facility-b", "device-1", VaconSimulationCommandType.Start, now.AddSeconds(15)),
+        CreateVaconSimulationAuthorization(),
+        now);
+    Assert(crossFacility.Reason == "missing-pump-control-permission", "Cross-facility request was not rejected.");
+
+    var first = gateway.Process(
+        CreateVaconSimulationRequest("request-replay", now, VaconSimulationCommandType.Stop),
+        CreateVaconSimulationAuthorization(),
+        now);
+    var replay = gateway.Process(
+        CreateVaconSimulationRequest("request-replay", now, VaconSimulationCommandType.Start),
+        CreateVaconSimulationAuthorization(),
+        now);
+    Assert(first.Status == VaconSimulationResultStatus.Verified, "Initial command should have completed in the simulator.");
+    Assert(replay.Reason == "duplicate-request", "Replay was not rejected.");
+    return Task.CompletedTask;
+}
+
+static Task VaconSimulationRejectsUnsafeStateAsync()
+{
+    var now = DateTimeOffset.Parse("2026-10-26T10:00:00Z");
+    var stale = CreateVaconSimulationDevice(now) with
+    {
+        Telemetry = new VaconSimulationTelemetry(now.AddMinutes(-2), false, 0m, 0m),
+    };
+    var interlocked = CreateVaconSimulationDevice(now) with { LocalInterlockSatisfied = false };
+    var offline = CreateVaconSimulationDevice(now) with { GatewayConnected = false };
+
+    var staleResult = new SimulatedVaconGateway(new[] { stale }).Process(
+        CreateVaconSimulationRequest("stale", now, VaconSimulationCommandType.Start),
+        CreateVaconSimulationAuthorization(), now);
+    var interlockResult = new SimulatedVaconGateway(new[] { interlocked }).Process(
+        CreateVaconSimulationRequest("interlock", now, VaconSimulationCommandType.Start),
+        CreateVaconSimulationAuthorization(), now);
+    var offlineResult = new SimulatedVaconGateway(new[] { offline }).Process(
+        CreateVaconSimulationRequest("offline", now, VaconSimulationCommandType.Start),
+        CreateVaconSimulationAuthorization(), now);
+
+    Assert(staleResult.Reason == "telemetry-stale", "Stale telemetry was accepted.");
+    Assert(interlockResult.Reason == "local-interlock-blocked", "Local interlock was ignored.");
+    Assert(offlineResult.Reason == "gateway-not-connected", "Offline gateway was accepted.");
+    return Task.CompletedTask;
+}
+
+static Task VaconSimulationRejectsPhysicalAndUnknownDevicesAsync()
+{
+    var now = DateTimeOffset.Parse("2026-10-26T10:00:00Z");
+    var physical = CreateVaconSimulationDevice(now) with { SimulationOnly = false };
+    var unknown = CreateVaconSimulationDevice(now) with
+    {
+        Profile = new VaconSimulationProfile("unknown", false, false),
+    };
+
+    var physicalResult = new SimulatedVaconGateway(new[] { physical }).Process(
+        CreateVaconSimulationRequest("physical", now, VaconSimulationCommandType.Start),
+        CreateVaconSimulationAuthorization(), now);
+    var unknownResult = new SimulatedVaconGateway(new[] { unknown }).Process(
+        CreateVaconSimulationRequest("unknown", now, VaconSimulationCommandType.Start),
+        CreateVaconSimulationAuthorization(), now);
+
+    Assert(physicalResult.Reason == "physical-control-disabled", "Physical device did not fail closed.");
+    Assert(unknownResult.Reason == "model-profile-not-approved", "Unknown model was accepted.");
+    return Task.CompletedTask;
+}
+
+static Task VaconSimulationHasNoPhysicalWriteApiAsync()
+{
+    var writeMethods = typeof(SimulatedVaconGateway)
+        .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+        .Where(method => method.Name.Contains("Write", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Contains("Modbus", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Contains("Tcp", StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+    Assert(writeMethods.Length == 0, "Simulation gateway exposed a physical write or transport API.");
+    return Task.CompletedTask;
+}
+
+static VaconSimulationDevice CreateVaconSimulationDevice(DateTimeOffset now) =>
+    new(
+        "facility-a",
+        "device-1",
+        new VaconSimulationProfile("simulated-profile", true, true),
+        true,
+        true,
+        true,
+        true,
+        20m,
+        50m,
+        new VaconSimulationTelemetry(now.AddSeconds(-5), false, 0m, 0m));
+
+static VaconSimulationRequest CreateVaconSimulationRequest(
+    string requestId,
+    DateTimeOffset now,
+    VaconSimulationCommandType type) =>
+    new(requestId, "facility-a", "device-1", type, now.AddSeconds(15));
+
+static VaconSimulationAuthorization CreateVaconSimulationAuthorization() =>
+    new("facility-a", true, true, true);
 
 static void Assert(bool condition, string message)
 {

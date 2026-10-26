@@ -3561,6 +3561,210 @@ abstract class AppLocalizations {
   /// In nb, this message translates to:
   /// **'Metning'**
   String get collectorSaturationShort;
+
+  /// No description provided for @vaconControlName.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON Control'**
+  String get vaconControlName;
+
+  /// No description provided for @vaconControlDescription.
+  ///
+  /// In nb, this message translates to:
+  /// **'Overvåk og test konfigurasjon for frekvensomformere. Fysisk styring er låst.'**
+  String get vaconControlDescription;
+
+  /// No description provided for @openVaconControl.
+  ///
+  /// In nb, this message translates to:
+  /// **'Åpne VACON Control'**
+  String get openVaconControl;
+
+  /// No description provided for @vaconSimulationBadge.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simulert testmodus'**
+  String get vaconSimulationBadge;
+
+  /// No description provided for @vaconPhysicalControlLocked.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fjernstyring av fysisk utstyr er deaktivert. Kun en kontrollert, godkjent idriftsettelse kan åpne den senere.'**
+  String get vaconPhysicalControlLocked;
+
+  /// No description provided for @vaconEntitlementActive.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON Control er tilgjengelig for dette anlegget.'**
+  String get vaconEntitlementActive;
+
+  /// No description provided for @vaconEntitlementInactive.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON Control er ikke aktivert for dette anlegget.'**
+  String get vaconEntitlementInactive;
+
+  /// No description provided for @vaconDevices.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON-enheter'**
+  String get vaconDevices;
+
+  /// No description provided for @vaconNoDevices.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen VACON-enheter er konfigurert.'**
+  String get vaconNoDevices;
+
+  /// No description provided for @vaconSite.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sted'**
+  String get vaconSite;
+
+  /// No description provided for @vaconModelProfile.
+  ///
+  /// In nb, this message translates to:
+  /// **'Modellprofil'**
+  String get vaconModelProfile;
+
+  /// No description provided for @vaconConnection.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kommunikasjon'**
+  String get vaconConnection;
+
+  /// No description provided for @vaconControlState.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kontrollstatus'**
+  String get vaconControlState;
+
+  /// No description provided for @vaconTelemetry.
+  ///
+  /// In nb, this message translates to:
+  /// **'Telemetri'**
+  String get vaconTelemetry;
+
+  /// No description provided for @vaconActualFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Faktisk frekvens'**
+  String get vaconActualFrequency;
+
+  /// No description provided for @vaconReferenceFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Referanse'**
+  String get vaconReferenceFrequency;
+
+  /// No description provided for @vaconMotorCurrent.
+  ///
+  /// In nb, this message translates to:
+  /// **'Motorstrøm'**
+  String get vaconMotorCurrent;
+
+  /// No description provided for @vaconMotorPower.
+  ///
+  /// In nb, this message translates to:
+  /// **'Effekt'**
+  String get vaconMotorPower;
+
+  /// No description provided for @vaconLastMeasurement.
+  ///
+  /// In nb, this message translates to:
+  /// **'Siste måling'**
+  String get vaconLastMeasurement;
+
+  /// No description provided for @vaconRunning.
+  ///
+  /// In nb, this message translates to:
+  /// **'I drift'**
+  String get vaconRunning;
+
+  /// No description provided for @vaconStopped.
+  ///
+  /// In nb, this message translates to:
+  /// **'Stoppet'**
+  String get vaconStopped;
+
+  /// No description provided for @vaconSimulationStart.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler start'**
+  String get vaconSimulationStart;
+
+  /// No description provided for @vaconSimulationStop.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler stopp'**
+  String get vaconSimulationStop;
+
+  /// No description provided for @vaconSimulationFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler frekvens'**
+  String get vaconSimulationFrequency;
+
+  /// No description provided for @vaconSimulationReset.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler kvittering'**
+  String get vaconSimulationReset;
+
+  /// No description provided for @vaconConfirmSimulation.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fortsett simulering'**
+  String get vaconConfirmSimulation;
+
+  /// No description provided for @vaconCommandVerified.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simulert kommando verifisert med readback.'**
+  String get vaconCommandVerified;
+
+  /// No description provided for @vaconCommandBlocked.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kommandoen ble blokkert av sikkerhetsreglene.'**
+  String get vaconCommandBlocked;
+
+  /// No description provided for @vaconControlDisabled.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fjernstyring deaktivert'**
+  String get vaconControlDisabled;
+
+  /// No description provided for @vaconUnknownModel.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ukjent modell'**
+  String get vaconUnknownModel;
+
+  /// No description provided for @vaconGatewayEndpoint.
+  ///
+  /// In nb, this message translates to:
+  /// **'Gateway-adresse'**
+  String get vaconGatewayEndpoint;
+
+  /// No description provided for @vaconUnitId.
+  ///
+  /// In nb, this message translates to:
+  /// **'Enhets-ID'**
+  String get vaconUnitId;
+
+  /// No description provided for @vaconPolling.
+  ///
+  /// In nb, this message translates to:
+  /// **'Polling'**
+  String get vaconPolling;
+
+  /// No description provided for @vaconReadOnlySetup.
+  ///
+  /// In nb, this message translates to:
+  /// **'Lesetilgang og konfigurering følger eksisterende roller. Ingen fysisk kommando sendes fra denne appen.'**
+  String get vaconReadOnlySetup;
 }
 
 class _AppLocalizationsDelegate

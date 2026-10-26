@@ -294,7 +294,7 @@ void main() {
     await tester.pumpAndSettle();
     final setupFinder =
         find.byKey(const ValueKey('collector-setup-fjellfisk-collector'));
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -1200));
+    await tester.ensureVisible(setupFinder);
     await tester.pumpAndSettle();
     await tester.tap(setupFinder);
     await tester.pumpAndSettle();

@@ -156,3 +156,18 @@ test('Collector pairing records are never directly available to Flutter clients'
     await assertFails(setDoc(doc(adminStore, path), {sensitive: 'blocked'}));
   }
 });
+
+test('VACON control records are never directly available to Flutter clients', async () => {
+  const adminStore = db('admin');
+  for (const path of [
+    'facilities/default_facility/vaconSites/site-1',
+    'facilities/default_facility/vaconDevices/device-1',
+    'facilities/default_facility/vaconTelemetry/device-1',
+    'facilities/default_facility/vaconCommands/command-1',
+    'facilities/default_facility/vaconAudit/audit-1',
+    'facilities/default_facility/pluginEntitlements/vacon_control',
+  ]) {
+    await assertFails(getDoc(doc(adminStore, path)));
+    await assertFails(setDoc(doc(adminStore, path), {blocked: true}));
+  }
+});

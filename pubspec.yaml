@@ -39,6 +39,11 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
 
+# objective_c 9.5.0 fails while compiling its native build hook on Windows.
+# Keep the compatible 9.4.1 release until the upstream Windows issue is fixed.
+dependency_overrides:
+  objective_c: 9.4.1
+
 flutter:
   generate: true
   uses-material-design: true

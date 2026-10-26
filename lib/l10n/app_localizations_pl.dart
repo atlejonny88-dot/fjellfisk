@@ -1957,4 +1957,113 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get collectorSaturationShort => 'Nasyc.';
+
+  @override
+  String get vaconControlName => 'VACON Control';
+
+  @override
+  String get vaconControlDescription =>
+      'Monitoruj i testuj konfigurację przemienników częstotliwości. Sterowanie fizyczne jest zablokowane.';
+
+  @override
+  String get openVaconControl => 'Otwórz VACON Control';
+
+  @override
+  String get vaconSimulationBadge => 'Symulowany tryb testowy';
+
+  @override
+  String get vaconPhysicalControlLocked =>
+      'Zdalne sterowanie urządzeniami fizycznymi jest wyłączone. Może zostać udostępnione później wyłącznie w kontrolowanym, zatwierdzonym procesie uruchomienia.';
+
+  @override
+  String get vaconEntitlementActive =>
+      'VACON Control jest dostępny dla tego obiektu.';
+
+  @override
+  String get vaconEntitlementInactive =>
+      'VACON Control nie jest włączony dla tego obiektu.';
+
+  @override
+  String get vaconDevices => 'Urządzenia VACON';
+
+  @override
+  String get vaconNoDevices => 'Nie skonfigurowano urządzeń VACON.';
+
+  @override
+  String get vaconSite => 'Lokalizacja';
+
+  @override
+  String get vaconModelProfile => 'Profil modelu';
+
+  @override
+  String get vaconConnection => 'Komunikacja';
+
+  @override
+  String get vaconControlState => 'Stan sterowania';
+
+  @override
+  String get vaconTelemetry => 'Telemetria';
+
+  @override
+  String get vaconActualFrequency => 'Częstotliwość rzeczywista';
+
+  @override
+  String get vaconReferenceFrequency => 'Wartość zadana';
+
+  @override
+  String get vaconMotorCurrent => 'Prąd silnika';
+
+  @override
+  String get vaconMotorPower => 'Moc';
+
+  @override
+  String get vaconLastMeasurement => 'Ostatni pomiar';
+
+  @override
+  String get vaconRunning => 'W pracy';
+
+  @override
+  String get vaconStopped => 'Zatrzymany';
+
+  @override
+  String get vaconSimulationStart => 'Symuluj start';
+
+  @override
+  String get vaconSimulationStop => 'Symuluj stop';
+
+  @override
+  String get vaconSimulationFrequency => 'Symuluj częstotliwość';
+
+  @override
+  String get vaconSimulationReset => 'Symuluj reset';
+
+  @override
+  String get vaconConfirmSimulation => 'Kontynuuj symulację';
+
+  @override
+  String get vaconCommandVerified =>
+      'Symulowana komenda zweryfikowana odczytem zwrotnym.';
+
+  @override
+  String get vaconCommandBlocked =>
+      'Komenda została zablokowana przez kontrole bezpieczeństwa.';
+
+  @override
+  String get vaconControlDisabled => 'Sterowanie zdalne wyłączone';
+
+  @override
+  String get vaconUnknownModel => 'Nieznany model';
+
+  @override
+  String get vaconGatewayEndpoint => 'Adres bramki';
+
+  @override
+  String get vaconUnitId => 'ID urządzenia';
+
+  @override
+  String get vaconPolling => 'Odpytanie';
+
+  @override
+  String get vaconReadOnlySetup =>
+      'Dostęp do odczytu i konfiguracja są zgodne z istniejącymi rolami. Aplikacja nie wysyła fizycznych komend.';
 }

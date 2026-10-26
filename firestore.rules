@@ -352,6 +352,34 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // VACON Control is deliberately backend/gateway-only. The V4 client
+      // simulator has no Firestore dependency, and future production access
+      // must go through an authenticated server API with facility membership,
+      // entitlement, commissioning and command-state checks.
+      match /vaconSites/{siteId} {
+        allow read, write: if false;
+      }
+
+      match /vaconDevices/{deviceId} {
+        allow read, write: if false;
+      }
+
+      match /vaconTelemetry/{deviceId} {
+        allow read, write: if false;
+      }
+
+      match /vaconCommands/{commandId} {
+        allow read, write: if false;
+      }
+
+      match /vaconAudit/{eventId} {
+        allow read, write: if false;
+      }
+
+      match /pluginEntitlements/{pluginId} {
+        allow read, write: if false;
+      }
+
       match /sections/{sectionId} {
         allow read: if activeUser();
         allow create, update, delete: if isAdmin();

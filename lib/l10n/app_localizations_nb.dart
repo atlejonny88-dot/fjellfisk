@@ -1940,4 +1940,113 @@ class AppLocalizationsNb extends AppLocalizations {
 
   @override
   String get collectorSaturationShort => 'Metning';
+
+  @override
+  String get vaconControlName => 'VACON Control';
+
+  @override
+  String get vaconControlDescription =>
+      'Overvåk og test konfigurasjon for frekvensomformere. Fysisk styring er låst.';
+
+  @override
+  String get openVaconControl => 'Åpne VACON Control';
+
+  @override
+  String get vaconSimulationBadge => 'Simulert testmodus';
+
+  @override
+  String get vaconPhysicalControlLocked =>
+      'Fjernstyring av fysisk utstyr er deaktivert. Kun en kontrollert, godkjent idriftsettelse kan åpne den senere.';
+
+  @override
+  String get vaconEntitlementActive =>
+      'VACON Control er tilgjengelig for dette anlegget.';
+
+  @override
+  String get vaconEntitlementInactive =>
+      'VACON Control er ikke aktivert for dette anlegget.';
+
+  @override
+  String get vaconDevices => 'VACON-enheter';
+
+  @override
+  String get vaconNoDevices => 'Ingen VACON-enheter er konfigurert.';
+
+  @override
+  String get vaconSite => 'Sted';
+
+  @override
+  String get vaconModelProfile => 'Modellprofil';
+
+  @override
+  String get vaconConnection => 'Kommunikasjon';
+
+  @override
+  String get vaconControlState => 'Kontrollstatus';
+
+  @override
+  String get vaconTelemetry => 'Telemetri';
+
+  @override
+  String get vaconActualFrequency => 'Faktisk frekvens';
+
+  @override
+  String get vaconReferenceFrequency => 'Referanse';
+
+  @override
+  String get vaconMotorCurrent => 'Motorstrøm';
+
+  @override
+  String get vaconMotorPower => 'Effekt';
+
+  @override
+  String get vaconLastMeasurement => 'Siste måling';
+
+  @override
+  String get vaconRunning => 'I drift';
+
+  @override
+  String get vaconStopped => 'Stoppet';
+
+  @override
+  String get vaconSimulationStart => 'Simuler start';
+
+  @override
+  String get vaconSimulationStop => 'Simuler stopp';
+
+  @override
+  String get vaconSimulationFrequency => 'Simuler frekvens';
+
+  @override
+  String get vaconSimulationReset => 'Simuler kvittering';
+
+  @override
+  String get vaconConfirmSimulation => 'Fortsett simulering';
+
+  @override
+  String get vaconCommandVerified =>
+      'Simulert kommando verifisert med readback.';
+
+  @override
+  String get vaconCommandBlocked =>
+      'Kommandoen ble blokkert av sikkerhetsreglene.';
+
+  @override
+  String get vaconControlDisabled => 'Fjernstyring deaktivert';
+
+  @override
+  String get vaconUnknownModel => 'Ukjent modell';
+
+  @override
+  String get vaconGatewayEndpoint => 'Gateway-adresse';
+
+  @override
+  String get vaconUnitId => 'Enhets-ID';
+
+  @override
+  String get vaconPolling => 'Polling';
+
+  @override
+  String get vaconReadOnlySetup =>
+      'Lesetilgang og konfigurering følger eksisterende roller. Ingen fysisk kommando sendes fra denne appen.';
 }

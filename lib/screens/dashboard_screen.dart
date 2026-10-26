@@ -419,7 +419,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context,
       subtleFadeSlideRoute<void>(
         context: context,
-        builder: (_) => const AddOnsScreen(),
+        builder: (_) => AddOnsScreen(facilityId: widget.facilityId),
       ),
     );
   }
