@@ -14,7 +14,7 @@ have a VPN route to the drive and must never rely on browser TCP connectivity.
 
 ## Already implemented
 
-- Admin-only device registration in Plugins / VACON (IP, port, name).
+- Admin-only device registration in Add-ons / VACON Control (IP, port, name).
 - Read-only telemetry presentation for all active Fjellfisk users.
 - Start/stop, set-frequency and fault-reset command UI for admins.
 - All controls disabled until trusted commissioning sets
