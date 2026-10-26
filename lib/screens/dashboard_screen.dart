@@ -24,7 +24,6 @@ import 'feed_inventory_screen.dart';
 import 'production_report_screen.dart';
 import 'section_screen.dart';
 import 'tank_screen.dart';
-import 'vacon_pump_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String facilityId;
@@ -412,15 +411,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context,
       MaterialPageRoute(builder: (_) => const AdminUsersScreen()),
     ).then((_) => _refresh());
-  }
-
-  void _openVaconPlugins() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => VaconPumpScreen(facilityId: widget.facilityId),
-      ),
-    );
   }
 
   Future<void> _openNotifications() async {
@@ -819,12 +809,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             subtitle: l10n.feedInventorySubtitle,
             icon: Icons.inventory_2_outlined,
             onTap: _openFeedInventory,
-          ),
-          DashboardActionCard(
-            title: 'Plugins · VACON',
-            subtitle: 'Fjernovervåking og styring av pumper',
-            icon: Icons.settings_input_component_outlined,
-            onTap: _openVaconPlugins,
           ),
           DashboardActionCard(
             title: l10n.excelExport,
