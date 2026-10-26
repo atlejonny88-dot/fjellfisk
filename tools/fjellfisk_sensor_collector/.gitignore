@@ -1,0 +1,5 @@
+bin/
+obj/
+collector-state/
+*.log
+installer/output/

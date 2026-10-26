@@ -3213,6 +3213,558 @@ abstract class AppLocalizations {
   /// In nb, this message translates to:
   /// **'Side {current} av {total}'**
   String pageOf(int current, int total);
+
+  /// No description provided for @addOns.
+  ///
+  /// In nb, this message translates to:
+  /// **'Add-ons'**
+  String get addOns;
+
+  /// No description provided for @addOnsSubtitle.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble til og administrer tekniske integrasjoner.'**
+  String get addOnsSubtitle;
+
+  /// No description provided for @collectorAddOnName.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fjellfisk Collector'**
+  String get collectorAddOnName;
+
+  /// No description provided for @collectorAddOnDescription.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble Fjellfisk til lokale sensorer og støttede systemer.'**
+  String get collectorAddOnDescription;
+
+  /// No description provided for @addOnStatusNotConnected.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ikke tilkoblet'**
+  String get addOnStatusNotConnected;
+
+  /// No description provided for @addOnStatusPending.
+  ///
+  /// In nb, this message translates to:
+  /// **'Venter på tilkobling'**
+  String get addOnStatusPending;
+
+  /// No description provided for @addOnStatusConnected.
+  ///
+  /// In nb, this message translates to:
+  /// **'Tilkoblet'**
+  String get addOnStatusConnected;
+
+  /// No description provided for @addOnStatusOffline.
+  ///
+  /// In nb, this message translates to:
+  /// **'Frakoblet'**
+  String get addOnStatusOffline;
+
+  /// No description provided for @addOnStatusRevoked.
+  ///
+  /// In nb, this message translates to:
+  /// **'Tilgang fjernet'**
+  String get addOnStatusRevoked;
+
+  /// No description provided for @addOnStatusError.
+  ///
+  /// In nb, this message translates to:
+  /// **'Feil'**
+  String get addOnStatusError;
+
+  /// No description provided for @connectCollector.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble til collector'**
+  String get connectCollector;
+
+  /// No description provided for @pairCollector.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble til Fjellfisk Collector'**
+  String get pairCollector;
+
+  /// No description provided for @connectionCode.
+  ///
+  /// In nb, this message translates to:
+  /// **'Tilkoblingskode'**
+  String get connectionCode;
+
+  /// No description provided for @connectionCodeRequired.
+  ///
+  /// In nb, this message translates to:
+  /// **'Skriv inn tilkoblingskoden.'**
+  String get connectionCodeRequired;
+
+  /// No description provided for @connectionCodeInvalid.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koden er ugyldig eller kan ikke brukes.'**
+  String get connectionCodeInvalid;
+
+  /// No description provided for @connectionCodeExpired.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koden har utløpt. Be collector vise en ny kode.'**
+  String get connectionCodeExpired;
+
+  /// No description provided for @connectionCodeAlreadyUsed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koden er allerede brukt.'**
+  String get connectionCodeAlreadyUsed;
+
+  /// No description provided for @connectingCollector.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kobler til…'**
+  String get connectingCollector;
+
+  /// No description provided for @connect.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble til'**
+  String get connect;
+
+  /// No description provided for @claimCodeSecurityMessage.
+  ///
+  /// In nb, this message translates to:
+  /// **'Skriv inn engangskoden som vises lokalt på collector-PC-en.'**
+  String get claimCodeSecurityMessage;
+
+  /// No description provided for @addOnsAdminOnly.
+  ///
+  /// In nb, this message translates to:
+  /// **'Bare administratorer kan koble til eller fra add-ons.'**
+  String get addOnsAdminOnly;
+
+  /// No description provided for @collectorDevice.
+  ///
+  /// In nb, this message translates to:
+  /// **'Enhet'**
+  String get collectorDevice;
+
+  /// No description provided for @collectorReader.
+  ///
+  /// In nb, this message translates to:
+  /// **'Leser'**
+  String get collectorReader;
+
+  /// No description provided for @collectorVersion.
+  ///
+  /// In nb, this message translates to:
+  /// **'Versjon'**
+  String get collectorVersion;
+
+  /// No description provided for @collectorLastSeen.
+  ///
+  /// In nb, this message translates to:
+  /// **'Siste kontakt'**
+  String get collectorLastSeen;
+
+  /// No description provided for @collectorSensorCount.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sensorer'**
+  String get collectorSensorCount;
+
+  /// No description provided for @collectorLatestMeasurement.
+  ///
+  /// In nb, this message translates to:
+  /// **'Siste måling'**
+  String get collectorLatestMeasurement;
+
+  /// No description provided for @sensorsCount.
+  ///
+  /// In nb, this message translates to:
+  /// **'{count} sensorer'**
+  String sensorsCount(int count);
+
+  /// No description provided for @justNow.
+  ///
+  /// In nb, this message translates to:
+  /// **'Akkurat nå'**
+  String get justNow;
+
+  /// No description provided for @disconnectCollector.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble fra collector'**
+  String get disconnectCollector;
+
+  /// No description provided for @disconnectCollectorDescription.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector slutter å sende nye målinger og må kobles til på nytt. Historiske data slettes ikke.'**
+  String get disconnectCollectorDescription;
+
+  /// No description provided for @disconnect.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble fra'**
+  String get disconnect;
+
+  /// No description provided for @collectorConnected.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector er koblet til.'**
+  String get collectorConnected;
+
+  /// No description provided for @collectorDisconnected.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector er koblet fra.'**
+  String get collectorDisconnected;
+
+  /// No description provided for @collectorSetupButton.
+  ///
+  /// In nb, this message translates to:
+  /// **'Setup'**
+  String get collectorSetupButton;
+
+  /// No description provided for @collectorSetup.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector Setup'**
+  String get collectorSetup;
+
+  /// No description provided for @collectorSetupSubtitle.
+  ///
+  /// In nb, this message translates to:
+  /// **'Koble sensorsignaler til seksjoner og kar.'**
+  String get collectorSetupSubtitle;
+
+  /// No description provided for @collectorNotAvailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector er ikke tilgjengelig.'**
+  String get collectorNotAvailable;
+
+  /// No description provided for @collectorDataSource.
+  ///
+  /// In nb, this message translates to:
+  /// **'Datakilde'**
+  String get collectorDataSource;
+
+  /// No description provided for @collectorSensorsDetected.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sensorer oppdaget'**
+  String get collectorSensorsDetected;
+
+  /// No description provided for @collectorSensorsConfigured.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sensorer konfigurert'**
+  String get collectorSensorsConfigured;
+
+  /// No description provided for @collectorConfigured.
+  ///
+  /// In nb, this message translates to:
+  /// **'Konfigurert'**
+  String get collectorConfigured;
+
+  /// No description provided for @collectorNotConfigured.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ikke konfigurert'**
+  String get collectorNotConfigured;
+
+  /// No description provided for @collectorSetupSaved.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector-oppsettet er lagret lokalt.'**
+  String get collectorSetupSaved;
+
+  /// No description provided for @collectorSetupAdminOnly.
+  ///
+  /// In nb, this message translates to:
+  /// **'Bare administratorer kan endre sensoroppsettet.'**
+  String get collectorSetupAdminOnly;
+
+  /// No description provided for @collectorNoSensorsInFilter.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen sensorer matcher dette filteret.'**
+  String get collectorNoSensorsInFilter;
+
+  /// No description provided for @oxygenConcentration.
+  ///
+  /// In nb, this message translates to:
+  /// **'O₂-konsentrasjon'**
+  String get oxygenConcentration;
+
+  /// No description provided for @oxygenSaturation.
+  ///
+  /// In nb, this message translates to:
+  /// **'O₂-metning'**
+  String get oxygenSaturation;
+
+  /// No description provided for @collectorLive.
+  ///
+  /// In nb, this message translates to:
+  /// **'Live'**
+  String get collectorLive;
+
+  /// No description provided for @collectorStale.
+  ///
+  /// In nb, this message translates to:
+  /// **'Forsinket'**
+  String get collectorStale;
+
+  /// No description provided for @collectorOffline.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector offline'**
+  String get collectorOffline;
+
+  /// No description provided for @collectorUpdatedNow.
+  ///
+  /// In nb, this message translates to:
+  /// **'Oppdatert nå'**
+  String get collectorUpdatedNow;
+
+  /// No description provided for @collectorUpdatedSecondsAgo.
+  ///
+  /// In nb, this message translates to:
+  /// **'Oppdatert {seconds} sek siden'**
+  String collectorUpdatedSecondsAgo(int seconds);
+
+  /// No description provided for @collectorLastUpdatedMinutesAgo.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sist oppdatert {minutes} min siden'**
+  String collectorLastUpdatedMinutesAgo(int minutes);
+
+  /// No description provided for @collectorLastDataAt.
+  ///
+  /// In nb, this message translates to:
+  /// **'Siste data {time}'**
+  String collectorLastDataAt(String time);
+
+  /// No description provided for @saveCollectorSetup.
+  ///
+  /// In nb, this message translates to:
+  /// **'Lagre oppsett'**
+  String get saveCollectorSetup;
+
+  /// No description provided for @collectorTemperatureShort.
+  ///
+  /// In nb, this message translates to:
+  /// **'Temp.'**
+  String get collectorTemperatureShort;
+
+  /// No description provided for @collectorSaturationShort.
+  ///
+  /// In nb, this message translates to:
+  /// **'Metning'**
+  String get collectorSaturationShort;
+
+  /// No description provided for @vaconControlName.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON Control'**
+  String get vaconControlName;
+
+  /// No description provided for @vaconControlDescription.
+  ///
+  /// In nb, this message translates to:
+  /// **'Overvåk og test konfigurasjon for frekvensomformere. Fysisk styring er låst.'**
+  String get vaconControlDescription;
+
+  /// No description provided for @openVaconControl.
+  ///
+  /// In nb, this message translates to:
+  /// **'Åpne VACON Control'**
+  String get openVaconControl;
+
+  /// No description provided for @vaconSimulationBadge.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simulert testmodus'**
+  String get vaconSimulationBadge;
+
+  /// No description provided for @vaconPhysicalControlLocked.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fjernstyring av fysisk utstyr er deaktivert. Kun en kontrollert, godkjent idriftsettelse kan åpne den senere.'**
+  String get vaconPhysicalControlLocked;
+
+  /// No description provided for @vaconEntitlementActive.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON Control er tilgjengelig for dette anlegget.'**
+  String get vaconEntitlementActive;
+
+  /// No description provided for @vaconEntitlementInactive.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON Control er ikke aktivert for dette anlegget.'**
+  String get vaconEntitlementInactive;
+
+  /// No description provided for @vaconDevices.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON-enheter'**
+  String get vaconDevices;
+
+  /// No description provided for @vaconNoDevices.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen VACON-enheter er konfigurert.'**
+  String get vaconNoDevices;
+
+  /// No description provided for @vaconSite.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sted'**
+  String get vaconSite;
+
+  /// No description provided for @vaconModelProfile.
+  ///
+  /// In nb, this message translates to:
+  /// **'Modellprofil'**
+  String get vaconModelProfile;
+
+  /// No description provided for @vaconConnection.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kommunikasjon'**
+  String get vaconConnection;
+
+  /// No description provided for @vaconControlState.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kontrollstatus'**
+  String get vaconControlState;
+
+  /// No description provided for @vaconTelemetry.
+  ///
+  /// In nb, this message translates to:
+  /// **'Telemetri'**
+  String get vaconTelemetry;
+
+  /// No description provided for @vaconActualFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Faktisk frekvens'**
+  String get vaconActualFrequency;
+
+  /// No description provided for @vaconReferenceFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Referanse'**
+  String get vaconReferenceFrequency;
+
+  /// No description provided for @vaconMotorCurrent.
+  ///
+  /// In nb, this message translates to:
+  /// **'Motorstrøm'**
+  String get vaconMotorCurrent;
+
+  /// No description provided for @vaconMotorPower.
+  ///
+  /// In nb, this message translates to:
+  /// **'Effekt'**
+  String get vaconMotorPower;
+
+  /// No description provided for @vaconLastMeasurement.
+  ///
+  /// In nb, this message translates to:
+  /// **'Siste måling'**
+  String get vaconLastMeasurement;
+
+  /// No description provided for @vaconRunning.
+  ///
+  /// In nb, this message translates to:
+  /// **'I drift'**
+  String get vaconRunning;
+
+  /// No description provided for @vaconStopped.
+  ///
+  /// In nb, this message translates to:
+  /// **'Stoppet'**
+  String get vaconStopped;
+
+  /// No description provided for @vaconSimulationStart.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler start'**
+  String get vaconSimulationStart;
+
+  /// No description provided for @vaconSimulationStop.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler stopp'**
+  String get vaconSimulationStop;
+
+  /// No description provided for @vaconSimulationFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler frekvens'**
+  String get vaconSimulationFrequency;
+
+  /// No description provided for @vaconSimulationReset.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simuler kvittering'**
+  String get vaconSimulationReset;
+
+  /// No description provided for @vaconConfirmSimulation.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fortsett simulering'**
+  String get vaconConfirmSimulation;
+
+  /// No description provided for @vaconCommandVerified.
+  ///
+  /// In nb, this message translates to:
+  /// **'Simulert kommando verifisert med readback.'**
+  String get vaconCommandVerified;
+
+  /// No description provided for @vaconCommandBlocked.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kommandoen ble blokkert av sikkerhetsreglene.'**
+  String get vaconCommandBlocked;
+
+  /// No description provided for @vaconControlDisabled.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fjernstyring deaktivert'**
+  String get vaconControlDisabled;
+
+  /// No description provided for @vaconUnknownModel.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ukjent modell'**
+  String get vaconUnknownModel;
+
+  /// No description provided for @vaconGatewayEndpoint.
+  ///
+  /// In nb, this message translates to:
+  /// **'Gateway-adresse'**
+  String get vaconGatewayEndpoint;
+
+  /// No description provided for @vaconUnitId.
+  ///
+  /// In nb, this message translates to:
+  /// **'Enhets-ID'**
+  String get vaconUnitId;
+
+  /// No description provided for @vaconPolling.
+  ///
+  /// In nb, this message translates to:
+  /// **'Polling'**
+  String get vaconPolling;
+
+  /// No description provided for @vaconReadOnlySetup.
+  ///
+  /// In nb, this message translates to:
+  /// **'Lesetilgang og konfigurering følger eksisterende roller. Ingen fysisk kommando sendes fra denne appen.'**
+  String get vaconReadOnlySetup;
 }
 
 class _AppLocalizationsDelegate

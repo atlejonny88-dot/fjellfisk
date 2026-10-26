@@ -1765,4 +1765,305 @@ class AppLocalizationsPl extends AppLocalizations {
   String pageOf(int current, int total) {
     return 'Strona $current z $total';
   }
+
+  @override
+  String get addOns => 'Dodatki';
+
+  @override
+  String get addOnsSubtitle => 'Łącz i zarządzaj integracjami technicznymi.';
+
+  @override
+  String get collectorAddOnName => 'Fjellfisk Collector';
+
+  @override
+  String get collectorAddOnDescription =>
+      'Połącz Fjellfisk z lokalnymi czujnikami i obsługiwanymi systemami.';
+
+  @override
+  String get addOnStatusNotConnected => 'Nie połączono';
+
+  @override
+  String get addOnStatusPending => 'Oczekuje na połączenie';
+
+  @override
+  String get addOnStatusConnected => 'Połączono';
+
+  @override
+  String get addOnStatusOffline => 'Offline';
+
+  @override
+  String get addOnStatusRevoked => 'Dostęp cofnięty';
+
+  @override
+  String get addOnStatusError => 'Błąd';
+
+  @override
+  String get connectCollector => 'Połącz collector';
+
+  @override
+  String get pairCollector => 'Połącz Fjellfisk Collector';
+
+  @override
+  String get connectionCode => 'Kod połączenia';
+
+  @override
+  String get connectionCodeRequired => 'Wprowadź kod połączenia.';
+
+  @override
+  String get connectionCodeInvalid =>
+      'Kod jest nieprawidłowy lub nie można go użyć.';
+
+  @override
+  String get connectionCodeExpired =>
+      'Kod wygasł. Poproś collector o wyświetlenie nowego kodu.';
+
+  @override
+  String get connectionCodeAlreadyUsed => 'Kod został już użyty.';
+
+  @override
+  String get connectingCollector => 'Łączenie…';
+
+  @override
+  String get connect => 'Połącz';
+
+  @override
+  String get claimCodeSecurityMessage =>
+      'Wprowadź jednorazowy kod wyświetlany lokalnie na komputerze collector.';
+
+  @override
+  String get addOnsAdminOnly =>
+      'Tylko administratorzy mogą łączyć i odłączać dodatki.';
+
+  @override
+  String get collectorDevice => 'Urządzenie';
+
+  @override
+  String get collectorReader => 'Czytnik';
+
+  @override
+  String get collectorVersion => 'Wersja';
+
+  @override
+  String get collectorLastSeen => 'Ostatni kontakt';
+
+  @override
+  String get collectorSensorCount => 'Czujniki';
+
+  @override
+  String get collectorLatestMeasurement => 'Ostatni pomiar';
+
+  @override
+  String sensorsCount(int count) {
+    return 'Liczba czujników: $count';
+  }
+
+  @override
+  String get justNow => 'Przed chwilą';
+
+  @override
+  String get disconnectCollector => 'Odłącz collector';
+
+  @override
+  String get disconnectCollectorDescription =>
+      'Collector przestanie wysyłać nowe pomiary i będzie wymagał ponownego sparowania. Dane historyczne nie zostaną usunięte.';
+
+  @override
+  String get disconnect => 'Odłącz';
+
+  @override
+  String get collectorConnected => 'Collector został połączony.';
+
+  @override
+  String get collectorDisconnected => 'Collector został odłączony.';
+
+  @override
+  String get collectorSetupButton => 'Setup';
+
+  @override
+  String get collectorSetup => 'Konfiguracja collector';
+
+  @override
+  String get collectorSetupSubtitle =>
+      'Przypisz sygnały czujników do sekcji i zbiorników.';
+
+  @override
+  String get collectorNotAvailable => 'Collector jest niedostępny.';
+
+  @override
+  String get collectorDataSource => 'Źródło danych';
+
+  @override
+  String get collectorSensorsDetected => 'Wykryte czujniki';
+
+  @override
+  String get collectorSensorsConfigured => 'Skonfigurowane czujniki';
+
+  @override
+  String get collectorConfigured => 'Skonfigurowane';
+
+  @override
+  String get collectorNotConfigured => 'Nieskonfigurowane';
+
+  @override
+  String get collectorSetupSaved =>
+      'Konfiguracja collector została zapisana lokalnie.';
+
+  @override
+  String get collectorSetupAdminOnly =>
+      'Tylko administratorzy mogą zmieniać konfigurację czujników.';
+
+  @override
+  String get collectorNoSensorsInFilter =>
+      'Żadne czujniki nie pasują do tego filtra.';
+
+  @override
+  String get oxygenConcentration => 'Stężenie O₂';
+
+  @override
+  String get oxygenSaturation => 'Nasycenie O₂';
+
+  @override
+  String get collectorLive => 'Na żywo';
+
+  @override
+  String get collectorStale => 'Opóźnione';
+
+  @override
+  String get collectorOffline => 'Collector offline';
+
+  @override
+  String get collectorUpdatedNow => 'Zaktualizowano teraz';
+
+  @override
+  String collectorUpdatedSecondsAgo(int seconds) {
+    return 'Zaktualizowano $seconds s temu';
+  }
+
+  @override
+  String collectorLastUpdatedMinutesAgo(int minutes) {
+    return 'Ostatnia aktualizacja $minutes min temu';
+  }
+
+  @override
+  String collectorLastDataAt(String time) {
+    return 'Ostatnie dane $time';
+  }
+
+  @override
+  String get saveCollectorSetup => 'Zapisz konfigurację';
+
+  @override
+  String get collectorTemperatureShort => 'Temp.';
+
+  @override
+  String get collectorSaturationShort => 'Nasyc.';
+
+  @override
+  String get vaconControlName => 'VACON Control';
+
+  @override
+  String get vaconControlDescription =>
+      'Monitoruj i testuj konfigurację przemienników częstotliwości. Sterowanie fizyczne jest zablokowane.';
+
+  @override
+  String get openVaconControl => 'Otwórz VACON Control';
+
+  @override
+  String get vaconSimulationBadge => 'Symulowany tryb testowy';
+
+  @override
+  String get vaconPhysicalControlLocked =>
+      'Zdalne sterowanie urządzeniami fizycznymi jest wyłączone. Może zostać udostępnione później wyłącznie w kontrolowanym, zatwierdzonym procesie uruchomienia.';
+
+  @override
+  String get vaconEntitlementActive =>
+      'VACON Control jest dostępny dla tego obiektu.';
+
+  @override
+  String get vaconEntitlementInactive =>
+      'VACON Control nie jest włączony dla tego obiektu.';
+
+  @override
+  String get vaconDevices => 'Urządzenia VACON';
+
+  @override
+  String get vaconNoDevices => 'Nie skonfigurowano urządzeń VACON.';
+
+  @override
+  String get vaconSite => 'Lokalizacja';
+
+  @override
+  String get vaconModelProfile => 'Profil modelu';
+
+  @override
+  String get vaconConnection => 'Komunikacja';
+
+  @override
+  String get vaconControlState => 'Stan sterowania';
+
+  @override
+  String get vaconTelemetry => 'Telemetria';
+
+  @override
+  String get vaconActualFrequency => 'Częstotliwość rzeczywista';
+
+  @override
+  String get vaconReferenceFrequency => 'Wartość zadana';
+
+  @override
+  String get vaconMotorCurrent => 'Prąd silnika';
+
+  @override
+  String get vaconMotorPower => 'Moc';
+
+  @override
+  String get vaconLastMeasurement => 'Ostatni pomiar';
+
+  @override
+  String get vaconRunning => 'W pracy';
+
+  @override
+  String get vaconStopped => 'Zatrzymany';
+
+  @override
+  String get vaconSimulationStart => 'Symuluj start';
+
+  @override
+  String get vaconSimulationStop => 'Symuluj stop';
+
+  @override
+  String get vaconSimulationFrequency => 'Symuluj częstotliwość';
+
+  @override
+  String get vaconSimulationReset => 'Symuluj reset';
+
+  @override
+  String get vaconConfirmSimulation => 'Kontynuuj symulację';
+
+  @override
+  String get vaconCommandVerified =>
+      'Symulowana komenda zweryfikowana odczytem zwrotnym.';
+
+  @override
+  String get vaconCommandBlocked =>
+      'Komenda została zablokowana przez kontrole bezpieczeństwa.';
+
+  @override
+  String get vaconControlDisabled => 'Sterowanie zdalne wyłączone';
+
+  @override
+  String get vaconUnknownModel => 'Nieznany model';
+
+  @override
+  String get vaconGatewayEndpoint => 'Adres bramki';
+
+  @override
+  String get vaconUnitId => 'ID urządzenia';
+
+  @override
+  String get vaconPolling => 'Odpytanie';
+
+  @override
+  String get vaconReadOnlySetup =>
+      'Dostęp do odczytu i konfiguracja są zgodne z istniejącymi rolami. Aplikacja nie wysyła fizycznych komend.';
 }

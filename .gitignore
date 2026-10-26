@@ -42,6 +42,8 @@ serviceAccountKey.json
 firebase-adminsdk*.json
 .env
 *.env
+functions/.secret.local
+functions/lib/
 
 # Firebase CLI local cache
 .firebase/
