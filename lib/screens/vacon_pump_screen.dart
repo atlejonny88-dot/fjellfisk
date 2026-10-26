@@ -6,7 +6,7 @@ import '../models/vacon_pump.dart';
 import '../services/user_service.dart';
 import '../services/vacon_pump_service.dart';
 
-/// Plugins > VACON. The UI is intentionally fail-closed until a gateway is
+/// Add-ons > VACON Control. The UI is intentionally fail-closed until a gateway is
 /// commissioned. All values are telemetry, not optimistic command state.
 class VaconPumpScreen extends StatefulWidget {
   const VaconPumpScreen({super.key, required this.facilityId});
@@ -239,7 +239,7 @@ class _VaconPumpScreenState extends State<VaconPumpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Plugins / VACON-pumper')),
+      appBar: AppBar(title: const Text('Add-ons / VACON Control')),
       floatingActionButton: FutureBuilder<bool>(
         future: _isAdmin,
         builder: (context, snap) => snap.data == true
