@@ -1,7 +1,19 @@
-# Fjellfisk: Commercial plugin platform (proposal v0.1)
+# Fjellfisk: Commercial Add-ons platform (proposal v0.2)
 
 Date: 2026-10-26
 Status: **design contract; not production implementation**.
+
+## Existing UI integration (26 October 2026)
+
+The current local Fjellfisk development UI already has an **Add-ons** page with
+**Fjellfisk Collector** and actions **Connect collector** / **Setup**.
+This local UI is not present in the current connected GitHub `develop` snapshot,
+so do not invent or replace its routes. First sync/review the user's local
+Add-ons/Collector implementation, then attach VACON Control to that page.
+**Do not create a second Plugins section.** Reuse Collector for communication
+only if its actual code supports a secure always-on VPN/Modbus gateway with
+server-side authorization and independent safety checks. Treat that as unverified
+until its implementation is inspected.
 
 ## Product principle
 Base Fjellfisk is one paid product. Optional add-ons have independent subscription
@@ -95,7 +107,7 @@ fresh read of physical state.
 
 ## Licensing / UX
 
-Main nav: Plugins
+Main nav: Add-ons
 - Catalogue: Fjellfisk core (included), VACON Control (upgrade),
   OxyGuard (upgrade)
 - My facility subscriptions
