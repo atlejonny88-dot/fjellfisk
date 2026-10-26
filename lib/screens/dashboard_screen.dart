@@ -20,6 +20,7 @@ import '../widgets/dashboard_v3_widgets.dart';
 import '../widgets/diary_log_panel.dart';
 import '../widgets/notification_center.dart';
 import 'admin_users_screen.dart';
+import 'addons_screen.dart';
 import 'feed_inventory_screen.dart';
 import 'production_report_screen.dart';
 import 'section_screen.dart';
@@ -413,6 +414,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ).then((_) => _refresh());
   }
 
+  void _openAddOns() {
+    Navigator.push(
+      context,
+      subtleFadeSlideRoute<void>(
+        context: context,
+        builder: (_) => const AddOnsScreen(),
+      ),
+    );
+  }
+
   Future<void> _openNotifications() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -636,6 +647,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onDiary: _scrollToDiary,
       onReport: _openProductionReport,
       onFeedInventory: _openFeedInventory,
+      onAddOns: _openAddOns,
       onAdminUsers: _openAdminUsers,
       onExport: _exportExcel,
       onLogout: _logout,
@@ -815,6 +827,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             subtitle: l10n.excelSubtitle,
             icon: Icons.download_outlined,
             onTap: _exportExcel,
+          ),
+          DashboardActionCard(
+            title: l10n.addOns,
+            subtitle: l10n.addOnsSubtitle,
+            icon: Icons.extension_outlined,
+            onTap: _openAddOns,
           ),
         ];
         if (snapshot.data == 'admin') {

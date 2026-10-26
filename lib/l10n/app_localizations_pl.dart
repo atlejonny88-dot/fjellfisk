@@ -1765,4 +1765,196 @@ class AppLocalizationsPl extends AppLocalizations {
   String pageOf(int current, int total) {
     return 'Strona $current z $total';
   }
+
+  @override
+  String get addOns => 'Dodatki';
+
+  @override
+  String get addOnsSubtitle => 'Łącz i zarządzaj integracjami technicznymi.';
+
+  @override
+  String get collectorAddOnName => 'Fjellfisk Collector';
+
+  @override
+  String get collectorAddOnDescription =>
+      'Połącz Fjellfisk z lokalnymi czujnikami i obsługiwanymi systemami.';
+
+  @override
+  String get addOnStatusNotConnected => 'Nie połączono';
+
+  @override
+  String get addOnStatusPending => 'Oczekuje na połączenie';
+
+  @override
+  String get addOnStatusConnected => 'Połączono';
+
+  @override
+  String get addOnStatusOffline => 'Offline';
+
+  @override
+  String get addOnStatusRevoked => 'Dostęp cofnięty';
+
+  @override
+  String get addOnStatusError => 'Błąd';
+
+  @override
+  String get connectCollector => 'Połącz collector';
+
+  @override
+  String get pairCollector => 'Połącz Fjellfisk Collector';
+
+  @override
+  String get connectionCode => 'Kod połączenia';
+
+  @override
+  String get connectionCodeRequired => 'Wprowadź kod połączenia.';
+
+  @override
+  String get connectionCodeInvalid =>
+      'Kod jest nieprawidłowy lub nie można go użyć.';
+
+  @override
+  String get connectionCodeExpired =>
+      'Kod wygasł. Poproś collector o wyświetlenie nowego kodu.';
+
+  @override
+  String get connectionCodeAlreadyUsed => 'Kod został już użyty.';
+
+  @override
+  String get connectingCollector => 'Łączenie…';
+
+  @override
+  String get connect => 'Połącz';
+
+  @override
+  String get claimCodeSecurityMessage =>
+      'Wprowadź jednorazowy kod wyświetlany lokalnie na komputerze collector.';
+
+  @override
+  String get addOnsAdminOnly =>
+      'Tylko administratorzy mogą łączyć i odłączać dodatki.';
+
+  @override
+  String get collectorDevice => 'Urządzenie';
+
+  @override
+  String get collectorReader => 'Czytnik';
+
+  @override
+  String get collectorVersion => 'Wersja';
+
+  @override
+  String get collectorLastSeen => 'Ostatni kontakt';
+
+  @override
+  String get collectorSensorCount => 'Czujniki';
+
+  @override
+  String get collectorLatestMeasurement => 'Ostatni pomiar';
+
+  @override
+  String sensorsCount(int count) {
+    return 'Liczba czujników: $count';
+  }
+
+  @override
+  String get justNow => 'Przed chwilą';
+
+  @override
+  String get disconnectCollector => 'Odłącz collector';
+
+  @override
+  String get disconnectCollectorDescription =>
+      'Collector przestanie wysyłać nowe pomiary i będzie wymagał ponownego sparowania. Dane historyczne nie zostaną usunięte.';
+
+  @override
+  String get disconnect => 'Odłącz';
+
+  @override
+  String get collectorConnected => 'Collector został połączony.';
+
+  @override
+  String get collectorDisconnected => 'Collector został odłączony.';
+
+  @override
+  String get collectorSetupButton => 'Setup';
+
+  @override
+  String get collectorSetup => 'Konfiguracja collector';
+
+  @override
+  String get collectorSetupSubtitle =>
+      'Przypisz sygnały czujników do sekcji i zbiorników.';
+
+  @override
+  String get collectorNotAvailable => 'Collector jest niedostępny.';
+
+  @override
+  String get collectorDataSource => 'Źródło danych';
+
+  @override
+  String get collectorSensorsDetected => 'Wykryte czujniki';
+
+  @override
+  String get collectorSensorsConfigured => 'Skonfigurowane czujniki';
+
+  @override
+  String get collectorConfigured => 'Skonfigurowane';
+
+  @override
+  String get collectorNotConfigured => 'Nieskonfigurowane';
+
+  @override
+  String get collectorSetupSaved =>
+      'Konfiguracja collector została zapisana lokalnie.';
+
+  @override
+  String get collectorSetupAdminOnly =>
+      'Tylko administratorzy mogą zmieniać konfigurację czujników.';
+
+  @override
+  String get collectorNoSensorsInFilter =>
+      'Żadne czujniki nie pasują do tego filtra.';
+
+  @override
+  String get oxygenConcentration => 'Stężenie O₂';
+
+  @override
+  String get oxygenSaturation => 'Nasycenie O₂';
+
+  @override
+  String get collectorLive => 'Na żywo';
+
+  @override
+  String get collectorStale => 'Opóźnione';
+
+  @override
+  String get collectorOffline => 'Collector offline';
+
+  @override
+  String get collectorUpdatedNow => 'Zaktualizowano teraz';
+
+  @override
+  String collectorUpdatedSecondsAgo(int seconds) {
+    return 'Zaktualizowano $seconds s temu';
+  }
+
+  @override
+  String collectorLastUpdatedMinutesAgo(int minutes) {
+    return 'Ostatnia aktualizacja $minutes min temu';
+  }
+
+  @override
+  String collectorLastDataAt(String time) {
+    return 'Ostatnie dane $time';
+  }
+
+  @override
+  String get saveCollectorSetup => 'Zapisz konfigurację';
+
+  @override
+  String get collectorTemperatureShort => 'Temp.';
+
+  @override
+  String get collectorSaturationShort => 'Nasyc.';
 }
