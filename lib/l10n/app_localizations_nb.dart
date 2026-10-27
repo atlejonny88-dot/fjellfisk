@@ -1805,6 +1805,14 @@ class AppLocalizationsNb extends AppLocalizations {
   String get connectionCodeAlreadyUsed => 'Koden er allerede brukt.';
 
   @override
+  String get collectorAuthorizationFailed =>
+      'Du har ikke tilgang til å koble collector til dette anlegget.';
+
+  @override
+  String get collectorBackendUnavailable =>
+      'Collector-tjenesten er ikke tilgjengelig akkurat nå. Prøv igjen.';
+
+  @override
   String get connectingCollector => 'Kobler til…';
 
   @override

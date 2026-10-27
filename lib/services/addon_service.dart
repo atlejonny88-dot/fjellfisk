@@ -10,6 +10,8 @@ enum ClaimCodeResultType {
   expired,
   alreadyUsed,
   busy,
+  unauthorized,
+  unavailable,
 }
 
 class ClaimCodeResult {

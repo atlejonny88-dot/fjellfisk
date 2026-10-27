@@ -3316,6 +3316,18 @@ abstract class AppLocalizations {
   /// **'Koden er allerede brukt.'**
   String get connectionCodeAlreadyUsed;
 
+  /// No description provided for @collectorAuthorizationFailed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Du har ikke tilgang til å koble collector til dette anlegget.'**
+  String get collectorAuthorizationFailed;
+
+  /// No description provided for @collectorBackendUnavailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector-tjenesten er ikke tilgjengelig akkurat nå. Prøv igjen.'**
+  String get collectorBackendUnavailable;
+
   /// No description provided for @connectingCollector.
   ///
   /// In nb, this message translates to:

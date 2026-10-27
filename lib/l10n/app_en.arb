@@ -579,6 +579,8 @@
   "connectionCodeInvalid": "The code is invalid or cannot be used.",
   "connectionCodeExpired": "The code has expired. Ask the collector to show a new code.",
   "connectionCodeAlreadyUsed": "The code has already been used.",
+  "collectorAuthorizationFailed": "You do not have permission to connect a collector to this site.",
+  "collectorBackendUnavailable": "The collector service is unavailable right now. Please try again.",
   "connectingCollector": "Connecting…",
   "connect": "Connect",
   "claimCodeSecurityMessage": "Enter the one-time code shown locally on the collector PC.",
