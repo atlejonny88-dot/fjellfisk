@@ -1,0 +1,2 @@
+# The server is deployed on Linux, so executable shell scripts must keep LF endings.
+server/scripts/*.sh text eol=lf
