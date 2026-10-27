@@ -59,7 +59,10 @@ services:
       - backend-egress
 
 volumes:
+  # Default name is stable for normal installs. Operators can set
+  # POSTGRES_VOLUME_NAME when a fresh, isolated database volume is required.
   postgres-data:
+    name: ${POSTGRES_VOLUME_NAME:-fjellfisk-server-postgres-data}
 
 networks:
   database-internal:
