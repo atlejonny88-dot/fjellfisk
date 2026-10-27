@@ -1,8 +1,8 @@
 # Fjellfisk self-hosted Collector backend
 
-Dette er et separat, lokalt forberedt Node.js/TypeScript- og PostgreSQL-backend
-for Fjellfisk Collector-pairing. Det er **ikke deployet**, det er ikke koblet
-til Vigo/P-NET, og det endrer ikke Firebase, Flutter-appen eller Collectorens
+Dette er et separat Node.js/TypeScript- og PostgreSQL-backend for Fjellfisk
+Collector-pairing. Den er installert for privat intern test på Pelasyn, men er
+ikke koblet til Vigo/P-NET, Firebase, Flutter-appen eller Collectorens
 eksisterende DPAPI-identitet.
 
 ## Formål og avgrensning
@@ -86,10 +86,24 @@ $env:FJELLFISK_POSTGRES_TEST_URL = 'postgresql://.../fjellfisk_collector_test'
 npm run test:postgres
 ```
 
-## Fremtidig installasjon på Pelasyn-serveren
+## Pelasyn intern testinstallasjon
 
-Dette er en plan, ikke en kommando som er kjørt nå. Før oppstart må resultatet
-fra denne oppgaven gjennomgås og godkjennes.
+Den kontrollerte interninstallasjonen ligger i `/opt/fjellfisk-server` og
+kjører bare to Fjellfisk-containere: `fjellfisk-backend` og PostgreSQL. Ingen
+eksisterende CasaOS-, Uptime Kuma- eller Netdata-container er en del av dette
+Compose-prosjektet eller endret av installasjonen.
+
+- Serverkonfigurasjonen ligger i `/opt/fjellfisk-server/.env` med filmodus
+  `600`. Den inneholder lokale, tilfeldig genererte serverhemmeligheter og skal
+  aldri kopieres til repo, Collector eller Flutter.
+- API-et er bundet eksklusivt til `127.0.0.1:8080`.
+- PostgreSQL har ingen host-port og er tilgjengelig kun i Docker-nettverket.
+- Begge Fjellfisk-containerne har healthcheck og `restart: unless-stopped`.
+- Den aktive PostgreSQL-dataen ligger i det isolerte Docker-volumet
+  `fjellfisk-server-postgres-data-v2`. Et eldre, tomt initieringsvolum ble
+  bevart urørt da det nye volumet ble opprettet; ingen volume ble slettet.
+
+En ny server kan installeres med samme kontrollerte fremgangsmåte:
 
 ```sh
 # På Pelasyn etter eksplisitt godkjenning.
@@ -107,9 +121,8 @@ curl --fail http://127.0.0.1:8080/health
 ```
 
 Compose binder API-et til `127.0.0.1:8080` og eksponerer ikke PostgreSQL på
-vertsnettverket. Databasen ligger i Docker-volumet `postgres-data`; den slettes
-ikke av normal oppstart eller oppdatering. Loggene roteres av Docker (`10m`, fem
-filer). Begge containere har healthcheck og `restart: unless-stopped`.
+vertsnettverket. Databasen slettes ikke av normal oppstart eller oppdatering.
+Loggene roteres av Docker (`10m`, fem filer).
 
 ## Første interne Tailnet-fase
 
@@ -120,9 +133,10 @@ gir en privat `https://<node>.<tailnet>.ts.net`-adresse uten router-
 portvideresending. PostgreSQL forblir kun på det interne Docker-nettverket og
 port 5432 får aldri en host-binding.
 
-Ingen IP-adresse eller Tailscale-hostnavn er hardkodet i Collector. Etter en
-godkjent Serve-oppsett hentes URL-en fra `tailscale serve`-output eller
-`tailscale serve status --json`, og brukes som konfigurasjon, for eksempel:
+Ingen IP-adresse eller Tailscale-hostnavn er hardkodet i Collector. Når Serve
+er aktivert i tailnet-administrasjonen, hentes URL-en fra `tailscale serve`-
+output eller `tailscale serve status --json`, og brukes som konfigurasjon, for
+eksempel:
 
 ```sh
 # Kjør bare på Pelasyn etter separat nettverksgodkjenning.
@@ -174,13 +188,14 @@ Kjør backup manuelt eller fra en senere godkjent scheduler:
 
 ```sh
 cd /opt/fjellfisk-server
-set -a; . ./.env; set +a
 ./scripts/backup-postgres.sh
 ```
 
-Skriptet lager en custom-format `pg_dump` i `backups/` og roterer kun backup-
-filer eldre enn 30 dager etter vellykket dump. Test restore først mot en tom,
-midlertidig database, aldri direkte mot produksjonsvolumet:
+Skriptet laster alltid installasjonens egen `.env` og kan derfor ikke arve
+databasevariabler fra en tidligere terminaløkt. Det lager en custom-format
+`pg_dump` i `backups/` og roterer kun backup-filer eldre enn 30 dager etter
+vellykket dump. Test restore først mot en tom, midlertidig database, aldri
+direkte mot produksjonsvolumet:
 
 ```sh
 docker compose exec -T postgres createdb -U "$POSTGRES_USER" fjellfisk_restore_test
