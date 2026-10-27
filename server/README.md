@@ -133,6 +133,12 @@ gir en privat `https://<node>.<tailnet>.ts.net`-adresse uten router-
 portvideresending. PostgreSQL forblir kun på det interne Docker-nettverket og
 port 5432 får aldri en host-binding.
 
+Den aktive interne testadressen er
+`https://pelasyn.taild05c7.ts.net/`. Serve lytter bare på Tailscale-interfacet
+på HTTPS-port 443 og videresender til `127.0.0.1:8080`. Tailscale Funnel er
+ikke konfigurert, og direkte tilgang til Pelasyns Tailscale-IP på port 8080 er
+lukket.
+
 Ingen IP-adresse eller Tailscale-hostnavn er hardkodet i Collector. Når Serve
 er aktivert i tailnet-administrasjonen, hentes URL-en fra `tailscale serve`-
 output eller `tailscale serve status --json`, og brukes som konfigurasjon, for
