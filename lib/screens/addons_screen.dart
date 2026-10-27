@@ -5,6 +5,7 @@ import '../l10n/language_controller.dart';
 import '../l10n/localizations.dart';
 import '../models/addon.dart';
 import '../services/addon_service.dart';
+import '../services/collector_claim_service.dart';
 import '../services/user_service.dart';
 import '../utils/ui_motion.dart';
 import 'collector_setup_screen.dart';
@@ -13,10 +14,12 @@ class AddOnsScreen extends StatefulWidget {
   const AddOnsScreen({
     super.key,
     this.service,
+    this.claimService,
     this.roleLoader,
   });
 
   final AddOnService? service;
+  final CollectorClaimService? claimService;
   final Future<String> Function()? roleLoader;
 
   @override
@@ -25,12 +28,15 @@ class AddOnsScreen extends StatefulWidget {
 
 class _AddOnsScreenState extends State<AddOnsScreen> {
   late final AddOnService _service;
+  late final CollectorClaimService _claimService;
   late final Future<String> _roleFuture;
 
   @override
   void initState() {
     super.initState();
     _service = widget.service ?? MockAddOnService.shared;
+    _claimService =
+        widget.claimService ?? CollectorClaimService.fromEnvironment();
     _roleFuture = (widget.roleLoader ?? UserService.getCurrentUserRole)();
     _service.addListener(_onServiceChanged);
   }
@@ -38,6 +44,7 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
   @override
   void dispose() {
     _service.removeListener(_onServiceChanged);
+    if (widget.claimService == null) _claimService.dispose();
     super.dispose();
   }
 
@@ -48,7 +55,14 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
   Future<void> _openPairingDialog() async {
     final result = await showDialog<ClaimCodeResult>(
       context: context,
-      builder: (_) => _CollectorPairingDialog(service: _service),
+      builder: (_) => _CollectorPairingDialog(
+        claim: _claimService.isConfigured
+            ? (claimCode) => _claimService.claimCollector(
+                  facilityId: widget.facilityId,
+                  pairingCode: claimCode,
+                )
+            : _service.claimCollector,
+      ),
     );
     if (!mounted || result?.isSuccess != true) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -443,9 +457,9 @@ class _ConnectionDetails extends StatelessWidget {
 }
 
 class _CollectorPairingDialog extends StatefulWidget {
-  const _CollectorPairingDialog({required this.service});
+  const _CollectorPairingDialog({required this.claim});
 
-  final AddOnService service;
+  final Future<ClaimCodeResult> Function(String claimCode) claim;
 
   @override
   State<_CollectorPairingDialog> createState() =>
@@ -475,7 +489,7 @@ class _CollectorPairingDialogState extends State<_CollectorPairingDialog> {
       _submitting = true;
       _error = null;
     });
-    final result = await widget.service.claimCollector(input);
+    final result = await widget.claim(input);
     if (!mounted) return;
     if (result.isSuccess) {
       Navigator.of(context).pop(result);
@@ -493,6 +507,10 @@ class _CollectorPairingDialogState extends State<_CollectorPairingDialog> {
       ClaimCodeResultType.expired => context.l10n.connectionCodeExpired,
       ClaimCodeResultType.alreadyUsed => context.l10n.connectionCodeAlreadyUsed,
       ClaimCodeResultType.busy => context.l10n.connectingCollector,
+      ClaimCodeResultType.unauthorized =>
+        context.l10n.collectorAuthorizationFailed,
+      ClaimCodeResultType.unavailable =>
+        context.l10n.collectorBackendUnavailable,
       ClaimCodeResultType.success => '',
     };
   }

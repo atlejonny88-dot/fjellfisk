@@ -1807,6 +1807,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectionCodeAlreadyUsed => 'The code has already been used.';
 
   @override
+  String get collectorAuthorizationFailed =>
+      'You do not have permission to connect a collector to this site.';
+
+  @override
+  String get collectorBackendUnavailable =>
+      'The collector service is unavailable right now. Please try again.';
+
+  @override
   String get connectingCollector => 'Connecting…';
 
   @override

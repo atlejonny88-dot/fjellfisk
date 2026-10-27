@@ -31,6 +31,7 @@ dependencies:
 
   # Utils
   intl: ^0.20.2
+  http: ^1.6.0
 
 dev_dependencies:
   fake_cloud_firestore: ^4.3.0

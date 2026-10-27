@@ -579,6 +579,8 @@
   "connectionCodeInvalid": "Kod jest nieprawidłowy lub nie można go użyć.",
   "connectionCodeExpired": "Kod wygasł. Poproś collector o wyświetlenie nowego kodu.",
   "connectionCodeAlreadyUsed": "Kod został już użyty.",
+  "collectorAuthorizationFailed": "Nie masz uprawnień do połączenia collectora z tym obiektem.",
+  "collectorBackendUnavailable": "Usługa collectora jest obecnie niedostępna. Spróbuj ponownie.",
   "connectingCollector": "Łączenie…",
   "connect": "Połącz",
   "claimCodeSecurityMessage": "Wprowadź jednorazowy kod wyświetlany lokalnie na komputerze collector.",

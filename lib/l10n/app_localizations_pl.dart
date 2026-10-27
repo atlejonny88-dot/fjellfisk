@@ -1821,6 +1821,14 @@ class AppLocalizationsPl extends AppLocalizations {
   String get connectionCodeAlreadyUsed => 'Kod został już użyty.';
 
   @override
+  String get collectorAuthorizationFailed =>
+      'Nie masz uprawnień do połączenia collectora z tym obiektem.';
+
+  @override
+  String get collectorBackendUnavailable =>
+      'Usługa collectora jest obecnie niedostępna. Spróbuj ponownie.';
+
+  @override
   String get connectingCollector => 'Łączenie…';
 
   @override
