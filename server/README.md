@@ -21,11 +21,23 @@ Følgende er bevisst Firebase-spesifikt og holdes utenfor pairing-kjernen:
 - Firebase Secret Manager-binding gjennom Functions
 - Firebase Auth-kontekst fra callable functions
 
-Den self-hostede serveren har i stedet REST-administrator-endepunkter. Den er
-forberedt for å validere `Authorization: Bearer <Firebase ID token>` server-
-side med Firebase Admin SDK. Firebase Admin-credential skal senere monteres
-kun på Pelasyn-serveren med Application Default Credentials. Den tilhører aldri
-Collector, Flutter, repo eller logger.
+Den self-hostede serveren har i stedet REST-administrator-endepunkter. Den
+validerer `Authorization: Bearer <Firebase ID token>` server-side med Firebase
+Admin SDK og leser kun autorisasjonsgrunnlaget den trenger:
+
+- `users/{uid}` for global rolle (`admin`) og `disabled`-status
+- `facilities/{siteId}` for å bekrefte at anlegget finnes, samt valgfri
+  `organizationId`
+
+Firebase Admin SDK verifiserer tokenets signatur, issuer og audience før UID
+brukes. Dagens Fjellfisk-modell har ingen autoritativ per-anlegg-entitlement;
+den globale admin-rollen og eksistensen av det forespurte anlegget er derfor
+den eksisterende autoritetsmodellen. Når anleggstilganger kommer, skal bare
+`FirebaseAdminAuthorizer` utvides. Backend har ingen Firestore-skrivekode.
+
+En dedikert, read-only service account skal monteres kun på Pelasyn med
+`GOOGLE_APPLICATION_CREDENTIALS`. Credentialet tilhører aldri Collector,
+Flutter, repo, Docker-image eller logger.
 
 ## API
 
@@ -102,6 +114,41 @@ Compose-prosjektet eller endret av installasjonen.
 - Den aktive PostgreSQL-dataen ligger i det isolerte Docker-volumet
   `fjellfisk-server-postgres-data-v2`. Et eldre, tomt initieringsvolum ble
   bevart urørt da det nye volumet ble opprettet; ingen volume ble slettet.
+
+### Firebase Auth-bro for privat pairing
+
+Før første ekte Firebase-claim må en dedikert service account med kun
+read-only Firestore-IAM opprettes i Firebase-prosjektet. Anbefalt navn er
+`fjellfisk-pelasyn-backend` og anbefalt minste ferdige rolle er
+`roles/datastore.viewer`. Backend trenger ikke Firebase Admin-, Editor- eller
+Owner-rolle og skal aldri få Firestore-skrivetilgang.
+
+På Pelasyn ligger nøkkelfilen kun her:
+
+```sh
+/opt/fjellfisk-server/secrets/firebase-admin.json
+```
+
+Mappen skal eies av `pelasyn` med modus `700`, og JSON-filen skal ha modus
+`600`. Docker Compose binder den read-only til
+`/run/secrets/fjellfisk-firebase-admin.json` og setter
+`GOOGLE_APPLICATION_CREDENTIALS` i backend-containeren. Nøkkelinnhold skal
+aldri ligge i `.env` eller skrives til terminal/logg. `secrets/` er både
+Git- og Docker-ignorert.
+
+`ADMIN_CORS_ORIGINS` er en eksplisitt kommaseparert origin-liste kun for
+`/admin/v1/*`. Tom verdi betyr at nettlesere ikke får kryss-origin-tilgang;
+det finnes aldri wildcard. For en lokal Flutter Web-test kan en fast lokal
+origin, for eksempel `http://localhost:51099`, legges til midlertidig sammen
+med den publiserte Fjellfisk-origin-en. Collector-endepunktene trenger ikke
+CORS.
+
+Flutter har en opt-in claim-klient: den brukes kun når appen startes med en
+eksplisitt build-definisjon, for eksempel
+`--dart-define=FJELLFISK_COLLECTOR_BACKEND_URL=https://<privat-tailnet-url>`.
+Uten denne definisjonen fortsetter Add-ons-skjermen å bruke sin eksisterende
+lokale mock for UI-testen. Den private Tailscale-adressen er ikke hardkodet i
+Flutter- eller Collector-kilde.
 
 En ny server kan installeres med samme kontrollerte fremgangsmåte:
 

@@ -6,11 +6,19 @@ import type {PairingService} from './pairing/service.js';
 
 const maxJsonBytes = 32 * 1024;
 
-function sendJson(response: ServerResponse, status: number, value: unknown): void {
+type ResponseHeaders = Record<string, string>;
+
+function sendJson(
+  response: ServerResponse,
+  status: number,
+  value: unknown,
+  extraHeaders: ResponseHeaders = {},
+): void {
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+    ...extraHeaders,
   });
   response.end(JSON.stringify(value));
 }
@@ -54,17 +62,64 @@ function pathParts(pathname: string): string[] {
   return pathname.split('/').filter(Boolean).map(decodeURIComponent);
 }
 
+function isAdminPath(pathname: string): boolean {
+  return pathname === '/admin' || pathname.startsWith('/admin/');
+}
+
+class AdminCorsPolicy {
+  private readonly allowedOrigins: ReadonlySet<string>;
+
+  constructor(origins: readonly string[]) {
+    this.allowedOrigins = new Set(origins);
+  }
+
+  allow(request: IncomingMessage): ResponseHeaders {
+    const origin = request.headers.origin;
+    if (typeof origin !== 'string' || !this.allowedOrigins.has(origin)) {
+      return {};
+    }
+    return {
+      'access-control-allow-origin': origin,
+      vary: 'Origin',
+    };
+  }
+
+  isAllowed(request: IncomingMessage): boolean {
+    const origin = request.headers.origin;
+    return typeof origin === 'string' && this.allowedOrigins.has(origin);
+  }
+}
+
 export interface HttpApiOptions {
   pairingService: PairingService;
   adminAuthorizer: AdminAuthorizer;
+  adminCorsOrigins?: readonly string[];
   log?: (message: string) => void;
 }
 
 export function createHttpApi(options: HttpApiOptions): Server {
+  const cors = new AdminCorsPolicy(options.adminCorsOrigins ?? []);
   return createServer(async (request, response) => {
     const method = request.method ?? 'GET';
     const url = new URL(request.url ?? '/', 'http://localhost');
+    const adminResponseHeaders = isAdminPath(url.pathname) ? cors.allow(request) : {};
     try {
+      if (method === 'OPTIONS' && isAdminPath(url.pathname)) {
+        if (!cors.isAllowed(request)) {
+          sendJson(response, 403, {error: {code: 'CORS_ORIGIN_FORBIDDEN'}});
+          return;
+        }
+        response.writeHead(204, {
+          ...adminResponseHeaders,
+          'access-control-allow-methods': 'GET, POST, OPTIONS',
+          'access-control-allow-headers': 'authorization, content-type',
+          'access-control-max-age': '600',
+          'cache-control': 'no-store',
+        });
+        response.end();
+        return;
+      }
+
       if (method === 'GET' && url.pathname === '/health') {
         try {
           await options.pairingService.healthcheck();
@@ -101,14 +156,14 @@ export function createHttpApi(options: HttpApiOptions): Server {
           pairingCode: body.pairingCode,
           siteId: body.siteId,
           sourceFingerprint: `uid:${actor.uid}:${sourceFingerprint(request)}`,
-        }));
+        }), adminResponseHeaders);
         return;
       }
 
       const parts = pathParts(url.pathname);
       if (method === 'GET' && parts.length === 5 && parts[0] === 'admin' && parts[1] === 'v1' && parts[2] === 'sites' && parts[4] === 'collectors') {
         const actor = await options.adminAuthorizer.authorize(request.headers.authorization, parts[3]);
-        sendJson(response, 200, await options.pairingService.listCollectorsForSite(actor, parts[3]));
+        sendJson(response, 200, await options.pairingService.listCollectorsForSite(actor, parts[3]), adminResponseHeaders);
         return;
       }
       if (method === 'POST' && parts.length === 5 && parts[0] === 'admin' && parts[1] === 'v1' && parts[2] === 'collectors' && (parts[4] === 'revoke' || parts[4] === 'reset-for-pairing')) {
@@ -118,17 +173,17 @@ export function createHttpApi(options: HttpApiOptions): Server {
         const result = parts[4] === 'revoke'
           ? await options.pairingService.revokeCollector(actor, parts[3], body.siteId)
           : await options.pairingService.resetCollectorForPairing(actor, parts[3], body.siteId);
-        sendJson(response, 200, result);
+        sendJson(response, 200, result, adminResponseHeaders);
         return;
       }
 
-      sendJson(response, 404, {error: {code: 'COLLECTOR_NOT_FOUND'}});
+      sendJson(response, 404, {error: {code: 'COLLECTOR_NOT_FOUND'}}, adminResponseHeaders);
     } catch (error) {
       const pairingError = asPairingError(error);
       if (pairingError.httpStatus >= 500) {
         options.log?.(`request_failed code=${pairingError.code}`);
       }
-      sendJson(response, pairingError.httpStatus, {error: {code: pairingError.code}});
+      sendJson(response, pairingError.httpStatus, {error: {code: pairingError.code}}, adminResponseHeaders);
     }
   });
 }

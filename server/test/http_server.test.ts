@@ -14,12 +14,28 @@ test('HTTP API keeps collector contract, protects admin routes, and exposes heal
     adminAuthorizer: new StaticAdminAuthorizer({
       uid: 'admin-user', organizationId: 'org-1', allowedSiteIds: ['facility-1'],
     }),
+    adminCorsOrigins: ['https://trolltungaarctictrout.web.app', 'http://localhost:51099'],
   });
   await new Promise<void>((resolve) => api.listen(0, '127.0.0.1', resolve));
   const address = api.address();
   assert.ok(address && typeof address !== 'string');
   const baseUrl = `http://127.0.0.1:${address.port}`;
   try {
+    const allowedPreflight = await fetch(`${baseUrl}/admin/v1/collectors/claim`, {
+      method: 'OPTIONS',
+      headers: {origin: 'http://localhost:51099'},
+    });
+    assert.equal(allowedPreflight.status, 204);
+    assert.equal(allowedPreflight.headers.get('access-control-allow-origin'), 'http://localhost:51099');
+    assert.equal(allowedPreflight.headers.get('access-control-allow-headers'), 'authorization, content-type');
+
+    const forbiddenPreflight = await fetch(`${baseUrl}/admin/v1/collectors/claim`, {
+      method: 'OPTIONS',
+      headers: {origin: 'https://not-fjellfisk.example'},
+    });
+    assert.equal(forbiddenPreflight.status, 403);
+    assert.equal(forbiddenPreflight.headers.get('access-control-allow-origin'), null);
+
     const health = await fetch(`${baseUrl}/health`);
     assert.deepEqual(await health.json(), {status: 'ok', database: 'ok'});
 
@@ -45,10 +61,15 @@ test('HTTP API keeps collector contract, protects admin routes, and exposes heal
 
     const claimed = await fetch(`${baseUrl}/admin/v1/collectors/claim`, {
       method: 'POST',
-      headers: {'content-type': 'application/json', authorization: 'Bearer local-test-admin'},
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer local-test-admin',
+        origin: 'http://localhost:51099',
+      },
       body: JSON.stringify({siteId: 'facility-1', pairingCode: issued.code}),
     });
     assert.equal(claimed.status, 200);
+    assert.equal(claimed.headers.get('access-control-allow-origin'), 'http://localhost:51099');
     assert.equal((await claimed.json() as {state: string}).state, 'PAIRED');
   } finally {
     await new Promise<void>((resolve, reject) => api.close((error) => error ? reject(error) : resolve()));

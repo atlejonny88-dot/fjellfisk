@@ -45,6 +45,7 @@ firebase-adminsdk*.json
 functions/.secret.local
 functions/lib/
 server/.env
+server/secrets/
 server/backups/
 server/data/
 server/dist/

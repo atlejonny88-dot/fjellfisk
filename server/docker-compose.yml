@@ -35,6 +35,12 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       PORT: 8080
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/fjellfisk-firebase-admin.json
+    volumes:
+      - type: bind
+        source: ${FIREBASE_ADMIN_CREDENTIALS_PATH}
+        target: /run/secrets/fjellfisk-firebase-admin.json
+        read_only: true
     command: ["sh", "-c", "node dist/src/migrate.js && node dist/src/index.js"]
     ports:
       - "127.0.0.1:8080:8080"

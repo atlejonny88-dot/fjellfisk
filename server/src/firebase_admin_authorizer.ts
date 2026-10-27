@@ -1,4 +1,4 @@
-import {applicationDefault, getApp, getApps, initializeApp, type App} from 'firebase-admin/app';
+import {applicationDefault, getApps, initializeApp, type App} from 'firebase-admin/app';
 import {getAuth} from 'firebase-admin/auth';
 import {getFirestore} from 'firebase-admin/firestore';
 
@@ -9,16 +9,46 @@ export interface AdminAuthorizer {
   authorize(authorizationHeader: string | undefined, siteId: string): Promise<AuthorizedAdmin>;
 }
 
+export interface FirebaseAuthorizationDocument {
+  exists: boolean;
+  data(): Record<string, unknown> | undefined;
+}
+
+export interface FirebaseAuthorizationDataSource {
+  verifyIdToken(token: string): Promise<{uid: string}>;
+  getUser(uid: string): Promise<FirebaseAuthorizationDocument>;
+  getFacility(siteId: string): Promise<FirebaseAuthorizationDocument>;
+}
+
+function createDataSource(app: App): FirebaseAuthorizationDataSource {
+  const auth = getAuth(app);
+  const firestore = getFirestore(app);
+  return {
+    verifyIdToken: (token) => auth.verifyIdToken(token),
+    getUser: (uid) => firestore.collection('users').doc(uid).get(),
+    getFacility: (siteId) => firestore.collection('facilities').doc(siteId).get(),
+  };
+}
+
 /**
  * Server-only Firebase identity bridge. The Collector never receives an Admin
  * credential; this verifier uses Application Default Credentials mounted only
- * on the server when the backend is deployed.
+ * on the server when the backend is deployed. The data source intentionally
+ * exposes only Firebase token verification and two document reads.
  */
 export class FirebaseAdminAuthorizer implements AdminAuthorizer {
-  private readonly app: App;
+  private readonly dataSource: FirebaseAuthorizationDataSource;
 
-  constructor(projectId: string) {
-    this.app = getApps()[0] ?? initializeApp({credential: applicationDefault(), projectId});
+  constructor(projectId: string, dataSource?: FirebaseAuthorizationDataSource) {
+    if (dataSource) {
+      this.dataSource = dataSource;
+      return;
+    }
+
+    const appName = `fjellfisk-${projectId}`;
+    const app = getApps().find((candidate) => candidate.name === appName) ??
+      initializeApp({credential: applicationDefault(), projectId}, appName);
+    this.dataSource = createDataSource(app);
   }
 
   async authorize(authorizationHeader: string | undefined, siteId: string): Promise<AuthorizedAdmin> {
@@ -28,13 +58,15 @@ export class FirebaseAdminAuthorizer implements AdminAuthorizer {
     }
     let uid: string;
     try {
-      uid = (await getAuth(this.app).verifyIdToken(token)).uid;
+      // Firebase Admin validates the token signature, project audience and
+      // issuer before returning the UID.
+      uid = (await this.dataSource.verifyIdToken(token)).uid;
     } catch {
       throw new PairingError('UNAUTHENTICATED', 401);
     }
     const [user, site] = await Promise.all([
-      getFirestore(this.app).collection('users').doc(uid).get(),
-      getFirestore(this.app).collection('facilities').doc(siteId).get(),
+      this.dataSource.getUser(uid),
+      this.dataSource.getFacility(siteId),
     ]);
     if (!site.exists) {
       throw new PairingError('SITE_NOT_FOUND', 404);

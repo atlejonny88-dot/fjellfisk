@@ -12,6 +12,7 @@ const pairingService = new PairingService(new PostgresPairingRepository(pool), {
 const server = createHttpApi({
   pairingService,
   adminAuthorizer: new FirebaseAdminAuthorizer(config.firebaseProjectId),
+  adminCorsOrigins: config.adminCorsOrigins,
   log: (message) => console.error(`[fjellfisk-backend] ${message}`),
 });
 
