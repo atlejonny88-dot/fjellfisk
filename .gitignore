@@ -44,6 +44,11 @@ firebase-adminsdk*.json
 *.env
 functions/.secret.local
 functions/lib/
+server/.env
+server/backups/
+server/data/
+server/dist/
+server/node_modules/
 
 # Firebase CLI local cache
 .firebase/

@@ -1,0 +1,27 @@
+{
+  "name": "fjellfisk-self-hosted-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
+    "test:postgres": "npm run build && node --test dist/test/postgres_repository.integration.test.js",
+    "migrate": "npm run build && node dist/src/migrate.js",
+    "start": "node dist/src/index.js",
+    "start:with-migrations": "node dist/src/migrate.js && node dist/src/index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.15.0",
+    "typescript": "^5.7.0"
+  }
+}
