@@ -111,10 +111,47 @@ vertsnettverket. Databasen ligger i Docker-volumet `postgres-data`; den slettes
 ikke av normal oppstart eller oppdatering. Loggene roteres av Docker (`10m`, fem
 filer). Begge containere har healthcheck og `restart: unless-stopped`.
 
-Før Collector kobles på skal Tailscale-løsning og intern DNS avklares. En
-kontrollert Tailscale Serve/reverse-proxy kan senere gi Tailnet-tilgang uten å
-åpne ruterporter eller databasen. Ikke aktiver Tailscale Serve, offentlig
-internett-eksponering, CasaOS-port eller brannmurregel før egen godkjenning.
+## Første interne Tailnet-fase
+
+Første tilgangsmodell er **Tailscale Serve**, ikke offentlig ingress. Backend
+fortsetter å lytte kun lokalt på Pelasyn (`127.0.0.1:8080`), mens Tailscale
+terminerer HTTPS og videresender Tailnet-trafikk til den lokale porten. Dette
+gir en privat `https://<node>.<tailnet>.ts.net`-adresse uten router-
+portvideresending. PostgreSQL forblir kun på det interne Docker-nettverket og
+port 5432 får aldri en host-binding.
+
+Ingen IP-adresse eller Tailscale-hostnavn er hardkodet i Collector. Etter en
+godkjent Serve-oppsett hentes URL-en fra `tailscale serve`-output eller
+`tailscale serve status --json`, og brukes som konfigurasjon, for eksempel:
+
+```sh
+# Kjør bare på Pelasyn etter separat nettverksgodkjenning.
+tailscale status
+tailscale serve --bg 8080
+tailscale serve status --json
+```
+
+Tailscale krever at HTTPS-sertifikater og relevante ACL-er er aktivert i
+tailnettet. Verifiser fra en autorisert testmaskin med:
+
+```sh
+curl --fail https://<node>.<tailnet>.ts.net/health
+```
+
+Deretter kan en intern test-Collector få den konfigurerbare URL-en, uten endring
+i kildekode:
+
+```powershell
+Fjellfisk.SensorCollector.exe --pairing-backend-url https://<node>.<tailnet>.ts.net/collector/v1
+```
+
+Ikke bruk `tailscale funnel`, ikke åpne router-/brannmurporter, og ikke
+eksponer CasaOS eller PostgreSQL. Tailscale Serve er bare første interne
+test-/driftsfase; eksterne kunder skal senere bruke et separat offentlig
+HTTPS-endepunkt, for eksempel `https://api.fjellfisk.no`, med samme
+Collector-credential- og device-authentisering. Det offentlige endepunktet
+skal implementeres som en senere reverse-proxy/TLS-beslutning, uten at kunder
+trenger Tailscale eller kjenner Pelasyn-adresser.
 
 ### HTTPS senere
 
