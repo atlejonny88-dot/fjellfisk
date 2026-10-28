@@ -11,6 +11,7 @@ enum ClaimCodeResultType {
   alreadyUsed,
   busy,
   unauthorized,
+  notEntitled,
   unavailable,
 }
 

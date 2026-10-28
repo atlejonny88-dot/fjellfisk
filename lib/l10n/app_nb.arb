@@ -600,6 +600,7 @@
   "connectionCodeExpired": "Koden har utløpt. Be collector vise en ny kode.",
   "connectionCodeAlreadyUsed": "Koden er allerede brukt.",
   "collectorAuthorizationFailed": "Du har ikke tilgang til å koble collector til dette anlegget.",
+  "collectorEntitlementRequired": "Collector-tillegget er ikke aktivert for dette anlegget.",
   "collectorBackendUnavailable": "Collector-tjenesten er ikke tilgjengelig akkurat nå. Prøv igjen.",
   "connectingCollector": "Kobler til…",
   "connect": "Koble til",

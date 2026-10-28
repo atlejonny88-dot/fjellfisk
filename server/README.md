@@ -21,23 +21,25 @@ Følgende er bevisst Firebase-spesifikt og holdes utenfor pairing-kjernen:
 - Firebase Secret Manager-binding gjennom Functions
 - Firebase Auth-kontekst fra callable functions
 
-Den self-hostede serveren har i stedet REST-administrator-endepunkter. Den
-validerer `Authorization: Bearer <Firebase ID token>` server-side med Firebase
-Admin SDK og leser kun autorisasjonsgrunnlaget den trenger:
+Den self-hostede serveren har i stedet REST-administrator-endepunkter.
+Firebase ID-tokenet brukes bare som identitetsbevis: backend validerer tokenets
+RS256-signatur, issuer og audience mot Firebase sine offentlige JWK-nøkler.
+Dette bruker verken Firebase Admin SDK, Firestore, Google Cloud IAM eller en
+privat service-account credential.
 
-- `users/{uid}` for global rolle (`admin`) og `disabled`-status
-- `facilities/{siteId}` for å bekrefte at anlegget finnes, samt valgfri
-  `organizationId`
+PostgreSQL er autoritativ for Collector-tilgang:
 
-Firebase Admin SDK verifiserer tokenets signatur, issuer og audience før UID
-brukes. Dagens Fjellfisk-modell har ingen autoritativ per-anlegg-entitlement;
-den globale admin-rollen og eksistensen av det forespurte anlegget er derfor
-den eksisterende autoritetsmodellen. Når anleggstilganger kommer, skal bare
-`FirebaseAdminAuthorizer` utvides. Backend har ingen Firestore-skrivekode.
+- `collector_users`: Firebase UID og aktiv/deaktivert Collector-konto.
+- `collector_facilities`: anlegg/site og status.
+- `collector_facility_memberships`: `ADMIN`, `OPERATOR` eller `VIEWER` per
+  anlegg.
+- `collector_addon_entitlements`: om `collector` er aktivt for anlegget,
+  inkludert valgfri utløpstid.
 
-En dedikert, read-only service account skal monteres kun på Pelasyn med
-`GOOGLE_APPLICATION_CREDENTIALS`. Credentialet tilhører aldri Collector,
-Flutter, repo, Docker-image eller logger.
+Et gyldig Firebase UID har ingen Collector-rettighet alene. Pairing krever
+aktiv PostgreSQL-adminmembership for valgt anlegg og aktivt, ikke-utløpt
+Collector-entitlement. Backend leser eller skriver aldri
+`users/{uid}` eller `facilities/{facilityId}` i Firestore.
 
 ## API
 
@@ -54,10 +56,10 @@ Collector-kontrakten er bevisst kompatibel med eksisterende Collector:
 | `/admin/v1/collectors/:collectorId/reset-for-pairing` | `POST` | Firebase ID-token |
 
 Administrator-kall bruker `siteId` i body der det er relevant. Serveren
-verifiserer ID-tokenet, brukeren i `users/{uid}` (`admin`, ikke deaktivert), og
-at `facilities/{siteId}` finnes. Dagens Fjellfisk-modell har ikke autoritative
-per-anlegg-entitlements; når den kommer, skal kun `FirebaseAdminAuthorizer`
-utvides. Collector får aldri administratorrettigheter.
+verifiserer ID-tokenet, finner UID-ens membership i PostgreSQL og kontrollerer
+Collector-entitlement før claim. Klienten kan ikke sende `admin=true`, rolle
+eller anleggstilknytning som autoritet. Collector får aldri
+administratorrettigheter.
 
 ## Sikker datamodell
 
@@ -69,6 +71,10 @@ Migreringen `migrations/001_collector_pairing.sql` oppretter:
 - `collector_audit_events`: minimal hendelseslogg uten hemmeligheter.
 - `collector_rate_limits`: HMAC-digestet subject og teller per tidsvindu.
 
+`migrations/002_collector_authority.sql` oppretter PostgreSQL-modellen for
+Collector-brukere, anlegg, medlemskap, entitlements og det engangs
+bootstrap-registeret. Det finnes ingen permanent Firestore-synkronisering.
+
 Credentialet er tilfeldig 256-bit og returneres kun ved første registrering.
 Pairing-koder har format `FJ-XXXX-XXXX-XXXX`, lagres aldri som klartekst, er
 engangs, utløper på maksimum 600 sekunder og roteres ved ny kodeutstedelse.
@@ -78,7 +84,7 @@ serialiseringskonflikt, slik at to samtidige claim-forsøk får nøyaktig én vi
 ## Lokal utvikling
 
 Kopier aldri reelle secrets inn i `.env.example`. Lokalt trenger testene ingen
-database, Firebase-credential eller nettverk:
+database, Firebase service-account eller nettverk:
 
 ```powershell
 cd C:\Users\ofs\fjellfisk\server
@@ -115,26 +121,35 @@ Compose-prosjektet eller endret av installasjonen.
   `fjellfisk-server-postgres-data-v2`. Et eldre, tomt initieringsvolum ble
   bevart urørt da det nye volumet ble opprettet; ingen volume ble slettet.
 
-### Firebase Auth-bro for privat pairing
+### Firebase Auth-identitet uten service account
 
-Før første ekte Firebase-claim må en dedikert service account med kun
-read-only Firestore-IAM opprettes i Firebase-prosjektet. Anbefalt navn er
-`fjellfisk-pelasyn-backend` og anbefalt minste ferdige rolle er
-`roles/datastore.viewer`. Backend trenger ikke Firebase Admin-, Editor- eller
-Owner-rolle og skal aldri få Firestore-skrivetilgang.
+`FIREBASE_PROJECT_ID` i Pelasyns `.env` brukes kun til å kontrollere forventet
+audience og issuer for Firebase ID-tokenet. Backend henter Firebase sine
+offentlige signeringsnøkler over HTTPS ved behov. Ingen Google service account,
+Cloud Datastore Viewer, Firebase Admin-credential eller Firestore-lesing skal
+opprettes eller konfigureres på Pelasyn.
 
-På Pelasyn ligger nøkkelfilen kun her:
+Før første Collector-claim må den eksplisitte engangs-bootstrapen opprette
+første PostgreSQL-admin og anlegg. Operatøren bruker en kjent Firebase UID og
+anleggs-ID, uten at backend slår dem opp i Firestore:
 
 ```sh
-/opt/fjellfisk-server/secrets/firebase-admin.json
+cd /opt/fjellfisk-server
+# COLLECTOR_BOOTSTRAP_SECRET må eksistere lokalt i .env og fjernes etterpå.
+docker compose run --rm --no-deps fjellfisk-backend \
+  npm run bootstrap:authority -- \
+  --firebase-uid '<known-firebase-uid>' \
+  --facility-id '<known-facility-id>' \
+  --facility-name '<facility-name>' \
+  --collector-entitlement INACTIVE
 ```
 
-Mappen skal eies av `pelasyn` med modus `700`, og JSON-filen skal ha modus
-`600`. Docker Compose binder den read-only til
-`/run/secrets/fjellfisk-firebase-admin.json` og setter
-`GOOGLE_APPLICATION_CREDENTIALS` i backend-containeren. Nøkkelinnhold skal
-aldri ligge i `.env` eller skrives til terminal/logg. `secrets/` er både
-Git- og Docker-ignorert.
+Dette er transaksjonelt og kan bare lykkes én gang. Etter bootstrap eier
+PostgreSQL normale roller, anleggstilknytninger og Collector-entitlements.
+En kontrollert, server-side kommersiell flyt kan senere bruke
+`PostgresAuthorityRepository.setCollectorEntitlement` for å aktivere
+entitlement for et anlegg. Flutter får aldri en klientstyrt self-service-vei
+for dette.
 
 `ADMIN_CORS_ORIGINS` er en eksplisitt kommaseparert origin-liste kun for
 `/admin/v1/*`. Tom verdi betyr at nettlesere ikke får kryss-origin-tilgang;

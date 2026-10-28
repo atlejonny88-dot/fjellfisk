@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {StaticAdminAuthorizer} from '../src/firebase_admin_authorizer.js';
+import {StaticAdminAuthorizer} from '../src/admin_authorizer.js';
 import {createHttpApi} from '../src/http_server.js';
 import {PairingService} from '../src/pairing/service.js';
 import {InMemoryPairingRepository} from './in_memory_repository.js';

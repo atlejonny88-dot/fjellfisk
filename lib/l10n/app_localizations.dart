@@ -3322,6 +3322,12 @@ abstract class AppLocalizations {
   /// **'Du har ikke tilgang til å koble collector til dette anlegget.'**
   String get collectorAuthorizationFailed;
 
+  /// No description provided for @collectorEntitlementRequired.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector-tillegget er ikke aktivert for dette anlegget.'**
+  String get collectorEntitlementRequired;
+
   /// No description provided for @collectorBackendUnavailable.
   ///
   /// In nb, this message translates to:

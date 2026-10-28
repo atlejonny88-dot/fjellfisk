@@ -1809,6 +1809,10 @@ class AppLocalizationsNb extends AppLocalizations {
       'Du har ikke tilgang til å koble collector til dette anlegget.';
 
   @override
+  String get collectorEntitlementRequired =>
+      'Collector-tillegget er ikke aktivert for dette anlegget.';
+
+  @override
   String get collectorBackendUnavailable =>
       'Collector-tjenesten er ikke tilgjengelig akkurat nå. Prøv igjen.';
 

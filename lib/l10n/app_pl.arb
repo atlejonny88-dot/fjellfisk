@@ -580,6 +580,7 @@
   "connectionCodeExpired": "Kod wygasł. Poproś collector o wyświetlenie nowego kodu.",
   "connectionCodeAlreadyUsed": "Kod został już użyty.",
   "collectorAuthorizationFailed": "Nie masz uprawnień do połączenia collectora z tym obiektem.",
+  "collectorEntitlementRequired": "Dodatek Collector nie jest aktywny dla tego obiektu.",
   "collectorBackendUnavailable": "Usługa collectora jest obecnie niedostępna. Spróbuj ponownie.",
   "connectingCollector": "Łączenie…",
   "connect": "Połącz",

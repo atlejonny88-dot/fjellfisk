@@ -1811,6 +1811,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'You do not have permission to connect a collector to this site.';
 
   @override
+  String get collectorEntitlementRequired =>
+      'The Collector add-on is not active for this site.';
+
+  @override
   String get collectorBackendUnavailable =>
       'The collector service is unavailable right now. Please try again.';
 

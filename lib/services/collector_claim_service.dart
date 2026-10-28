@@ -131,6 +131,9 @@ class CollectorClaimService {
     }
 
     final code = _errorCode(response.body);
+    if (code == 'COLLECTOR_ENTITLEMENT_REQUIRED') {
+      return const ClaimCodeResult(ClaimCodeResultType.notEntitled);
+    }
     if (response.statusCode == 401 || response.statusCode == 403) {
       return const ClaimCodeResult(ClaimCodeResultType.unauthorized);
     }

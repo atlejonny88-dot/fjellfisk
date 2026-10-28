@@ -686,6 +686,8 @@ class _CollectorPairingDialogState extends State<_CollectorPairingDialog> {
       ClaimCodeResultType.busy => context.l10n.connectingCollector,
       ClaimCodeResultType.unauthorized =>
         context.l10n.collectorAuthorizationFailed,
+      ClaimCodeResultType.notEntitled =>
+        context.l10n.collectorEntitlementRequired,
       ClaimCodeResultType.unavailable =>
         context.l10n.collectorBackendUnavailable,
       ClaimCodeResultType.success => '',

@@ -1,6 +1,6 @@
 import {createServer, type IncomingMessage, type Server, type ServerResponse} from 'node:http';
 
-import type {AdminAuthorizer} from './firebase_admin_authorizer.js';
+import type {AdminAuthorizer} from './admin_authorizer.js';
 import {asPairingError, PairingError} from './pairing/errors.js';
 import type {PairingService} from './pairing/service.js';
 
@@ -150,7 +150,11 @@ export function createHttpApi(options: HttpApiOptions): Server {
       if (method === 'POST' && url.pathname === '/admin/v1/collectors/claim') {
         const body = await readJson(request);
         const siteId = typeof body.siteId === 'string' ? body.siteId : '';
-        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, siteId);
+        const actor = await options.adminAuthorizer.authorize(
+          request.headers.authorization,
+          siteId,
+          {requireCollectorEntitlement: true},
+        );
         sendJson(response, 200, await options.pairingService.claimCollector({
           actor,
           pairingCode: body.pairingCode,

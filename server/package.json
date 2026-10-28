@@ -9,15 +9,15 @@
   "scripts": {
     "build": "tsc",
     "check": "tsc --noEmit",
-    "test": "npm run build && node --test dist/test/config.test.js dist/test/firebase_admin_authorizer.test.js dist/test/http_server.test.js dist/test/pairing_service.test.js dist/test/postgres_repository.integration.test.js",
+    "test": "npm run build && node --test dist/test/config.test.js dist/test/firebase_public_token_verifier.test.js dist/test/http_server.test.js dist/test/pairing_service.test.js dist/test/postgres_admin_authorizer.test.js dist/test/postgres_repository.integration.test.js",
     "test:postgres": "npm run build && node --test dist/test/postgres_repository.integration.test.js",
     "migrate": "npm run build && node dist/src/migrate.js",
+    "bootstrap:authority": "npm run build && node dist/src/bootstrap_authority.js",
     "start": "node dist/src/index.js",
     "start:with-migrations": "node dist/src/migrate.js && node dist/src/index.js"
   },
   "dependencies": {
-    "@google-cloud/firestore": "^9.4.0",
-    "firebase-admin": "^14.5.0",
+    "jose": "^6.1.3",
     "pg": "^8.16.0"
   },
   "devDependencies": {

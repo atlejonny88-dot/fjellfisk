@@ -1825,6 +1825,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie masz uprawnień do połączenia collectora z tym obiektem.';
 
   @override
+  String get collectorEntitlementRequired =>
+      'Dodatek Collector nie jest aktywny dla tego obiektu.';
+
+  @override
   String get collectorBackendUnavailable =>
       'Usługa collectora jest obecnie niedostępna. Spróbuj ponownie.';
 

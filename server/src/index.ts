@@ -1,6 +1,8 @@
-import {FirebaseAdminAuthorizer} from './firebase_admin_authorizer.js';
+import {FirebasePublicTokenVerifier} from './firebase_public_token_verifier.js';
 import {createHttpApi} from './http_server.js';
 import {PairingService} from './pairing/service.js';
+import {PostgresAdminAuthorizer} from './postgres_admin_authorizer.js';
+import {PostgresAuthorityRepository} from './postgres_authority_repository.js';
 import {createPostgresPool, PostgresPairingRepository} from './postgres_pairing_repository.js';
 import {readServerConfig} from './config.js';
 
@@ -11,7 +13,10 @@ const pairingService = new PairingService(new PostgresPairingRepository(pool), {
 });
 const server = createHttpApi({
   pairingService,
-  adminAuthorizer: new FirebaseAdminAuthorizer(config.firebaseProjectId),
+  adminAuthorizer: new PostgresAdminAuthorizer(
+    new FirebasePublicTokenVerifier(config.firebaseProjectId),
+    new PostgresAuthorityRepository(pool),
+  ),
   adminCorsOrigins: config.adminCorsOrigins,
   log: (message) => console.error(`[fjellfisk-backend] ${message}`),
 });
