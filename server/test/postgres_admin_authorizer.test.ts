@@ -9,7 +9,7 @@ import type {AuthorityRepository} from '../src/postgres_authority_repository.js'
 const tokenVerifier: FirebaseIdTokenVerifier = {
   verifyIdToken: async (token) => {
     if (token !== 'valid-token') throw new Error('invalid token');
-    return {uid: 'firebase-admin'};
+    return {uid: 'test-admin-user'};
   },
 };
 
@@ -26,7 +26,7 @@ test('PostgreSQL authorizer trusts a verified UID only after active database mem
   }));
 
   assert.deepEqual(await authorizer.authorize('Bearer valid-token', 'facility-1'), {
-    uid: 'firebase-admin', organizationId: 'org-1', allowedSiteIds: ['facility-1'],
+    uid: 'test-admin-user', organizationId: 'org-1', allowedSiteIds: ['facility-1'],
   });
 });
 
