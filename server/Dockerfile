@@ -13,7 +13,7 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
-COPY migrations ./migrations
+COPY --chown=node:node migrations ./migrations
 USER node
 EXPOSE 8080
 CMD ["node", "dist/src/index.js"]
