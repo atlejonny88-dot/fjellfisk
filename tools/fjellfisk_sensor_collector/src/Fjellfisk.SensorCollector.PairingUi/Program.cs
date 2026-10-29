@@ -2,63 +2,73 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
 
-var pipeName = args.FirstOrDefault(argument => argument.StartsWith("--pipe=", StringComparison.OrdinalIgnoreCase))?["--pipe=".Length..];
-if (string.IsNullOrWhiteSpace(pipeName))
+internal static class Program
 {
-    return 1;
-}
-
-using var pipe = new NamedPipeClientStream(
-    ".",
-    pipeName,
-    PipeDirection.InOut,
-    PipeOptions.Asynchronous);
-try
-{
-    await pipe.ConnectAsync(10_000);
-}
-catch
-{
-    return 1;
-}
-
-using var writer = new StreamWriter(pipe, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), 1024, leaveOpen: true)
-{
-    AutoFlush = true,
-};
-using var reader = new StreamReader(pipe, Encoding.UTF8, false, 1024, leaveOpen: true);
-
-Application.EnableVisualStyles();
-Application.SetCompatibleTextRenderingDefault(false);
-using var form = new PairingForm(() => writer.WriteLineAsync("{\"kind\":\"retry\"}"));
-_ = Task.Run(async () =>
-{
-    try
+    [STAThread]
+    private static int Main(string[] args)
     {
-        while (true)
+        var pipeName = args.FirstOrDefault(argument => argument.StartsWith("--pipe=", StringComparison.OrdinalIgnoreCase))?["--pipe=".Length..];
+        if (string.IsNullOrWhiteSpace(pipeName))
         {
-            var line = await reader.ReadLineAsync();
-            if (line is null)
-            {
-                return;
-            }
-
-            form.ApplyMessage(line);
+            return 1;
         }
-    }
-    catch (IOException)
-    {
-        // The parent process ended or the window was closed.
-    }
-    catch (JsonException)
-    {
-        // Local IPC input is deliberately ignored when malformed.
-    }
-});
 
-Application.Run(form);
-return 0;
+        using var pipe = new NamedPipeClientStream(
+            ".",
+            pipeName,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous);
+        try
+        {
+            // Connect before starting any asynchronous work so WinForms stays
+            // on this STA thread; Clipboard requires STA.
+            pipe.Connect(10_000);
+        }
+        catch
+        {
+            return 1;
+        }
+
+        using var writer = new StreamWriter(pipe, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), 1024, leaveOpen: true)
+        {
+            AutoFlush = true,
+        };
+        using var reader = new StreamReader(pipe, Encoding.UTF8, false, 1024, leaveOpen: true);
+
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        using var form = new PairingForm(() => writer.WriteLineAsync("{\"kind\":\"retry\"}"));
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    var line = await reader.ReadLineAsync();
+                    if (line is null)
+                    {
+                        return;
+                    }
+
+                    form.ApplyMessage(line);
+                }
+            }
+            catch (IOException)
+            {
+                // The parent process ended or the window was closed.
+            }
+            catch (JsonException)
+            {
+                // Local IPC input is deliberately ignored when malformed.
+            }
+        });
+
+        Application.Run(form);
+        return 0;
+    }
+}
 
 sealed class PairingForm : Form
 {
@@ -130,6 +140,15 @@ sealed class PairingForm : Form
         };
         Controls.Add(_code);
 
+        _instructions = new Label
+        {
+            AutoSize = false,
+            Location = new Point(30, 246),
+            Size = new Size(438, 48),
+            ForeColor = Color.FromArgb(54, 74, 94),
+            Text = "Åpne Fjellfisk → Verktøy → Add-ons → Collector og skriv inn koden.",
+        };
+
         _copyButton = new Button
         {
             Location = new Point(350, 160),
@@ -145,7 +164,21 @@ sealed class PairingForm : Form
         {
             if (!string.IsNullOrWhiteSpace(_activeCode))
             {
-                Clipboard.SetText(_activeCode);
+                try
+                {
+                    Clipboard.SetDataObject(
+                        _activeCode,
+                        copy: true,
+                        retryTimes: 5,
+                        retryDelay: 100);
+                    _instructions.Text = "Koden er kopiert. Lim den inn i Fjellfisk.";
+                }
+                catch (Exception exception) when (
+                    exception is ExternalException or ThreadStateException)
+                {
+                    _instructions.Text =
+                        "Kunne ikke kopiere koden. Skriv den inn manuelt i Fjellfisk.";
+                }
             }
         };
         Controls.Add(_copyButton);
@@ -159,14 +192,6 @@ sealed class PairingForm : Form
         };
         Controls.Add(_countdown);
 
-        _instructions = new Label
-        {
-            AutoSize = false,
-            Location = new Point(30, 246),
-            Size = new Size(438, 48),
-            ForeColor = Color.FromArgb(54, 74, 94),
-            Text = "Åpne Fjellfisk → Verktøy → Add-ons → Collector og skriv inn koden.",
-        };
         Controls.Add(_instructions);
 
         _retryButton = new Button
