@@ -1749,4 +1749,203 @@ class AppLocalizationsNb extends AppLocalizations {
   String pageOf(int current, int total) {
     return 'Side $current av $total';
   }
+
+  @override
+  String get addOns => 'Add-ons';
+
+  @override
+  String get addOnsSubtitle =>
+      'Koble til og administrer tekniske integrasjoner.';
+
+  @override
+  String get collectorAddOnName => 'Fjellfisk Collector';
+
+  @override
+  String get collectorAddOnDescription =>
+      'Koble Fjellfisk til lokale sensorer og støttede systemer.';
+
+  @override
+  String get addOnStatusNotConnected => 'Ikke tilkoblet';
+
+  @override
+  String get addOnStatusPending => 'Venter på tilkobling';
+
+  @override
+  String get addOnStatusConnected => 'Tilkoblet';
+
+  @override
+  String get addOnStatusOffline => 'Frakoblet';
+
+  @override
+  String get addOnStatusRevoked => 'Tilgang fjernet';
+
+  @override
+  String get addOnStatusError => 'Feil';
+
+  @override
+  String get connectCollector => 'Koble til collector';
+
+  @override
+  String get pairCollector => 'Koble til Fjellfisk Collector';
+
+  @override
+  String get connectionCode => 'Tilkoblingskode';
+
+  @override
+  String get connectionCodeRequired => 'Skriv inn tilkoblingskoden.';
+
+  @override
+  String get connectionCodeInvalid => 'Koden er ugyldig eller kan ikke brukes.';
+
+  @override
+  String get connectionCodeExpired =>
+      'Koden har utløpt. Be collector vise en ny kode.';
+
+  @override
+  String get connectionCodeAlreadyUsed => 'Koden er allerede brukt.';
+
+  @override
+  String get collectorAuthorizationFailed =>
+      'Du har ikke tilgang til å koble collector til dette anlegget.';
+
+  @override
+  String get collectorBackendUnavailable =>
+      'Collector-tjenesten er ikke tilgjengelig akkurat nå. Prøv igjen.';
+
+  @override
+  String get connectingCollector => 'Kobler til…';
+
+  @override
+  String get connect => 'Koble til';
+
+  @override
+  String get claimCodeSecurityMessage =>
+      'Skriv inn engangskoden som vises lokalt på collector-PC-en.';
+
+  @override
+  String get addOnsAdminOnly =>
+      'Bare administratorer kan koble til eller fra add-ons.';
+
+  @override
+  String get collectorDevice => 'Enhet';
+
+  @override
+  String get collectorReader => 'Leser';
+
+  @override
+  String get collectorVersion => 'Versjon';
+
+  @override
+  String get collectorLastSeen => 'Siste kontakt';
+
+  @override
+  String get collectorSensorCount => 'Sensorer';
+
+  @override
+  String get collectorLatestMeasurement => 'Siste måling';
+
+  @override
+  String sensorsCount(int count) {
+    return '$count sensorer';
+  }
+
+  @override
+  String get justNow => 'Akkurat nå';
+
+  @override
+  String get disconnectCollector => 'Koble fra collector';
+
+  @override
+  String get disconnectCollectorDescription =>
+      'Collector slutter å sende nye målinger og må kobles til på nytt. Historiske data slettes ikke.';
+
+  @override
+  String get disconnect => 'Koble fra';
+
+  @override
+  String get collectorConnected => 'Collector er koblet til.';
+
+  @override
+  String get collectorDisconnected => 'Collector er koblet fra.';
+
+  @override
+  String get collectorSetupButton => 'Setup';
+
+  @override
+  String get collectorSetup => 'Collector Setup';
+
+  @override
+  String get collectorSetupSubtitle =>
+      'Koble sensorsignaler til seksjoner og kar.';
+
+  @override
+  String get collectorNotAvailable => 'Collector er ikke tilgjengelig.';
+
+  @override
+  String get collectorDataSource => 'Datakilde';
+
+  @override
+  String get collectorSensorsDetected => 'Sensorer oppdaget';
+
+  @override
+  String get collectorSensorsConfigured => 'Sensorer konfigurert';
+
+  @override
+  String get collectorConfigured => 'Konfigurert';
+
+  @override
+  String get collectorNotConfigured => 'Ikke konfigurert';
+
+  @override
+  String get collectorSetupSaved => 'Collector-oppsettet er lagret lokalt.';
+
+  @override
+  String get collectorSetupAdminOnly =>
+      'Bare administratorer kan endre sensoroppsettet.';
+
+  @override
+  String get collectorNoSensorsInFilter =>
+      'Ingen sensorer matcher dette filteret.';
+
+  @override
+  String get oxygenConcentration => 'O₂-konsentrasjon';
+
+  @override
+  String get oxygenSaturation => 'O₂-metning';
+
+  @override
+  String get collectorLive => 'Live';
+
+  @override
+  String get collectorStale => 'Forsinket';
+
+  @override
+  String get collectorOffline => 'Collector offline';
+
+  @override
+  String get collectorUpdatedNow => 'Oppdatert nå';
+
+  @override
+  String collectorUpdatedSecondsAgo(int seconds) {
+    return 'Oppdatert $seconds sek siden';
+  }
+
+  @override
+  String collectorLastUpdatedMinutesAgo(int minutes) {
+    return 'Sist oppdatert $minutes min siden';
+  }
+
+  @override
+  String collectorLastDataAt(String time) {
+    return 'Siste data $time';
+  }
+
+  @override
+  String get saveCollectorSetup => 'Lagre oppsett';
+
+  @override
+  String get collectorTemperatureShort => 'Temp.';
+
+  @override
+  String get collectorSaturationShort => 'Metning';
 }
