@@ -16,11 +16,13 @@ class AddOnsScreen extends StatefulWidget {
     this.service,
     this.claimService,
     this.roleLoader,
+    this.facilityId = '',
   });
 
   final AddOnService? service;
   final CollectorClaimService? claimService;
   final Future<String> Function()? roleLoader;
+  final String facilityId;
 
   @override
   State<AddOnsScreen> createState() => _AddOnsScreenState();
