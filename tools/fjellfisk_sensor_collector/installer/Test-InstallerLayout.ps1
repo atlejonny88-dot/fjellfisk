@@ -24,6 +24,13 @@ $requiredFragments = @(
     'CloseApplications=no',
     'AlwaysRestart=no',
     'RestartIfNeededByRun=no',
+    'CollectorTaskName = ''Fjellfisk Collector''',
+    'CollectorExecutableName = ''Fjellfisk.SensorCollector.exe''',
+    '%ProgramFiles(x86)%\Fjellfisk\Collector\',
+    '/SC ONLOGON /DELAY 0001:00 /IT /RL LIMITED /F',
+    'CreatePairingBackendConfiguration();',
+    'CreateOrUpdateCollectorAutostartTask();',
+    'RemoveCollectorAutostartTask();',
     'Source: "{#CollectorPublish}\*"',
     'Fjellfisk.Collector.ServiceTool*',
     'Name: "{commonappdata}\Fjellfisk\SensorCollector"; Permissions: users-modify; Flags: uninsneveruninstall',
@@ -77,7 +84,6 @@ $forbiddenFragments = @(
     'uninsalwaysuninstall',
     'uninsdeletevalue',
     'uninsdeletekey',
-    'schtasks',
     'New-Service',
     'sc.exe',
     'netsh',
@@ -90,6 +96,45 @@ foreach ($fragment in $forbiddenFragments) {
     if ($scriptContent.Contains($fragment, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Installer script contains forbidden runtime configuration: $fragment"
     }
+}
+
+$requiredTaskFragments = @(
+    'Exec(ExpandConstant(''{sys}\schtasks.exe'')',
+    '/Delete /TN',
+    'if FileExists(ConfigPath) then',
+    "if '{#CollectorPairingBackendUrl}' = '' then"
+)
+
+foreach ($fragment in $requiredTaskFragments) {
+    if (-not $scriptContent.Contains($fragment, [StringComparison]::Ordinal)) {
+        throw "Installer script is missing required autostart or configuration behavior: $fragment"
+    }
+}
+
+if ($scriptContent -match '(?i)/ru\s+system|/ru\s+"?system') {
+    throw 'Collector autostart must never run as SYSTEM because pairing UI must remain interactive.'
+}
+
+$taskProcedureStart = $scriptContent.IndexOf(
+    'procedure CreateOrUpdateCollectorAutostartTask();',
+    [StringComparison]::Ordinal
+)
+$taskProcedureEnd = $scriptContent.IndexOf(
+    'procedure RemoveCollectorAutostartTask();',
+    [StringComparison]::Ordinal
+)
+
+if ($taskProcedureStart -lt 0 -or $taskProcedureEnd -le $taskProcedureStart) {
+    throw 'Could not isolate the Collector autostart procedure for validation.'
+}
+
+$taskProcedure = $scriptContent.Substring($taskProcedureStart, $taskProcedureEnd - $taskProcedureStart)
+if (-not $taskProcedure.Contains('--pairing', [StringComparison]::Ordinal)) {
+    throw 'Collector autostart must start the pairing workflow.'
+}
+
+if ($taskProcedure -match '(?i)--read-once|discovery|vigo') {
+    throw 'Collector autostart must not start discovery or sensor reads.'
 }
 
 $requiredProductionFiles = @(

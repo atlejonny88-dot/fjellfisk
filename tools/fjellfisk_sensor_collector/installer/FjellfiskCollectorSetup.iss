@@ -1,16 +1,21 @@
 ; Fjellfisk Production Collector installer. This package contains only the
-; self-contained Production publish output. It does not configure runtime behavior.
+; self-contained Production publish output and configures the local pairing
+; startup task. It does not configure VIGO, P-NET, or sensor reads.
 
 #ifndef CollectorPublish
   #define CollectorPublish "..\src\Fjellfisk.SensorCollector.Production\bin\Release\net6.0-windows\win-x86\publish"
 #endif
 
 #ifndef CollectorVersion
-  #define CollectorVersion "1.0.1"
+  #define CollectorVersion "1.0.2"
 #endif
 
 #ifndef CollectorVersionInfo
-  #define CollectorVersionInfo "1.0.1.0"
+  #define CollectorVersionInfo "1.0.2.0"
+#endif
+
+#ifndef CollectorPairingBackendUrl
+  #define CollectorPairingBackendUrl ""
 #endif
 
 [Setup]
@@ -56,8 +61,58 @@ Name: "{commonappdata}\Fjellfisk\SensorCollector\logs"; Permissions: users-modif
 Name: "{commonappdata}\Fjellfisk\SensorCollector\buffer"; Permissions: users-modify; Flags: uninsneveruninstall
 
 [Code]
+const
+  CollectorTaskName = 'Fjellfisk Collector';
+  CollectorExecutableName = 'Fjellfisk.SensorCollector.exe';
+
 var
   DeleteCollectorData: Boolean;
+
+function CollectorConfigPath(): String;
+begin
+  Result := ExpandConstant('{commonappdata}\Fjellfisk\SensorCollector\config\pairing-backend.json');
+end;
+
+procedure CreatePairingBackendConfiguration();
+var
+  ConfigPath: String;
+  ConfigContents: String;
+begin
+  ConfigPath := CollectorConfigPath();
+  if FileExists(ConfigPath) then
+    Exit;
+
+  if '{#CollectorPairingBackendUrl}' = '' then
+    RaiseException('Collector-installasjonen mangler en konfigurert HTTPS-adresse for pairing-backend.');
+
+  ConfigContents := '{"endpoint":"{#CollectorPairingBackendUrl}"}';
+  if not SaveStringToFile(ConfigPath, ConfigContents, False) then
+    RaiseException('Kunne ikke lagre Collector-konfigurasjonen.');
+end;
+
+procedure CreateOrUpdateCollectorAutostartTask();
+var
+  ResultCode: Integer;
+  Parameters: String;
+begin
+  { Avoid storing a quoted executable as Command when the target path contains
+    spaces. Task Scheduler expands this environment variable at launch. }
+  Parameters := '/Create /TN "' + CollectorTaskName +
+    '" /TR "%ProgramFiles(x86)%\Fjellfisk\Collector\' + CollectorExecutableName +
+    ' --pairing" /SC ONLOGON /DELAY 0001:00 /IT /RL LIMITED /F';
+
+  if (not Exec(ExpandConstant('{sys}\schtasks.exe'), Parameters, '', SW_HIDE,
+      ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then
+    RaiseException('Kunne ikke opprette autostart for Fjellfisk Collector.');
+end;
+
+procedure RemoveCollectorAutostartTask();
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /TN "' + CollectorTaskName +
+    '" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
 
 function InitializeUninstall(): Boolean;
 begin
@@ -77,6 +132,9 @@ end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
+  if CurUninstallStep = usUninstall then
+    RemoveCollectorAutostartTask();
+
   if (CurUninstallStep = usUninstall) and DeleteCollectorData then
   begin
     DelTree(ExpandConstant('{commonappdata}\Fjellfisk\SensorCollector'), True, True, True);
@@ -85,8 +143,12 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and not WizardSilent then
+  if CurStep = ssPostInstall then
   begin
-    MsgBox('Fjellfisk Collector er installert.', mbInformation, MB_OK);
+    CreatePairingBackendConfiguration();
+    CreateOrUpdateCollectorAutostartTask();
+
+    if not WizardSilent then
+      MsgBox('Fjellfisk Collector er installert og starter 60 sekunder etter neste innlogging.', mbInformation, MB_OK);
   end;
 end;

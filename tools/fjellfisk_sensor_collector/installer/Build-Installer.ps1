@@ -2,6 +2,8 @@
 param(
     [string]$Version,
     [string]$BuildId = 'local',
+    [Parameter(Mandatory = $true)]
+    [string]$PairingBackendUrl,
     [string]$CertificateThumbprint,
     [string]$TimestampUrl
 )
@@ -49,6 +51,20 @@ function Get-WindowsVersion([string]$ProductVersion) {
     return $parts -join '.'
 }
 
+function Get-PairingBackendUrl([string]$Value) {
+    [Uri]$uri = $null
+    if (-not [Uri]::TryCreate($Value, [UriKind]::Absolute, [ref]$uri) -or
+        $uri.Scheme -ne [Uri]::UriSchemeHttps -or
+        [string]::IsNullOrWhiteSpace($uri.Host) -or
+        -not [string]::IsNullOrWhiteSpace($uri.UserInfo) -or
+        -not [string]::IsNullOrWhiteSpace($uri.Query) -or
+        -not [string]::IsNullOrWhiteSpace($uri.Fragment)) {
+        throw 'PairingBackendUrl must be an absolute HTTPS URL without credentials, query parameters, or fragments.'
+    }
+
+    return $uri.AbsoluteUri.TrimEnd('/')
+}
+
 if ([string]::IsNullOrWhiteSpace($CertificateThumbprint) -xor [string]::IsNullOrWhiteSpace($TimestampUrl)) {
     throw 'Provide both CertificateThumbprint and TimestampUrl when signing, or neither for an unsigned build.'
 }
@@ -63,6 +79,8 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
     [xml]$project = Get-Content -LiteralPath $productionProject -Raw
     $Version = ($project.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
 }
+
+$pairingBackendUrl = Get-PairingBackendUrl $PairingBackendUrl
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     throw 'No Product Version was provided and the Production project does not define one.'
@@ -85,7 +103,7 @@ if ($CertificateThumbprint) {
 
 $iscc = Get-InnoCompiler
 $versionInfo = Get-WindowsVersion $Version
-& $iscc "/DCollectorPublish=$publishDirectory" "/DCollectorVersion=$Version" "/DCollectorVersionInfo=$versionInfo" $installerScript
+& $iscc "/DCollectorPublish=$publishDirectory" "/DCollectorVersion=$Version" "/DCollectorVersionInfo=$versionInfo" "/DCollectorPairingBackendUrl=$pairingBackendUrl" $installerScript
 if ($LASTEXITCODE -ne 0) {
     throw 'Inno Setup compilation failed.'
 }

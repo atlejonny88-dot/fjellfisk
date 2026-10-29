@@ -1,9 +1,8 @@
 # Fjellfisk Collector installer
 
 `FjellfiskCollectorSetup.iss` builds a normal Inno Setup 6 installer for the
-Production Collector only. The installer itself does not read VIGO.PRO, start
-the collector, create a service, create a scheduled task, configure autostart,
-or alter OxyGuard/P-NET/Vigo configuration.
+Production Collector only. It does not read VIGO.PRO, discover sensors, create
+a Windows service, or alter OxyGuard/P-NET/Vigo configuration.
 
 ## Install layout
 
@@ -20,6 +19,18 @@ Normal uninstall removes only program files and the Windows uninstall entry.
 It asks whether to remove the collector data and identity. **No** is the
 default, including silent uninstall. Selecting **Yes** removes only the exact
 Collector ProgramData directory above.
+
+## Pairing and autostart
+
+The build requires one explicit HTTPS pairing backend URL. The installer writes
+that URL to `config\pairing-backend.json` only on a fresh install; it never
+overwrites an existing configuration during repair or upgrade.
+
+The installer creates the `Fjellfisk Collector` Scheduled Task for the
+installing interactive user. It starts the Production Collector with
+`--pairing` 60 seconds after that user logs in, runs at limited privilege, and
+is removed on uninstall. There is no Windows service, Run registry entry, or
+sensor read started by setup itself.
 
 ## Version and signing
 
@@ -39,7 +50,7 @@ From this directory, after a normal Production publish:
 
 ```powershell
 .\Test-InstallerLayout.ps1
-.\Build-Installer.ps1
+.\Build-Installer.ps1 -PairingBackendUrl https://api.fjellfisk.no/collector/v1
 ```
 
 `Build-Installer.ps1` locates Inno Setup 6 at either standard installation
