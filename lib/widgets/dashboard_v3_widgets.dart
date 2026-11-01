@@ -308,6 +308,7 @@ class DashboardNavigation extends StatelessWidget {
     required this.onDiary,
     required this.onReport,
     required this.onFeedInventory,
+    required this.onAddOns,
     required this.onAdminUsers,
     required this.onExport,
     required this.onLogout,
@@ -321,6 +322,7 @@ class DashboardNavigation extends StatelessWidget {
   final VoidCallback onDiary;
   final VoidCallback onReport;
   final VoidCallback onFeedInventory;
+  final VoidCallback onAddOns;
   final VoidCallback onAdminUsers;
   final VoidCallback onExport;
   final VoidCallback onLogout;
@@ -376,6 +378,11 @@ class DashboardNavigation extends StatelessWidget {
                     label: l10n.feedInventory,
                     icon: Icons.inventory_2_outlined,
                     onTap: () => _run(context, onFeedInventory),
+                  ),
+                  DashboardNavTile(
+                    label: l10n.addOns,
+                    icon: Icons.extension_outlined,
+                    onTap: () => _run(context, onAddOns),
                   ),
                   DashboardNavTile(
                     label: l10n.excelExport,

@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../l10n/localizations.dart';
+import '../l10n/language_controller.dart';
+import '../models/addon.dart';
 import '../utils/ui_motion.dart';
 
 class TankOverviewCard extends StatefulWidget {
@@ -26,6 +29,7 @@ class TankOverviewCard extends StatefulWidget {
     this.onNoteTap,
     this.notesUnavailable = false,
     this.reviewed = false,
+    this.collectorSensor,
   });
 
   final String name;
@@ -47,6 +51,7 @@ class TankOverviewCard extends StatefulWidget {
   final VoidCallback? onNoteTap;
   final bool notesUnavailable;
   final bool reviewed;
+  final CollectorSensor? collectorSensor;
 
   @override
   State<TankOverviewCard> createState() => _TankOverviewCardState();
@@ -177,49 +182,23 @@ class _TankOverviewCardState extends State<TankOverviewCard> {
                         biomassLabel: widget.biomassLabel,
                       ),
                       const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _TankMetric(
-                              icon: Icons.monitor_weight_outlined,
-                              label: l10n.averageWeight,
-                              value: widget.weightLabel,
-                              isMuted: !widget.isActive,
+                      widget.collectorSensor == null
+                          ? _StandardTankMetrics(
+                              weightLabel: widget.weightLabel,
+                              feedLabel: widget.feedLabel,
+                              mortalityLabel: widget.mortalityLabel,
+                              temperatureLabel: widget.temperatureLabel,
+                              statusColor: widget.statusColor,
+                              isActive: widget.isActive,
+                            )
+                          : _TankMetricsWithCollector(
+                              weightLabel: widget.weightLabel,
+                              feedLabel: widget.feedLabel,
+                              mortalityLabel: widget.mortalityLabel,
+                              statusColor: widget.statusColor,
+                              isActive: widget.isActive,
+                              sensor: widget.collectorSensor!,
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: _TankMetric(
-                              icon: Icons.inventory_2_outlined,
-                              label: l10n.feedLast24Hours,
-                              value: widget.feedLabel,
-                              isMuted: !widget.isActive,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: _TankMetric(
-                              icon: Icons.heart_broken_outlined,
-                              label: l10n.deathsLast7DaysShort,
-                              value: widget.mortalityLabel,
-                              color:
-                                  widget.statusColor == const Color(0xFFD53C3C)
-                                      ? widget.statusColor
-                                      : null,
-                              isMuted: !widget.isActive,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: _TankMetric(
-                              icon: Icons.device_thermostat_outlined,
-                              label: l10n.temperature,
-                              value: widget.temperatureLabel,
-                              isMuted: !widget.isActive,
-                            ),
-                          ),
-                        ],
-                      ),
                       AnimatedSize(
                         duration: duration,
                         curve: Curves.easeOut,
@@ -477,6 +456,295 @@ class _PrimaryMetric extends StatelessWidget {
       ],
     );
   }
+}
+
+class _StandardTankMetrics extends StatelessWidget {
+  const _StandardTankMetrics({
+    required this.weightLabel,
+    required this.feedLabel,
+    required this.mortalityLabel,
+    required this.temperatureLabel,
+    required this.statusColor,
+    required this.isActive,
+  });
+
+  final String weightLabel;
+  final String feedLabel;
+  final String mortalityLabel;
+  final String temperatureLabel;
+  final Color statusColor;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Row(
+      children: [
+        Expanded(
+          child: _TankMetric(
+            icon: Icons.monitor_weight_outlined,
+            label: l10n.averageWeight,
+            value: weightLabel,
+            isMuted: !isActive,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _TankMetric(
+            icon: Icons.inventory_2_outlined,
+            label: l10n.feedLast24Hours,
+            value: feedLabel,
+            isMuted: !isActive,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _TankMetric(
+            icon: Icons.heart_broken_outlined,
+            label: l10n.deathsLast7DaysShort,
+            value: mortalityLabel,
+            color: statusColor == const Color(0xFFD53C3C) ? statusColor : null,
+            isMuted: !isActive,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _TankMetric(
+            icon: Icons.device_thermostat_outlined,
+            label: l10n.temperature,
+            value: temperatureLabel,
+            isMuted: !isActive,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TankMetricsWithCollector extends StatelessWidget {
+  const _TankMetricsWithCollector({
+    required this.weightLabel,
+    required this.feedLabel,
+    required this.mortalityLabel,
+    required this.statusColor,
+    required this.isActive,
+    required this.sensor,
+  });
+
+  final String weightLabel;
+  final String feedLabel;
+  final String mortalityLabel;
+  final Color statusColor;
+  final bool isActive;
+  final CollectorSensor sensor;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Row(
+      children: [
+        Expanded(
+          child: _TankMetric(
+            icon: Icons.monitor_weight_outlined,
+            label: l10n.averageWeight,
+            value: weightLabel,
+            isMuted: !isActive,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _TankMetric(
+            icon: Icons.inventory_2_outlined,
+            label: l10n.feedLast24Hours,
+            value: feedLabel,
+            isMuted: !isActive,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _TankMetric(
+            icon: Icons.heart_broken_outlined,
+            label: l10n.deathsLast7DaysShort,
+            value: mortalityLabel,
+            color: statusColor == const Color(0xFFD53C3C) ? statusColor : null,
+            isMuted: !isActive,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          flex: 3,
+          child: _CollectorMetricPanel(sensor: sensor, isMuted: !isActive),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollectorMetricPanel extends StatelessWidget {
+  const _CollectorMetricPanel({
+    required this.sensor,
+    required this.isMuted,
+  });
+
+  final CollectorSensor sensor;
+  final bool isMuted;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final (stateLabel, stateColor) = switch (sensor.status) {
+      CollectorSensorStatus.live => (
+          l10n.collectorLive,
+          const Color(0xFF15803D)
+        ),
+      CollectorSensorStatus.stale => (
+          l10n.collectorStale,
+          const Color(0xFFD97706)
+        ),
+      CollectorSensorStatus.offline => (
+          l10n.collectorOffline,
+          const Color(0xFF64748B)
+        ),
+    };
+    final foreground = isMuted ? const Color(0xFF7F8997) : stateColor;
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 66),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+      decoration: BoxDecoration(
+        color: isMuted ? const Color(0xFFE8EBEF) : const Color(0xFFF5F8FC),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: stateColor.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.circle, size: 7, color: foreground),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  stateLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Expanded(
+                child: _CompactCollectorValue(
+                  label: l10n.collectorTemperatureShort,
+                  value: _collectorNumber(context, sensor.temperatureC, '°C'),
+                  foreground: foreground,
+                ),
+              ),
+              _CollectorDivider(color: foreground),
+              Expanded(
+                child: _CompactCollectorValue(
+                  label: 'O₂',
+                  value: _collectorNumber(context, sensor.oxygenMgL, 'mg/L'),
+                  foreground: foreground,
+                ),
+              ),
+              _CollectorDivider(color: foreground),
+              Expanded(
+                child: _CompactCollectorValue(
+                  label: l10n.collectorSaturationShort,
+                  value: _collectorNumber(
+                    context,
+                    sensor.oxygenSaturationPct,
+                    '%',
+                    digits: 0,
+                  ),
+                  foreground: foreground,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectorDivider extends StatelessWidget {
+  const _CollectorDivider({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 1,
+        height: 25,
+        color: color.withValues(alpha: 0.15),
+      );
+}
+
+class _CompactCollectorValue extends StatelessWidget {
+  const _CompactCollectorValue({
+    required this.label,
+    required this.value,
+    required this.foreground,
+  });
+
+  final String label;
+  final String value;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: foreground,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _collectorNumber(
+  BuildContext context,
+  double? value,
+  String suffix, {
+  int digits = 1,
+}) {
+  if (value == null) return '—';
+  final formatted = NumberFormat.decimalPatternDigits(
+    locale: LanguageScope.of(context).language.code,
+    decimalDigits: digits,
+  ).format(value);
+  return '$formatted $suffix';
 }
 
 class _TankMetric extends StatelessWidget {

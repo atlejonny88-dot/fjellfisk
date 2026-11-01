@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../l10n/localizations.dart';
+import '../services/addon_service.dart';
 import '../services/user_service.dart';
 import '../services/registration_round.dart';
 import '../utils/tank_status.dart';
@@ -16,12 +17,14 @@ class SectionScreen extends StatefulWidget {
   final String facilityId;
   final String sectionId;
   final String sectionName;
+  final AddOnService? addOnService;
 
   const SectionScreen({
     super.key,
     required this.facilityId,
     required this.sectionId,
     required this.sectionName,
+    this.addOnService,
   });
 
   @override
@@ -31,12 +34,15 @@ class SectionScreen extends StatefulWidget {
 class _SectionScreenState extends State<SectionScreen> {
   int _refreshKey = 0;
   late final Future<String> _roleFuture;
+  late final AddOnService _addOnService;
 
   @override
   void initState() {
     super.initState();
     RegistrationRound.session.setUser(UserService.currentUserId);
     RegistrationRound.session.addListener(_refresh);
+    _addOnService = widget.addOnService ?? MockAddOnService.shared;
+    _addOnService.addListener(_refresh);
     _roleFuture = UserService.getCurrentUserRole();
   }
 
@@ -52,6 +58,7 @@ class _SectionScreenState extends State<SectionScreen> {
   @override
   void dispose() {
     RegistrationRound.session.removeListener(_refresh);
+    _addOnService.removeListener(_refresh);
     super.dispose();
   }
 
@@ -647,6 +654,13 @@ class _SectionScreenState extends State<SectionScreen> {
                 'ukjent')
             .toString();
     final noteTimestamp = activeNote?['updatedAt'] ?? activeNote?['createdAt'];
+    final collectorSensor = _addOnService.sensorForTank(
+      facilityId: widget.facilityId,
+      sectionId: widget.sectionId,
+      sectionName: widget.sectionName,
+      tankId: tank['id'].toString(),
+      tankName: tank['name'].toString(),
+    );
 
     return TankOverviewCard(
       key: ValueKey("tank-card-${tank['id']}"),
@@ -687,6 +701,7 @@ class _SectionScreenState extends State<SectionScreen> {
           ? null
           : '$noteAuthor · ${_formatNoteDate(noteTimestamp)}',
       notesUnavailable: tank['notesUnavailable'] as bool? ?? false,
+      collectorSensor: collectorSensor,
       onNoteTap: activeNote == null
           ? null
           : () => _showNoteDialog(context, activeNote),
