@@ -1,10 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/addon.dart';
 import 'addon_service.dart';
 import 'collector_claim_service.dart';
 
 /// Uses the existing authenticated API. Pairing never supplies mock sensors.
 class RemoteAddOnService extends AddOnService {
-  RemoteAddOnService({required this.api, required this.facilityId});
+  RemoteAddOnService(
+      {required this.api,
+      required this.facilityId,
+      Future<List<CollectorSectionOption>> Function()? sectionLoader})
+      : _sectionLoader = sectionLoader;
 
   final CollectorClaimService api;
   final String facilityId;
@@ -13,6 +19,65 @@ class RemoteAddOnService extends AddOnService {
   bool _disposed = false;
   ClaimCodeResultType? _loadError;
   Future<void>? _refreshFuture;
+  final Future<List<CollectorSectionOption>> Function()? _sectionLoader;
+  final Map<String, CollectorSensorSnapshot> _snapshots = {};
+  List<CollectorSectionOption> _sections = const [];
+  bool _sectionsLoaded = false;
+  bool _sectionsUnavailable = false;
+
+  @override
+  String get mappingFacilityId => facilityId;
+  @override
+  List<CollectorSectionOption> get sections => List.unmodifiable(_sections);
+  @override
+  bool get sectionsUnavailable => _sectionsUnavailable;
+
+  @override
+  Future<void> loadSections() async {
+    if (_sectionsLoaded || _disposed) return;
+    try {
+      final loader = _sectionLoader;
+      final List<CollectorSectionOption> sections;
+      if (loader != null) {
+        sections = await loader();
+      } else {
+        final result = await FirebaseFirestore.instance
+            .collection('facilities')
+            .doc(facilityId)
+            .collection('sections')
+            .get()
+            .timeout(const Duration(seconds: 12));
+        sections = [];
+        for (final section in result.docs) {
+          final tanks = await section.reference
+              .collection('tanks')
+              .get()
+              .timeout(const Duration(seconds: 12));
+          sections.add(CollectorSectionOption(
+              id: section.id,
+              name: section.data()['name'] is String
+                  ? section.data()['name']
+                  : section.id,
+              tanks: [
+                for (final tank in tanks.docs)
+                  CollectorTankOption(
+                      id: tank.id,
+                      name: tank.data()['name'] is String
+                          ? tank.data()['name']
+                          : tank.id)
+              ]));
+        }
+      }
+      if (!_disposed) {
+        _sections = sections;
+        _sectionsLoaded = true;
+        _sectionsUnavailable = false;
+      }
+    } catch (_) {
+      if (!_disposed) _sectionsUnavailable = true;
+    }
+    if (!_disposed) notifyListeners();
+  }
 
   static const _unconnected = AddOn(
     id: 'fjellfisk-collector',
@@ -45,8 +110,31 @@ class RemoteAddOnService extends AddOnService {
     notifyListeners();
     try {
       final collectors = await api.fetchCollectors(facilityId: facilityId);
+      final snapshots = <String, CollectorSensorSnapshot>{};
+      final resolved = <AddOn>[];
+      for (final collector in collectors) {
+        if (collector.status == AddOnStatus.connected ||
+            collector.status == AddOnStatus.offline) {
+          final snapshot = await api.fetchSensors(
+              facilityId: facilityId, collectorId: collector.id);
+          snapshots[collector.id] = snapshot;
+          final dates = snapshot.sensors
+              .map((sensor) => sensor.updatedAt)
+              .toList()
+            ..sort();
+          resolved.add(collector.copyWith(
+              sensorCount: snapshot.sensors.length,
+              latestMeasurementAt: dates.isEmpty ? null : dates.last,
+              clearLatestMeasurement: dates.isEmpty));
+        } else {
+          resolved.add(collector);
+        }
+      }
       if (!_disposed) {
-        _addOns = collectors.isEmpty ? const [_unconnected] : collectors;
+        _snapshots
+          ..clear()
+          ..addAll(snapshots);
+        _addOns = resolved.isEmpty ? const [_unconnected] : resolved;
       }
     } on CollectorBackendException catch (error) {
       if (!_disposed) {
@@ -54,6 +142,7 @@ class RemoteAddOnService extends AddOnService {
         // Never retain enabled management controls after authorization fails.
         if (error.type == ClaimCodeResultType.unauthorized) {
           _addOns = const [_unconnected];
+          _snapshots.clear();
         }
       }
     } finally {
@@ -98,11 +187,31 @@ class RemoteAddOnService extends AddOnService {
   }
 
   @override
-  List<CollectorSensor> sensorsForCollector(String collectorId) => const [];
+  List<CollectorSensor> sensorsForCollector(String collectorId) => [
+        for (final sensor
+            in _snapshots[collectorId]?.sensors ?? <CollectorSensor>[])
+          CollectorSensor(
+              id: sensor.id,
+              collectorId: sensor.collectorId,
+              name: sensor.name,
+              updatedAt: sensor.updatedAt,
+              temperatureC: sensor.temperatureC,
+              oxygenMgL: sensor.oxygenMgL,
+              oxygenSaturationPct: sensor.oxygenSaturationPct,
+              status: DateTime.now().difference(sensor.updatedAt) >
+                          const Duration(minutes: 5) ||
+                      _loadError != null
+                  ? CollectorSensorStatus.offline
+                  : DateTime.now().difference(sensor.updatedAt) >
+                          const Duration(minutes: 1)
+                      ? CollectorSensorStatus.stale
+                      : sensor.status),
+      ];
 
   @override
   List<CollectorSensorMapping> mappingsForCollector(String collectorId) =>
-      const [];
+      List.unmodifiable(_snapshots[collectorId]?.mappings ??
+          const <CollectorSensorMapping>[]);
 
   @override
   CollectorSensor? sensorForTank({
@@ -111,16 +220,45 @@ class RemoteAddOnService extends AddOnService {
     required String sectionName,
     required String tankId,
     required String tankName,
-  }) =>
-      null;
+  }) {
+    if (facilityId != this.facilityId) return null;
+    for (final entry in _snapshots.entries) {
+      for (final mapping in entry.value.mappings) {
+        if (mapping.facilityId == facilityId &&
+            mapping.sectionId == sectionId &&
+            mapping.tankId == tankId) {
+          for (final sensor in sensorsForCollector(entry.key)) {
+            if (sensor.id == mapping.sensorId) return sensor;
+          }
+        }
+      }
+    }
+    return null;
+  }
 
   @override
   Future<void> saveCollectorMappings(
     String collectorId,
     Iterable<CollectorSensorMapping> mappings,
   ) async {
-    // The pairing API does not provide sensor inventory/mapping persistence yet.
-    throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    final selected = mappings.toList();
+    if (!_addOns.any((collector) =>
+            collector.id == collectorId && collector.canConfigure) ||
+        selected.any((mapping) =>
+            mapping.collectorId != collectorId ||
+            mapping.facilityId != facilityId ||
+            !mapping.isComplete)) {
+      throw const CollectorBackendException(ClaimCodeResultType.invalid);
+    }
+    await api.saveSensorMappings(
+        facilityId: facilityId, collectorId: collectorId, mappings: selected);
+    if (_disposed) return;
+    final current = _snapshots[collectorId];
+    if (current != null) {
+      _snapshots[collectorId] =
+          CollectorSensorSnapshot(current.sensors, List.unmodifiable(selected));
+    }
+    notifyListeners();
   }
 
   @override

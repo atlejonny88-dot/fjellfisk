@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -5,6 +7,7 @@ import '../l10n/language_controller.dart';
 import '../l10n/localizations.dart';
 import '../models/addon.dart';
 import '../services/addon_service.dart';
+import '../services/collector_claim_service.dart';
 import '../services/remote_addon_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
@@ -46,6 +49,9 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
       _draftMappings[mapping.sensorId] = mapping;
     }
     widget.service.addListener(_onServiceChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(widget.service.loadSections());
+    });
   }
 
   @override
@@ -66,7 +72,7 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
   }
 
   CollectorSectionOption? _sectionForId(String? sectionId) {
-    for (final section in MockCollectorSetupCatalog.sections) {
+    for (final section in widget.service.sections) {
       if (section.id == sectionId) return section;
     }
     return null;
@@ -84,7 +90,7 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
     if (section == null) return;
     setState(() {
       _draftMappings[sensor.id] = _mappingFor(sensor).copyWith(
-        facilityId: MockCollectorSetupCatalog.facilityId,
+        facilityId: widget.service.mappingFacilityId,
         sectionId: section.id,
         sectionName: section.name,
         clearTank: true,
@@ -114,7 +120,7 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
   }
 
   Future<void> _save(bool canManage) async {
-    if (!canManage || _saving || _collector?.isConnected != true) return;
+    if (!canManage || _saving || _collector?.canConfigure != true) return;
     setState(() => _saving = true);
     try {
       await widget.service.saveCollectorMappings(
@@ -125,6 +131,11 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.collectorSetupSaved)),
       );
+    } on CollectorBackendException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.collectorMappingSaveFailed)));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -182,6 +193,10 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
+                    if (widget.service.sectionsUnavailable)
+                      Text(l10n.collectorCatalogUnavailable,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error)),
                     _CollectorConnectionCard(
                       collector: collector,
                       sensors: sensors,
@@ -250,12 +265,15 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
                           child: _SensorMappingCard(
                             key: ValueKey('sensor-card-${sensor.id}'),
                             sensor: sensor,
+                            sections: widget.service.sections,
                             mapping: _mappingFor(sensor),
-                            canManage: canManage && collector.isConnected,
+                            canManage: canManage && collector.canConfigure,
                             onSectionChanged: (sectionId) =>
                                 _selectSection(sensor, sectionId),
                             onTankChanged: (tankId) =>
                                 _selectTank(sensor, tankId),
+                            onClear: () => setState(
+                                () => _draftMappings.remove(sensor.id)),
                           ),
                         ),
                       ),
@@ -265,8 +283,10 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
                       child: FilledButton.icon(
                         key: const ValueKey('save-collector-setup'),
                         onPressed: canManage &&
-                                collector.isConnected &&
+                                collector.canConfigure &&
                                 sensors.isNotEmpty &&
+                                _draftMappings.values
+                                    .every((mapping) => mapping.isComplete) &&
                                 !_saving
                             ? () => _save(canManage)
                             : null,
@@ -349,7 +369,7 @@ class _CollectorConnectionCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    _CollectorStateLabel(connected: collector.isConnected),
+                    _CollectorStateLabel(status: collector.status),
                   ],
                 ),
               ],
@@ -410,22 +430,28 @@ class _Detail extends StatelessWidget {
 }
 
 class _CollectorStateLabel extends StatelessWidget {
-  const _CollectorStateLabel({required this.connected});
+  const _CollectorStateLabel({required this.status});
 
-  final bool connected;
+  final AddOnStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final color = connected ? const Color(0xFF15803D) : const Color(0xFF64748B);
+    final color = status == AddOnStatus.connected
+        ? const Color(0xFF15803D)
+        : status == AddOnStatus.offline
+            ? const Color(0xFFB7791F)
+            : const Color(0xFF64748B);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.circle, size: 9, color: color),
         const SizedBox(width: 6),
         Text(
-          connected
+          status == AddOnStatus.connected
               ? context.l10n.addOnStatusConnected
-              : context.l10n.addOnStatusNotConnected,
+              : status == AddOnStatus.offline
+                  ? context.l10n.addOnStatusOffline
+                  : context.l10n.addOnStatusNotConnected,
           style: TextStyle(color: color, fontWeight: FontWeight.w700),
         ),
       ],
@@ -465,20 +491,24 @@ class _SensorMappingCard extends StatelessWidget {
   const _SensorMappingCard({
     super.key,
     required this.sensor,
+    required this.sections,
     required this.mapping,
     required this.canManage,
     required this.onSectionChanged,
     required this.onTankChanged,
+    required this.onClear,
   });
 
   final CollectorSensor sensor;
+  final List<CollectorSectionOption> sections;
   final CollectorSensorMapping mapping;
   final bool canManage;
   final ValueChanged<String?> onSectionChanged;
   final ValueChanged<String?> onTankChanged;
+  final VoidCallback onClear;
 
   CollectorSectionOption? get _section {
-    for (final item in MockCollectorSetupCatalog.sections) {
+    for (final item in sections) {
       if (item.id == mapping.sectionId) return item;
     }
     return null;
@@ -510,6 +540,12 @@ class _SensorMappingCard extends StatelessWidget {
                   ),
                 ),
                 _SensorStatusChip(sensor: sensor),
+                if (canManage && mapping.sectionId != null)
+                  IconButton(
+                      key: ValueKey('clear-sensor-mapping-${sensor.id}'),
+                      tooltip: l10n.collectorRemoveMapping,
+                      icon: const Icon(Icons.link_off_outlined),
+                      onPressed: onClear),
               ],
             ),
             const SizedBox(height: 14),
@@ -522,7 +558,7 @@ class _SensorMappingCard extends StatelessWidget {
                   initialValue: section?.id,
                   isExpanded: true,
                   decoration: InputDecoration(labelText: l10n.sectionBuilding),
-                  items: MockCollectorSetupCatalog.sections
+                  items: sections
                       .map(
                         (item) => DropdownMenuItem(
                           value: item.id,

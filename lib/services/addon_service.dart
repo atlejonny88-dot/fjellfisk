@@ -31,6 +31,11 @@ abstract class AddOnService extends ChangeNotifier {
 
   Future<void> refresh() async {}
 
+  List<CollectorSectionOption> get sections => const [];
+  String? get mappingFacilityId => null;
+  Future<void> loadSections() async {}
+  bool get sectionsUnavailable => false;
+
   Future<ClaimCodeResult> claimCollector(String claimCode);
 
   Future<void> disconnect(String addOnId);
@@ -56,6 +61,11 @@ abstract class AddOnService extends ChangeNotifier {
 /// Local pairing substitute until a reviewed backend endpoint is available.
 /// It intentionally contains no Firebase, network, collector, or credential code.
 class MockAddOnService extends AddOnService {
+  @override
+  List<CollectorSectionOption> get sections =>
+      MockCollectorSetupCatalog.sections;
+  @override
+  String get mappingFacilityId => MockCollectorSetupCatalog.facilityId;
   MockAddOnService({
     List<AddOn>? initialAddOns,
     DateTime Function()? clock,

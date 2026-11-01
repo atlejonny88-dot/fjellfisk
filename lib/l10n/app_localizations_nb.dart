@@ -1909,7 +1909,18 @@ class AppLocalizationsNb extends AppLocalizations {
 
   @override
   String get collectorSensorSetupUnavailable =>
-      'Collector er koblet til. Sensorliste og kobling til kar er ikke tilgjengelig fra tjenesten ennå.';
+      'Ingen sensorer er mottatt fra Collector ennå.';
+
+  @override
+  String get collectorCatalogUnavailable =>
+      'Seksjoner og kar kunne ikke lastes.';
+
+  @override
+  String get collectorRemoveMapping => 'Fjern kar-kobling';
+
+  @override
+  String get collectorMappingSaveFailed =>
+      'Sensoroppsettet kunne ikke lagres. Kontroller at hver sensor er koblet til et eget kar. Valgene er beholdt.';
 
   @override
   String get oxygenConcentration => 'O₂-konsentrasjon';

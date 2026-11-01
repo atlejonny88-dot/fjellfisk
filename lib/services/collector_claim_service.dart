@@ -13,6 +13,12 @@ class CollectorBackendException implements Exception {
   final ClaimCodeResultType type;
 }
 
+class CollectorSensorSnapshot {
+  const CollectorSensorSnapshot(this.sensors, this.mappings);
+  final List<CollectorSensor> sensors;
+  final List<CollectorSensorMapping> mappings;
+}
+
 abstract interface class FirebaseIdTokenProvider {
   Future<String?> getIdToken();
 }
@@ -77,6 +83,124 @@ class CollectorClaimService {
 
   bool get isConfigured => _baseUri != null;
 
+  Future<CollectorSensorSnapshot> fetchSensors({
+    required String facilityId,
+    required String collectorId,
+    DateTime? now,
+  }) async {
+    final headers = await _authenticatedHeaders();
+    try {
+      final uri = _baseUri?.resolve(
+          '/admin/v1/sites/${Uri.encodeComponent(facilityId)}/collectors/${Uri.encodeComponent(collectorId)}/sensors');
+      if (uri == null) throw const FormatException();
+      final response = await _client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 12));
+      final result = _resultFor(response);
+      if (!result.isSuccess) throw CollectorBackendException(result.type);
+      final data = jsonDecode(response.body);
+      if (data is! Map<String, dynamic> ||
+          data['sensors'] is! List ||
+          data['mappings'] is! List) {
+        throw const FormatException();
+      }
+      final clock = now ?? DateTime.now();
+      final sensors = <CollectorSensor>[];
+      for (final row in data['sensors'] as List) {
+        if (row is! Map<String, dynamic>) continue;
+        final id = row['sensorId'];
+        final date = row['timestampUtc'] is String
+            ? DateTime.tryParse(row['timestampUtc'])
+            : null;
+        if (id is! String || id.isEmpty || date == null) continue;
+        double? number(String field) {
+          final value = row[field];
+          return value is num && value.isFinite ? value.toDouble() : null;
+        }
+
+        final age = clock.difference(date);
+        final status =
+            row['health'] == 'failed' || age > const Duration(minutes: 5)
+                ? CollectorSensorStatus.offline
+                : age > const Duration(minutes: 1) ||
+                        row['health'] != 'ok' ||
+                        age.isNegative
+                    ? CollectorSensorStatus.stale
+                    : CollectorSensorStatus.live;
+        sensors.add(CollectorSensor(
+            id: id,
+            collectorId: collectorId,
+            name: row['name'] is String ? row['name'] : id,
+            status: status,
+            updatedAt: date,
+            temperatureC: number('temperatureC'),
+            oxygenMgL: number('oxygenMgL'),
+            oxygenSaturationPct: number('oxygenSaturationPct')));
+      }
+      final mappings = <CollectorSensorMapping>[];
+      for (final row in data['mappings'] as List) {
+        if (row is! Map<String, dynamic> ||
+            !['sensorId', 'sectionId', 'sectionName', 'tankId', 'tankName']
+                .every((key) =>
+                    row[key] is String && (row[key] as String).isNotEmpty)) {
+          continue;
+        }
+        mappings.add(CollectorSensorMapping(
+            collectorId: collectorId,
+            sensorId: row['sensorId'],
+            facilityId: facilityId,
+            sectionId: row['sectionId'],
+            sectionName: row['sectionName'],
+            tankId: row['tankId'],
+            tankName: row['tankName']));
+      }
+      return CollectorSensorSnapshot(sensors, mappings);
+    } on FormatException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    } on TimeoutException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    } on http.ClientException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    }
+  }
+
+  Future<void> saveSensorMappings(
+      {required String facilityId,
+      required String collectorId,
+      required Iterable<CollectorSensorMapping> mappings}) async {
+    final headers = await _authenticatedHeaders();
+    try {
+      final uri = _baseUri?.resolve(
+          '/admin/v1/collectors/${Uri.encodeComponent(collectorId)}/mappings');
+      if (uri == null) {
+        throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+      }
+      final response = await _client
+          .post(uri,
+              headers: headers,
+              body: jsonEncode({
+                'siteId': facilityId,
+                'mappings': [
+                  for (final mapping in mappings)
+                    {
+                      'sensorId': mapping.sensorId,
+                      'sectionId': mapping.sectionId,
+                      'sectionName': mapping.sectionName,
+                      'tankId': mapping.tankId,
+                      'tankName': mapping.tankName,
+                    }
+                ],
+              }))
+          .timeout(const Duration(seconds: 12));
+      final result = _resultFor(response);
+      if (!result.isSuccess) throw CollectorBackendException(result.type);
+    } on TimeoutException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    } on http.ClientException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    }
+  }
+
   Future<List<AddOn>> fetchCollectors({required String facilityId}) async {
     final baseUri = _baseUri;
     if (baseUri == null || facilityId.trim().isEmpty) {
@@ -115,13 +239,19 @@ class CollectorClaimService {
           type: AddOnType.collector,
           name: 'Fjellfisk Collector',
           description: '',
-          status: state,
+          status: state == AddOnStatus.connected &&
+                  date('lastSeenAt') != null &&
+                  DateTime.now().difference(date('lastSeenAt')!) >
+                      const Duration(minutes: 5)
+              ? AddOnStatus.offline
+              : state,
           connectedDeviceId: state == AddOnStatus.connected ? id : null,
           connectedAt: date('pairedAt'),
           lastSeenAt: date('lastSeenAt'),
           version: item['collectorVersion'] is String
               ? item['collectorVersion'] as String
               : null,
+          deviceName: id,
         );
       }).toList(growable: false);
     } on FormatException {
