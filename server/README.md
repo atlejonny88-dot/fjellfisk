@@ -158,6 +158,15 @@ origin, for eksempel `http://localhost:51099`, legges til midlertidig sammen
 med den publiserte Fjellfisk-origin-en. Collector-endepunktene trenger ikke
 CORS.
 
+For de publiserte webklientene skal produksjonskonfigurasjonen eksplisitt ha
+`ADMIN_CORS_ORIGINS=https://fjellfisk.web.app,https://trolltungaarctictrout.web.app`.
+En endring i `.env` krever at bare backend-containeren gjenskapes med
+`docker compose up -d --no-deps --force-recreate fjellfisk-backend`; en vanlig
+container-restart laster ikke nye miljøvariabler. Kontroller deretter at
+OPTIONS på `/admin/v1/collectors/claim` gir 204 for disse origin-ene, men 403
+for andre. Et POST-kall uten Firebase-token skal fortsatt gi 401. Ingen
+anleggstilknytning eller entitlement endres av CORS-konfigurasjonen.
+
 Flutter har en opt-in claim-klient: den brukes kun når appen startes med en
 eksplisitt build-definisjon, for eksempel
 `--dart-define=FJELLFISK_COLLECTOR_BACKEND_URL=https://<privat-tailnet-url>`.

@@ -76,6 +76,40 @@ test('HTTP API keeps collector contract, protects admin routes, and exposes heal
   }
 });
 
+test('production web origins pass preflight without bypassing admin authentication', async () => {
+  const origins = ['https://fjellfisk.web.app', 'https://trolltungaarctictrout.web.app'];
+  const api = createHttpApi({
+    pairingService: new PairingService(new InMemoryPairingRepository(), {
+      pepper: 'test-pepper-that-is-at-least-thirty-two-characters',
+    }),
+    adminAuthorizer: new StaticAdminAuthorizer({uid: 'admin', organizationId: null, allowedSiteIds: []}),
+    adminCorsOrigins: origins,
+  });
+  await new Promise<void>((resolve) => api.listen(0, '127.0.0.1', resolve));
+  const address = api.address();
+  assert.ok(address && typeof address !== 'string');
+  const url = `http://127.0.0.1:${address.port}/admin/v1/collectors/claim`;
+  try {
+    for (const origin of origins) {
+      const preflight = await fetch(url, {method: 'OPTIONS', headers: {origin}});
+      assert.equal(preflight.status, 204);
+      assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+      const unauthorized = await fetch(url, {
+        method: 'POST',
+        headers: {origin, 'content-type': 'application/json'},
+        body: JSON.stringify({siteId: 'facility-1', pairingCode: 'test-only'}),
+      });
+      assert.equal(unauthorized.status, 401);
+      assert.equal(unauthorized.headers.get('access-control-allow-origin'), origin);
+    }
+    const forbidden = await fetch(url, {method: 'OPTIONS', headers: {origin: 'https://untrusted.example'}});
+    assert.equal(forbidden.status, 403);
+    assert.equal(forbidden.headers.get('access-control-allow-origin'), null);
+  } finally {
+    await new Promise<void>((resolve, reject) => api.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
 test('health endpoint reports database degradation without an internal exception', async () => {
   const repository = new InMemoryPairingRepository();
   repository.healthcheck = async () => { throw new Error('database unavailable'); };
