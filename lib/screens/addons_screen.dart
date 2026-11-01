@@ -36,6 +36,7 @@ class _AddOnsScreenState extends State<AddOnsScreen>
   late final AddOnService _service;
   late final CollectorClaimService _claimService;
   late final Future<String> _roleFuture;
+  Timer? _sensorRefresh;
 
   @override
   void initState() {
@@ -53,10 +54,15 @@ class _AddOnsScreenState extends State<AddOnsScreen>
     _service.addListener(_onServiceChanged);
     WidgetsBinding.instance.addObserver(this);
     unawaited(_refreshIfAdmin());
+    if (_service is RemoteAddOnService) {
+      _sensorRefresh = Timer.periodic(
+          const Duration(seconds: 15), (_) => unawaited(_refreshIfAdmin()));
+    }
   }
 
   @override
   void dispose() {
+    _sensorRefresh?.cancel();
     _service.removeListener(_onServiceChanged);
     WidgetsBinding.instance.removeObserver(this);
     if (widget.service == null && _service is RemoteAddOnService) {
@@ -82,7 +88,9 @@ class _AddOnsScreenState extends State<AddOnsScreen>
     } catch (_) {
       return;
     }
-    if (mounted && role == 'admin') await _service.refresh();
+    if (mounted && const ['admin', 'ansatt', 'leser'].contains(role)) {
+      await _service.refresh();
+    }
   }
 
   String _backendMessage(ClaimCodeResultType? type) =>
@@ -140,7 +148,7 @@ class _AddOnsScreenState extends State<AddOnsScreen>
   }
 
   void _openSetup(AddOn addOn) {
-    if (!addOn.isConnected || _service.loadError != null) return;
+    if (!addOn.canConfigure || _service.loadError != null) return;
     Navigator.of(context).push(
       subtleFadeSlideRoute<void>(
         context: context,
@@ -376,7 +384,7 @@ class _AddOnCard extends StatelessWidget {
   Widget _actions(BuildContext context) {
     final setup = FilledButton.icon(
       key: ValueKey('collector-setup-${addOn.id}'),
-      onPressed: canManage && addOn.isConnected ? onSetup : null,
+      onPressed: canManage && addOn.canConfigure ? onSetup : null,
       icon: const Icon(Icons.settings_outlined),
       label: Text(context.l10n.collectorSetupButton),
     );

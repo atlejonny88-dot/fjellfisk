@@ -21,7 +21,7 @@ void main() {
         'collectorId': 'real-device',
         'state': state,
         'pairedAt': '2026-11-01T19:24:27Z',
-        'lastSeenAt': '2026-11-01T19:24:37Z',
+        'lastSeenAt': DateTime.now().toUtc().toIso8601String(),
         'collectorVersion': null,
       };
 
@@ -32,7 +32,9 @@ void main() {
       CollectorClaimService(
         backendUrl: 'https://collector.example/collector/v1',
         tokenProvider: token,
-        client: MockClient(respond),
+        client: MockClient((request) => request.url.path.endsWith('/sensors')
+            ? Future.value(http.Response('{"sensors":[],"mappings":[]}', 200))
+            : respond(request)),
       );
 
   test('list is authenticated, facility-scoped and uses actual PAIRED state',
@@ -51,7 +53,7 @@ void main() {
     expect(service.addOns.single.isConnected, isTrue);
     expect(service.addOns.single.id, 'real-device');
     expect(service.addOns.single.version, isNull);
-    expect(service.addOns.single.sensorCount, isNull);
+    expect(service.addOns.single.sensorCount, 0);
     expect(service.addOns.single.connectedAt,
         DateTime.utc(2026, 11, 1, 19, 24, 27));
     expect(service.sensorsForCollector('real-device'), isEmpty);
