@@ -3502,6 +3502,12 @@ abstract class AppLocalizations {
   /// **'Ingen sensorer matcher dette filteret.'**
   String get collectorNoSensorsInFilter;
 
+  /// No description provided for @collectorSensorSetupUnavailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector er koblet til. Sensorliste og kobling til kar er ikke tilgjengelig fra tjenesten ennå.'**
+  String get collectorSensorSetupUnavailable;
+
   /// No description provided for @oxygenConcentration.
   ///
   /// In nb, this message translates to:
