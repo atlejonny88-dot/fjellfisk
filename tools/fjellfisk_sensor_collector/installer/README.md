@@ -50,7 +50,7 @@ From this directory, after a normal Production publish:
 
 ```powershell
 .\Test-InstallerLayout.ps1
-.\Build-Installer.ps1 -PairingBackendUrl https://api.fjellfisk.no/collector/v1
+.\Build-Installer.ps1 -PairingBackendUrl https://api.tosprotein.com/collector/v1
 ```
 
 `Build-Installer.ps1` locates Inno Setup 6 at either standard installation

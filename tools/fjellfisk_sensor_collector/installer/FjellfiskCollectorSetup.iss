@@ -7,11 +7,11 @@
 #endif
 
 #ifndef CollectorVersion
-  #define CollectorVersion "1.0.2"
+  #define CollectorVersion "1.0.3"
 #endif
 
 #ifndef CollectorVersionInfo
-  #define CollectorVersionInfo "1.0.2.0"
+  #define CollectorVersionInfo "1.0.3.0"
 #endif
 
 #ifndef CollectorPairingBackendUrl
