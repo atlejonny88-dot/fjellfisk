@@ -41,8 +41,9 @@ manual source of COM paths.
 ## Production and Service Tool
 
 - `Fjellfisk.SensorCollector.Production` is the customer-facing executable.
-  It exposes only `--identity`, `--status`, `--discovery-status`, and the
-  foreground-only `--read-once` verification command.
+  It exposes `--identity`, `--status`, `--discovery-status`, the
+  foreground-only `--read-once` verification, `--pairing`, and `--run`.
+  Only `--run` combines pairing with ongoing, allowlisted read-only collection.
 - `Fjellfisk.Collector.ServiceTool` retains local diagnostics and fixed,
   installation-specific inventories for trained support personnel.
 
@@ -62,8 +63,11 @@ family.
 reading includes per-measurement `ok`, `vigo-error`, `invalid-read`,
 `timeout`, `com-error`, or `read-error` status without a PhysId. Its local
 batch also retains the generic `sourceType`, `sourceDevice`, and `sourceChannel`
-reported by dynamic discovery. The buffer/output is a future HTTPS boundary, not an uploader. There is no endpoint,
-Firebase, backend credential, or tank mapping in this project.
+reported by dynamic discovery. The single-round runtime remains transport-free.
+`ProductionTelemetrySession` uses this same runtime after confirmed pairing and
+sends normalized readings through `HttpsProductionTelemetryUploader`. The
+backend identity comes from the existing DPAPI pairing store. No Firebase SDK,
+service account, tank mapping, or externally supplied COM path is introduced.
 
 `--read-once` serially reads every sensor found by that invocation's dynamic
 discovery, writes exactly one pretty-printed batch JSON file under
@@ -128,5 +132,7 @@ disabled in the publish output. The production package excludes test sources,
 service tools, inventory examples, and internal documentation.
 
 No obfuscator or signing certificate is selected in the repository. The
-installer script is an Inno Setup foundation only; it never creates a Windows
-Service, Scheduled Task, autostart entry, firewall rule, or reboot action.
+installer creates the existing interactive login Scheduled Task with a
+60-second delay and `--run`. It never creates a Windows Service, Run registry
+entry, firewall rule, reboot action, or VIGO/P-NET configuration change.
+It does not launch sensor collection at the end of installation.
