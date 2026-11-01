@@ -1910,7 +1910,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get collectorSensorSetupUnavailable =>
-      'Collector is paired. Sensor inventory and tank mapping are not available from the service yet.';
+      'No sensors have been received from Collector yet.';
+
+  @override
+  String get collectorCatalogUnavailable =>
+      'Sections and tanks could not be loaded.';
+
+  @override
+  String get collectorRemoveMapping => 'Remove tank mapping';
+
+  @override
+  String get collectorMappingSaveFailed =>
+      'The sensor setup could not be saved. Check that each sensor has its own tank. Your selections have been kept.';
 
   @override
   String get oxygenConcentration => 'O₂ concentration';

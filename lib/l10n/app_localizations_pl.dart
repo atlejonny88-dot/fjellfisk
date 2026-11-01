@@ -1926,7 +1926,18 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get collectorSensorSetupUnavailable =>
-      'Collector jest sparowany. Lista czujników i przypisywanie do zbiorników nie są jeszcze dostępne w usłudze.';
+      'Nie odebrano jeszcze żadnych czujników z Collectora.';
+
+  @override
+  String get collectorCatalogUnavailable =>
+      'Nie udało się wczytać sekcji i zbiorników.';
+
+  @override
+  String get collectorRemoveMapping => 'Usuń przypisanie do zbiornika';
+
+  @override
+  String get collectorMappingSaveFailed =>
+      'Nie udało się zapisać konfiguracji czujników. Sprawdź, czy każdy czujnik ma osobny zbiornik. Wybrane ustawienia zostały zachowane.';
 
   @override
   String get oxygenConcentration => 'Stężenie O₂';

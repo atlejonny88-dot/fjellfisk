@@ -46,6 +46,7 @@ class AddOn {
   final DateTime? latestMeasurementAt;
 
   bool get isConnected => status == AddOnStatus.connected;
+  bool get canConfigure => isConnected || status == AddOnStatus.offline;
 
   AddOn copyWith({
     AddOnStatus? status,
