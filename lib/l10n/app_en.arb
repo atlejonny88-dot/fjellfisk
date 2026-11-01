@@ -611,6 +611,7 @@
   "collectorSetupSaved": "Collector setup was saved locally.",
   "collectorSetupAdminOnly": "Only administrators can change sensor setup.",
   "collectorNoSensorsInFilter": "No sensors match this filter.",
+  "collectorSensorSetupUnavailable": "Collector is paired. Sensor inventory and tank mapping are not available from the service yet.",
   "oxygenConcentration": "O₂ concentration",
   "oxygenSaturation": "O₂ saturation",
   "collectorLive": "Live",

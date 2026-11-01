@@ -4,7 +4,14 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/addon.dart';
 import 'addon_service.dart';
+
+class CollectorBackendException implements Exception {
+  const CollectorBackendException(this.type);
+
+  final ClaimCodeResultType type;
+}
 
 abstract interface class FirebaseIdTokenProvider {
   Future<String?> getIdToken();
@@ -69,6 +76,109 @@ class CollectorClaimService {
   final bool _ownsClient;
 
   bool get isConfigured => _baseUri != null;
+
+  Future<List<AddOn>> fetchCollectors({required String facilityId}) async {
+    final baseUri = _baseUri;
+    if (baseUri == null || facilityId.trim().isEmpty) {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    }
+    final headers = await _authenticatedHeaders();
+    try {
+      final response = await _client
+          .get(
+            baseUri.resolve(
+              '/admin/v1/sites/${Uri.encodeComponent(facilityId)}/collectors',
+            ),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 12));
+      final result = _resultFor(response);
+      if (!result.isSuccess) throw CollectorBackendException(result.type);
+      final data = jsonDecode(response.body);
+      if (data is! List) throw const FormatException();
+      return data.map((item) {
+        if (item is! Map<String, dynamic>) throw const FormatException();
+        final id = item['collectorId'];
+        final state = switch (item['state']) {
+          'PAIRED' => AddOnStatus.connected,
+          'REVOKED' => AddOnStatus.revoked,
+          'UNPAIRED' => AddOnStatus.notConnected,
+          _ => throw const FormatException(),
+        };
+        if (id is! String || id.trim().isEmpty) {
+          throw const FormatException();
+        }
+        DateTime? date(String key) =>
+            item[key] is String ? DateTime.tryParse(item[key] as String) : null;
+        return AddOn(
+          id: id,
+          type: AddOnType.collector,
+          name: 'Fjellfisk Collector',
+          description: '',
+          status: state,
+          connectedDeviceId: state == AddOnStatus.connected ? id : null,
+          connectedAt: date('pairedAt'),
+          lastSeenAt: date('lastSeenAt'),
+          version: item['collectorVersion'] is String
+              ? item['collectorVersion'] as String
+              : null,
+        );
+      }).toList(growable: false);
+    } on FormatException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    } on TimeoutException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    } on http.ClientException {
+      throw const CollectorBackendException(ClaimCodeResultType.unavailable);
+    }
+  }
+
+  Future<Map<String, String>> _authenticatedHeaders() async {
+    String? token;
+    try {
+      token = await _tokenProvider
+          .getIdToken()
+          .timeout(const Duration(seconds: 12));
+    } catch (_) {
+      throw const CollectorBackendException(ClaimCodeResultType.unauthorized);
+    }
+    if (token == null || token.isEmpty) {
+      throw const CollectorBackendException(ClaimCodeResultType.unauthorized);
+    }
+    return {
+      'authorization': 'Bearer $token',
+      'content-type': 'application/json; charset=utf-8',
+    };
+  }
+
+  Future<ClaimCodeResult> revokeCollector({
+    required String facilityId,
+    required String collectorId,
+  }) async {
+    final baseUri = _baseUri;
+    if (baseUri == null || facilityId.trim().isEmpty || collectorId.isEmpty) {
+      return const ClaimCodeResult(ClaimCodeResultType.unavailable);
+    }
+    try {
+      final headers = await _authenticatedHeaders();
+      final response = await _client
+          .post(
+            baseUri.resolve(
+              '/admin/v1/collectors/${Uri.encodeComponent(collectorId)}/revoke',
+            ),
+            headers: headers,
+            body: jsonEncode({'siteId': facilityId}),
+          )
+          .timeout(const Duration(seconds: 12));
+      return _resultFor(response);
+    } on CollectorBackendException catch (error) {
+      return ClaimCodeResult(error.type);
+    } on TimeoutException {
+      return const ClaimCodeResult(ClaimCodeResultType.unavailable);
+    } on http.ClientException {
+      return const ClaimCodeResult(ClaimCodeResultType.unavailable);
+    }
+  }
 
   Future<ClaimCodeResult> claimCollector({
     required String facilityId,

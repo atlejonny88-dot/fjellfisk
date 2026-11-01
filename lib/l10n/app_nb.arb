@@ -631,6 +631,7 @@
   "collectorSetupSaved": "Collector-oppsettet er lagret lokalt.",
   "collectorSetupAdminOnly": "Bare administratorer kan endre sensoroppsettet.",
   "collectorNoSensorsInFilter": "Ingen sensorer matcher dette filteret.",
+  "collectorSensorSetupUnavailable": "Collector er koblet til. Sensorliste og kobling til kar er ikke tilgjengelig fra tjenesten ennå.",
   "oxygenConcentration": "O₂-konsentrasjon",
   "oxygenSaturation": "O₂-metning",
   "collectorLive": "Live",

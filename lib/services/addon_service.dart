@@ -25,6 +25,12 @@ class ClaimCodeResult {
 abstract class AddOnService extends ChangeNotifier {
   List<AddOn> get addOns;
 
+  bool get isRefreshing => false;
+
+  ClaimCodeResultType? get loadError => null;
+
+  Future<void> refresh() async {}
+
   Future<ClaimCodeResult> claimCollector(String claimCode);
 
   Future<void> disconnect(String addOnId);
