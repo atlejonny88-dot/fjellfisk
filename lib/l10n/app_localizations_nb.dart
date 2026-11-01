@@ -1915,6 +1915,10 @@ class AppLocalizationsNb extends AppLocalizations {
       'Ingen sensorer matcher dette filteret.';
 
   @override
+  String get collectorSensorSetupUnavailable =>
+      'Collector er koblet til. Sensorliste og kobling til kar er ikke tilgjengelig fra tjenesten ennå.';
+
+  @override
   String get oxygenConcentration => 'O₂-konsentrasjon';
 
   @override

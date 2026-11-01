@@ -1916,6 +1916,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get collectorNoSensorsInFilter => 'No sensors match this filter.';
 
   @override
+  String get collectorSensorSetupUnavailable =>
+      'Collector is paired. Sensor inventory and tank mapping are not available from the service yet.';
+
+  @override
   String get oxygenConcentration => 'O₂ concentration';
 
   @override
