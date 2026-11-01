@@ -34,6 +34,12 @@ sensor read started by setup itself.
 
 ## Version and signing
 
+Version 1.0.4 keeps the pairing window open when a code expires and replaces
+the code in that same window. Closing the window programmatically waits for
+the PairingUi child to exit before a later window can reuse IPC resources.
+The test suite includes real child-process rotation and reconnect coverage.
+No identity, backend URL, installer AppId, or uninstall behavior is migrated.
+
 The Production project `<Version>` is the product and setup display version.
 `Build-Installer.ps1` passes that version to Inno Setup and derives a four-part
 Windows version resource value. `FjellfiskBuildId` remains separate build

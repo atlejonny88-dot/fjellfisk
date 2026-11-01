@@ -42,19 +42,10 @@ public sealed class PairingWindowProcessHost : ICollectorPairingUi, IDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (_writer is not null)
-            {
-                await _writer.WriteLineAsync("{\"kind\":\"close\"}");
-                await _writer.FlushAsync();
-            }
-        }
-        catch (IOException)
-        {
-            // A manually closed window is an expected state.
+            await CloseWindowAsync();
         }
         finally
         {
-            ReleaseExitedWindow();
             _gate.Release();
         }
     }
@@ -100,9 +91,10 @@ public sealed class PairingWindowProcessHost : ICollectorPairingUi, IDisposable
             await _writer!.WriteLineAsync(message);
             await _writer.FlushAsync();
         }
-        catch (IOException)
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException or TimeoutException)
         {
-            ReleaseExitedWindow();
+            await CloseWindowAsync();
+            throw;
         }
         finally
         {
@@ -117,7 +109,7 @@ public sealed class PairingWindowProcessHost : ICollectorPairingUi, IDisposable
             return;
         }
 
-        ReleaseExitedWindow();
+        await CloseWindowAsync();
         if (!File.Exists(_pairingUiExecutablePath))
         {
             throw new FileNotFoundException("Pairing UI was not found in the Collector installation.", _pairingUiExecutablePath);
@@ -142,7 +134,14 @@ public sealed class PairingWindowProcessHost : ICollectorPairingUi, IDisposable
 
         using var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         connectTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-        await _pipe.WaitForConnectionAsync(connectTimeout.Token);
+        try
+        {
+            await _pipe.WaitForConnectionAsync(connectTimeout.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("The pairing window did not connect in time.");
+        }
         _writer = new StreamWriter(_pipe, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), 1024, leaveOpen: true)
         {
             AutoFlush = true,
@@ -171,7 +170,7 @@ public sealed class PairingWindowProcessHost : ICollectorPairingUi, IDisposable
                 }
             }
         }
-        catch (IOException)
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException or OperationCanceledException)
         {
             // Closing the UI is normal and pairing continues in the parent.
         }
@@ -181,19 +180,53 @@ public sealed class PairingWindowProcessHost : ICollectorPairingUi, IDisposable
         }
     }
 
-    private void ReleaseExitedWindow()
+    private async Task CloseWindowAsync()
     {
-        if (_process is { HasExited: false })
-        {
-            return;
-        }
-
-        _writer?.Dispose();
+        // Detach before waiting so the next code cannot reuse a closing pipe.
+        var writer = _writer;
+        var pipe = _pipe;
+        var process = _process;
         _writer = null;
-        _pipe?.Dispose();
         _pipe = null;
-        _process?.Dispose();
         _process = null;
+
+        try
+        {
+            try
+            {
+                if (writer is not null)
+                {
+                    await writer.WriteLineAsync("{\"kind\":\"close\"}").WaitAsync(TimeSpan.FromSeconds(2));
+                    await writer.FlushAsync().WaitAsync(TimeSpan.FromSeconds(2));
+                }
+            }
+            catch (Exception exception) when (exception is IOException or ObjectDisposedException or TimeoutException)
+            {
+                // The window may already have been closed by the operator.
+            }
+
+            if (process is { HasExited: false })
+            {
+                try
+                {
+                    await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
+                }
+                catch (TimeoutException)
+                {
+                    // Only this host's non-critical PairingUi child is stopped.
+                    if (!process.HasExited) process.Kill();
+                    await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
+                }
+            }
+        }
+        finally
+        {
+            // A broken pipe must not prevent releasing the caller's semaphore.
+            try { writer?.Dispose(); }
+            catch (Exception exception) when (exception is IOException or ObjectDisposedException) { }
+            pipe?.Dispose();
+            process?.Dispose();
+        }
     }
 
     private void ThrowIfDisposed()

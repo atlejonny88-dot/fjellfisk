@@ -9,5 +9,12 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Fjellfisk.SensorCollector\Fjellfisk.SensorCollector.csproj" />
+    <ProjectReference Include="..\..\src\Fjellfisk.SensorCollector.PairingUi\Fjellfisk.SensorCollector.PairingUi.csproj" ReferenceOutputAssembly="false" AdditionalProperties="RuntimeIdentifier=win-x86" />
   </ItemGroup>
+  <Target Name="CopyPairingUiForProcessTests" AfterTargets="Build">
+    <ItemGroup>
+      <PairingUiTestFiles Include="..\..\src\Fjellfisk.SensorCollector.PairingUi\bin\$(Configuration)\net6.0-windows7.0\win-x86\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PairingUiTestFiles)" DestinationFolder="$(TargetDir)pairing-ui" />
+  </Target>
 </Project>

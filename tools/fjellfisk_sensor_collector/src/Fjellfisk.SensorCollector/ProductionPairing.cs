@@ -650,7 +650,6 @@ public sealed class CollectorPairingCoordinator
                 if (_activeCode is not null)
                 {
                     _activeCode = null;
-                    await _ui.CloseAsync(cancellationToken);
                     Transition(CollectorPairingState.PairingCodeExpired, identity.CollectorId, null, "Paringskoden er utløpt.");
                     _logger.Log("pairing_code_expired", "The backend pairing code expired.");
                 }

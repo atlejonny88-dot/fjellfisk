@@ -50,6 +50,10 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Pairing registers once and protects its device credential", PairingRegistersAndProtectsCredentialAsync),
     ("Pairing reuses the persisted backend identity", PairingReusesPersistedIdentityAsync),
     ("Pairing rotates an expired code without persisting it", PairingRotatesExpiredCodeAsync),
+    ("Pairing rotation keeps the real window alive", PairingRotationKeepsRealWindowAsync),
+    ("Pairing window supports immediate close and reopen", PairingWindowClosesBeforeReopeningAsync),
+    ("Pairing window recovers after a disconnected child", PairingWindowRecoversFromChildExitAsync),
+    ("Pairing window rejects a disposed host", PairingWindowRejectsDisposedHostAsync),
     ("Closing pairing popup waits until the next code rotation", PairingPopupCloseAndReopenAsync),
     ("Pairing keeps at most one popup active", PairingKeepsOnePopupAsync),
     ("Pairing retries after backend unavailability", PairingRetriesAfterBackendUnavailableAsync),
@@ -963,6 +967,94 @@ static async Task PairingRotatesExpiredCodeAsync()
     Directory.Delete(directory, recursive: true);
 }
 
+static async Task PairingRotationKeepsRealWindowAsync()
+{
+    var directory = CreateTemporaryDirectory();
+    try
+    {
+        using var ui = new PairingWindowProcessHost(AppContext.BaseDirectory);
+        var clock = new FakeClock(DateTimeOffset.UtcNow);
+        var coordinator = CreatePairingCoordinator(
+            directory, clock, new PairingBackendFake(clock), ui, new TestPairingLogger());
+        await coordinator.RunSingleCycleAsync(CancellationToken.None);
+        using var child = ObservePairingChild(ui);
+        await WaitForPairingWindowAsync(child);
+        for (var rotation = 0; rotation < 3; rotation++)
+        {
+            clock.UtcNow = clock.UtcNow.AddMinutes(11);
+            await coordinator.RunSingleCycleAsync(CancellationToken.None);
+            using var current = ObservePairingChild(ui);
+            Assert(current.Id == child.Id, "Code rotation replaced or closed the active window.");
+            Assert(coordinator.Snapshot.PairingCodeExpiresAtUtc > clock.UtcNow, "The rotated code was not renewed.");
+            await Task.Delay(200);
+            Assert(!child.HasExited, "The real pairing UI exited after code rotation.");
+        }
+        await ui.CloseAsync(CancellationToken.None);
+        Assert(child.HasExited, "Closing pairing did not wait for the child process.");
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static async Task PairingWindowClosesBeforeReopeningAsync()
+{
+    using var ui = new PairingWindowProcessHost(AppContext.BaseDirectory);
+    await ui.ShowPairingCodeAsync(new PairingCodePresentation("LOCAL-TEST-ONLY", DateTimeOffset.UtcNow.AddMinutes(10)), CancellationToken.None);
+    using var original = ObservePairingChild(ui);
+    await WaitForPairingWindowAsync(original);
+    await ui.CloseAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+    Assert(original.HasExited, "Close returned while the old child was still alive.");
+    await ui.ShowPairingCodeAsync(new PairingCodePresentation("LOCAL-NEXT-ONLY", DateTimeOffset.UtcNow.AddMinutes(10)), CancellationToken.None);
+    using var replacement = ObservePairingChild(ui);
+    Assert(replacement.Id != original.Id, "The closing child was reused for a new code.");
+    await WaitForPairingWindowAsync(replacement);
+    await Task.Delay(300);
+    Assert(!replacement.HasExited, "The replacement child exited after immediate reopening.");
+}
+
+static async Task PairingWindowRecoversFromChildExitAsync()
+{
+    using var ui = new PairingWindowProcessHost(AppContext.BaseDirectory);
+    await ui.ShowPairingCodeAsync(new PairingCodePresentation("LOCAL-TEST-ONLY", DateTimeOffset.UtcNow.AddMinutes(10)), CancellationToken.None);
+    using var original = ObservePairingChild(ui);
+    await WaitForPairingWindowAsync(original);
+    original.Kill();
+    await original.WaitForExitAsync();
+    await ui.CloseAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+    await ui.CloseAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+    await ui.ShowPairingCodeAsync(new PairingCodePresentation("LOCAL-NEXT-ONLY", DateTimeOffset.UtcNow.AddMinutes(10)), CancellationToken.None);
+    using var replacement = ObservePairingChild(ui);
+    await WaitForPairingWindowAsync(replacement);
+}
+
+static async Task PairingWindowRejectsDisposedHostAsync()
+{
+    var ui = new PairingWindowProcessHost(AppContext.BaseDirectory);
+    ui.Dispose();
+    try
+    {
+        await ui.ShowPairingCodeAsync(new PairingCodePresentation("LOCAL-TEST-ONLY", DateTimeOffset.UtcNow.AddMinutes(10)), CancellationToken.None);
+        throw new InvalidOperationException("A disposed host accepted a new window.");
+    }
+    catch (ObjectDisposedException)
+    {
+    }
+}
+
+static Process ObservePairingChild(PairingWindowProcessHost host)
+{
+    var field = typeof(PairingWindowProcessHost).GetField("_process", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    var child = (Process?)field.GetValue(host) ?? throw new InvalidOperationException("The real pairing UI was not started.");
+    return Process.GetProcessById(child.Id);
+}
+
+static Task WaitForPairingWindowAsync(Process child) => WaitUntilAsync(
+    () => !child.HasExited && child.MainWindowHandle != IntPtr.Zero,
+    TimeSpan.FromSeconds(10),
+    "The real pairing UI did not display its window.");
+
 static async Task PairingPopupCloseAndReopenAsync()
 {
     var directory = CreateTemporaryDirectory();
@@ -1329,7 +1421,7 @@ static CollectorPairingCoordinator CreatePairingCoordinator(
     string rootDirectory,
     FakeClock clock,
     PairingBackendFake backend,
-    TestPairingUi ui,
+    ICollectorPairingUi ui,
     TestPairingLogger logger)
 {
     var layout = ProductionStorageLayout.Open(rootDirectory);
