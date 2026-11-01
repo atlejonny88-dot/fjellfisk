@@ -5,6 +5,26 @@ import {StaticAdminAuthorizer} from '../src/admin_authorizer.js';
 import {createHttpApi} from '../src/http_server.js';
 import {PairingService} from '../src/pairing/service.js';
 import {InMemoryPairingRepository} from './in_memory_repository.js';
+import {validateSensorBatch, validateSensorMappings} from '../src/pairing/telemetry.js';
+
+test('sensor validation rejects malformed, duplicate and future measurements without swapping units', () => {
+  const now = new Date();
+  const reading = {sensorId: 'probe-1', name: 'Probe 1', sourceType: 'Pacific',
+    temperatureC: 9.52, oxygenMgL: 11.66, oxygenSaturationPct: 101.85,
+    timestampUtc: now.toISOString(), health: 'ok'};
+  const batch = {batchId: '12345678-1234-4234-8234-123456789012', collectorVersion: '1.0.5', readings: [reading]};
+  assert.equal(validateSensorBatch(batch, now).readings[0]?.oxygenMgL, 11.66);
+  assert.equal(validateSensorBatch(batch, now).readings[0]?.oxygenSaturationPct, 101.85);
+  for (const patch of [{oxygenMgL: '11.66'}, {temperatureC: Infinity}, {oxygenSaturationPct: -1},
+    {timestampUtc: 'invalid'}, {timestampUtc: new Date(now.getTime() + 120_000).toISOString()}]) {
+    assert.throws(() => validateSensorBatch({...batch, readings: [{...reading, ...patch}]}, now));
+  }
+  assert.throws(() => validateSensorBatch({...batch, readings: [reading, reading]}, now));
+  assert.throws(() => validateSensorBatch({...batch, readings: []}, now));
+  assert.throws(() => validateSensorBatch({...batch, batchId: 'not-an-id'}, now));
+  const mapping = {sensorId: 'probe-1', sectionId: 'section-1', sectionName: 'Tunnel', tankId: 'tank-1', tankName: 'K1'};
+  assert.throws(() => validateSensorMappings([mapping, {...mapping, sensorId: 'probe-2'}]));
+});
 
 test('HTTP API keeps collector contract, protects admin routes, and exposes health only', async () => {
   const repository = new InMemoryPairingRepository();
@@ -71,6 +91,41 @@ test('HTTP API keeps collector contract, protects admin routes, and exposes heal
     assert.equal(claimed.status, 200);
     assert.equal(claimed.headers.get('access-control-allow-origin'), 'http://localhost:51099');
     assert.equal((await claimed.json() as {state: string}).state, 'PAIRED');
+
+    const batch = {batchId: '12345678-1234-4234-8234-123456789012', collectorVersion: '1.0.5', readings: [{
+      sensorId: 'pacific-01', name: 'Pacific 01 / Probe 01', sourceType: 'Pacific',
+      temperatureC: 9.52, oxygenMgL: 11.66, oxygenSaturationPct: 101.85,
+      timestampUtc: new Date().toISOString(), health: 'ok',
+    }]};
+    const sensorUrl = `${baseUrl}/admin/v1/sites/facility-1/collectors/${registered.collectorId}/sensors`;
+    const deviceHeaders = {'content-type': 'application/json',
+      'x-fjellfisk-collector-id': registered.collectorId,
+      'x-fjellfisk-device-credential': registered.deviceCredential};
+    const adminHeaders = {'content-type': 'application/json', authorization: 'Bearer local-test-admin'};
+    assert.equal((await fetch(`${baseUrl}/collector/v1/measurements`, {
+      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(batch),
+    })).status, 400);
+    for (const accepted of [true, false]) {
+      const uploaded = await fetch(`${baseUrl}/collector/v1/measurements`, {method: 'POST', headers: deviceHeaders, body: JSON.stringify(batch)});
+      assert.equal(uploaded.status, 200);
+      assert.deepEqual(await uploaded.json(), {accepted});
+    }
+    const mapping = {sensorId: 'pacific-01', sectionId: 'section-1', sectionName: 'Tunnel', tankId: 'tank-1', tankName: 'K1'};
+    const saved = await fetch(`${baseUrl}/admin/v1/collectors/${registered.collectorId}/mappings`, {
+      method: 'POST', headers: adminHeaders, body: JSON.stringify({siteId: 'facility-1', mappings: [mapping]}),
+    });
+    assert.equal(saved.status, 200);
+    const snapshot = await (await fetch(sensorUrl, {headers: adminHeaders})).json() as {sensors: {oxygenMgL: number; oxygenSaturationPct: number}[]; mappings: unknown[]};
+    assert.equal(snapshot.sensors[0]?.oxygenMgL, 11.66);
+    assert.equal(snapshot.sensors[0]?.oxygenSaturationPct, 101.85);
+    assert.deepEqual(snapshot.mappings, [mapping]);
+    assert.equal((await fetch(sensorUrl)).status, 401);
+    assert.equal((await fetch(sensorUrl.replace('facility-1', 'other-facility'), {headers: adminHeaders})).status, 403);
+    repository.sensorEntitled = false;
+    assert.equal((await fetch(`${baseUrl}/collector/v1/measurements`, {method: 'POST', headers: deviceHeaders, body: JSON.stringify(batch)})).status, 403);
+    repository.sensorEntitled = true;
+    await service.revokeCollector({uid: 'admin-user', organizationId: 'org-1', allowedSiteIds: ['facility-1']}, registered.collectorId, 'facility-1');
+    assert.equal((await fetch(`${baseUrl}/collector/v1/measurements`, {method: 'POST', headers: deviceHeaders, body: JSON.stringify(batch)})).status, 403);
   } finally {
     await new Promise<void>((resolve, reject) => api.close((error) => error ? reject(error) : resolve()));
   }

@@ -16,9 +16,19 @@ const tokenVerifier: FirebaseIdTokenVerifier = {
 function repository(access: Awaited<ReturnType<AuthorityRepository['getAdminAccess']>>): AuthorityRepository {
   return {
     getAdminAccess: async () => access,
+    getMemberAccess: async () => access,
     bootstrapInitialAuthority: async () => {},
   };
 }
+
+test('read-only member access cannot authorize claim or mapping writes', async () => {
+  const repo = repository(null);
+  repo.getMemberAccess = async () => ({organizationId: 'org-1', collectorEntitled: true});
+  const authorizer = new PostgresAdminAuthorizer(tokenVerifier, repo);
+  assert.equal((await authorizer.authorize('Bearer valid-token', 'facility-1', {readOnly: true})).uid, 'test-admin-user');
+  await assert.rejects(authorizer.authorize('Bearer valid-token', 'facility-1'));
+  await assert.rejects(authorizer.authorize('Bearer valid-token', 'facility-1', {requireCollectorEntitlement: true}));
+});
 
 test('PostgreSQL authorizer trusts a verified UID only after active database membership', async () => {
   const authorizer = new PostgresAdminAuthorizer(tokenVerifier, repository({

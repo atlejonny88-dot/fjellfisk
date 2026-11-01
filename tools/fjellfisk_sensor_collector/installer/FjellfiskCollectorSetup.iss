@@ -1,17 +1,18 @@
 ; Fjellfisk Production Collector installer. This package contains only the
 ; self-contained Production publish output and configures the local pairing
-; startup task. It does not configure VIGO, P-NET, or sensor reads.
+; startup task. It performs allowlisted read-only collection after pairing.
+; It never configures VIGO or P-NET.
 
 #ifndef CollectorPublish
   #define CollectorPublish "..\src\Fjellfisk.SensorCollector.Production\bin\Release\net6.0-windows\win-x86\publish"
 #endif
 
 #ifndef CollectorVersion
-  #define CollectorVersion "1.0.4"
+  #define CollectorVersion "1.0.5"
 #endif
 
 #ifndef CollectorVersionInfo
-  #define CollectorVersionInfo "1.0.4.0"
+  #define CollectorVersionInfo "1.0.5.0"
 #endif
 
 #ifndef CollectorPairingBackendUrl
@@ -99,7 +100,7 @@ begin
     spaces. Task Scheduler expands this environment variable at launch. }
   Parameters := '/Create /TN "' + CollectorTaskName +
     '" /TR "%ProgramFiles(x86)%\Fjellfisk\Collector\' + CollectorExecutableName +
-    ' --pairing" /SC ONLOGON /DELAY 0001:00 /IT /RL LIMITED /F';
+    ' --run" /SC ONLOGON /DELAY 0001:00 /IT /RL LIMITED /F';
 
   if (not Exec(ExpandConstant('{sys}\schtasks.exe'), Parameters, '', SW_HIDE,
       ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then

@@ -33,7 +33,9 @@ export class PostgresAdminAuthorizer implements AdminAuthorizer {
       throw new PairingError('UNAUTHENTICATED', 401);
     }
 
-    const access = await this.authorityRepository.getAdminAccess(uid, siteId);
+    const access = options.readOnly
+      ? await this.authorityRepository.getMemberAccess(uid, siteId)
+      : await this.authorityRepository.getAdminAccess(uid, siteId);
     if (!access) throw new PairingError('FORBIDDEN', 403);
     if (options.requireCollectorEntitlement && !access.collectorEntitled) {
       throw new PairingError('COLLECTOR_ENTITLEMENT_REQUIRED', 403);

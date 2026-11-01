@@ -3,6 +3,7 @@ import type {AuthorizedAdmin} from './pairing/types.js';
 
 export interface AdminAuthorizationOptions {
   requireCollectorEntitlement?: boolean;
+  readOnly?: boolean;
 }
 
 export interface AdminAuthorizer {

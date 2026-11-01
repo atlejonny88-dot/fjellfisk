@@ -1,4 +1,5 @@
 import type {RateLimitScope} from '../src/pairing/constants.js';
+import type {SensorBatch, SensorMapping, SensorSnapshot} from '../src/pairing/telemetry.js';
 import type {PairingRepository, PairingTransaction} from '../src/pairing/repository.js';
 import type {
   AuditEvent,
@@ -13,6 +14,32 @@ function clone<T>(value: T): T {
 
 class InMemoryTransaction implements PairingTransaction {
   constructor(private readonly repository: InMemoryPairingRepository) {}
+
+  async hasActiveSensorEntitlement(): Promise<boolean> { return this.repository.sensorEntitled; }
+
+  async saveSensorBatch(collectorId: string, batch: SensorBatch, now: Date): Promise<boolean> {
+    const key = `${collectorId}:${batch.batchId}`;
+    if (this.repository.batches.has(key)) return false;
+    this.repository.batches.add(key);
+    const snapshot = await this.readSensorSnapshot(collectorId);
+    for (const reading of batch.readings) {
+      const old = snapshot.sensors.findIndex((sensor) => sensor.sensorId === reading.sensorId);
+      if (old < 0) snapshot.sensors.push({...reading, receivedAt: now.toISOString()});
+      else if (reading.timestampUtc >= snapshot.sensors[old]!.timestampUtc) snapshot.sensors[old] = {...reading, receivedAt: now.toISOString()};
+    }
+    this.repository.sensors.set(collectorId, snapshot);
+    return true;
+  }
+
+  async readSensorSnapshot(collectorId: string): Promise<SensorSnapshot> {
+    return clone(this.repository.sensors.get(collectorId) ?? {sensors: [], mappings: []});
+  }
+
+  async replaceSensorMappings(collectorId: string, _siteId: string, mappings: SensorMapping[]): Promise<void> {
+    const snapshot = await this.readSensorSnapshot(collectorId);
+    snapshot.mappings = clone(mappings);
+    this.repository.sensors.set(collectorId, snapshot);
+  }
 
   async getCollector(collectorId: string): Promise<CollectorDevice | null> {
     const value = this.repository.devices.get(collectorId);
@@ -72,6 +99,9 @@ class InMemoryTransaction implements PairingTransaction {
 }
 
 export class InMemoryPairingRepository implements PairingRepository {
+  sensorEntitled = true;
+  readonly batches = new Set<string>();
+  readonly sensors = new Map<string, SensorSnapshot>();
   readonly devices = new Map<string, CollectorDevice>();
   readonly codes = new Map<string, PairingCodeRecord>();
   readonly rateLimits = new Map<string, RateLimitRecord>();

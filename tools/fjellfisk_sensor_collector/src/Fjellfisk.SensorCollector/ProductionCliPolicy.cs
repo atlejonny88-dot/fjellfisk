@@ -8,6 +8,7 @@ public enum ProductionCommand
     DiscoveryStatus,
     ReadOnce,
     Pairing,
+    Run,
 }
 
 public static class ProductionCliPolicy
@@ -26,6 +27,7 @@ public static class ProductionCliPolicy
             ["--discovery-status"] = ProductionCommand.DiscoveryStatus,
             ["--read-once"] = ProductionCommand.ReadOnce,
             ["--pairing"] = ProductionCommand.Pairing,
+            ["--run"] = ProductionCommand.Run,
         };
         var selected = arguments.Where(argument => argument.StartsWith("--", StringComparison.Ordinal))
             .Where(argument => !argument.StartsWith("--data-dir=", StringComparison.OrdinalIgnoreCase))
@@ -34,7 +36,7 @@ public static class ProductionCliPolicy
             .ToArray();
         if (selected.Length != 1 || !commands.TryGetValue(selected[0], out var command))
         {
-            throw new ArgumentException("Only --identity, --status, --discovery-status, --read-once, or --pairing are available in Production Collector.");
+            throw new ArgumentException("Only --identity, --status, --discovery-status, --read-once, --pairing or --run are available in Production Collector.");
         }
 
         return command;

@@ -11,6 +11,9 @@ try
     }
 
     var layout = ProductionStorageLayout.Open(GetDataDirectory(arguments));
+    using var instanceLock = command is ProductionCommand.Pairing or ProductionCommand.Run
+        ? new FileStream(Path.Combine(layout.RootDirectory, "collector-run.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)
+        : null;
     var identity = new CollectorIdentityStore(layout.IdentityDirectory, SystemClock.Instance).LoadOrCreate();
     var pairingState = new CollectorPairingStateStore(layout.IdentityDirectory);
     var metadata = CollectorBuildMetadata.Current;
@@ -55,7 +58,10 @@ try
             return await RunControlledReadOnceAsync(layout, identity, metadata);
 
         case ProductionCommand.Pairing:
-            return await RunPairingAsync(layout, metadata, arguments);
+            return await RunPairingAsync(layout, identity, metadata, arguments, collectSensors: false);
+
+        case ProductionCommand.Run:
+            return await RunPairingAsync(layout, identity, metadata, arguments, collectSensors: true);
 
         default:
             throw new ArgumentOutOfRangeException(nameof(command));
@@ -78,7 +84,8 @@ static string? GetDataDirectory(IReadOnlyList<string> arguments)
 static void PrintUsage()
 {
     Console.WriteLine("Fjellfisk Production Collector");
-    Console.WriteLine("Commands: --identity, --status, --discovery-status, --read-once, --pairing");
+    Console.WriteLine("Commands: --identity, --status, --discovery-status, --read-once, --pairing, --run");
+    Console.WriteLine("--run performs read-only collection after confirmed pairing; --pairing never reads sensors.");
     Console.WriteLine("Pairing uses HTTPS from pairing-backend.json or FJELLFISK_COLLECTOR_PAIRING_URL.");
     Console.WriteLine("A local emulator additionally requires --pairing-emulator and an explicit loopback URL.");
     Console.WriteLine("The production executable does not expose diagnostic or service commands.");
@@ -86,8 +93,10 @@ static void PrintUsage()
 
 static async Task<int> RunPairingAsync(
     ProductionStorageLayout layout,
+    CollectorIdentity identity,
     CollectorBuildMetadata metadata,
-    IReadOnlyCollection<string> arguments)
+    IReadOnlyCollection<string> arguments,
+    bool collectSensors)
 {
     var configuration = CollectorPairingBackendConfiguration.Load(arguments, layout.ConfigDirectory);
     if (!configuration.IsConfigured)
@@ -106,11 +115,13 @@ static async Task<int> RunPairingAsync(
 
     using var backend = new HttpCollectorPairingBackend(configuration);
     using var pairingWindow = new PairingWindowProcessHost(AppContext.BaseDirectory);
+    var stateStore = new CollectorPairingStateStore(layout.IdentityDirectory);
+    var logger = new PairingFileLogger(layout.LogsDirectory);
     var coordinator = new CollectorPairingCoordinator(
-        new CollectorPairingStateStore(layout.IdentityDirectory),
+        stateStore,
         backend,
         pairingWindow,
-        new PairingFileLogger(layout.LogsDirectory),
+        logger,
         SystemClock.Instance,
         SystemCollectorPairingDelay.Instance,
         metadata.ProductVersion,
@@ -119,7 +130,27 @@ static async Task<int> RunPairingAsync(
     Console.WriteLine($"Fjellfisk Collector pairing started ({configuration.Source}). Press Ctrl+C to stop.");
     try
     {
-        await coordinator.RunAsync(cancellation.Token);
+        if (!collectSensors)
+        {
+            await coordinator.RunAsync(cancellation.Token);
+        }
+        else
+        {
+            using var uploader = new HttpsProductionTelemetryUploader(configuration);
+            using var telemetry = new ProductionTelemetrySession(
+                async token =>
+                {
+                    var discovered = await new ProductionDiscoveryService(
+                        new[] { new LocalVigoConfigurationDiscoverySource() }).DiscoverAsync(token);
+                    await ProductionDiscoveryCache.PersistAsync(layout.DiscoveryCachePath, discovered, token);
+                    return discovered;
+                },
+                allowlist => new OxyGuardVigoReader(SystemClock.Instance, allowlist),
+                identity, metadata,
+                new ProductionTelemetryQueue(Path.Combine(layout.BufferDirectory, "sensor-upload")),
+                uploader, stateStore, logger);
+            await coordinator.RunAsync(cancellation.Token, telemetry.ReadAndUploadAsync, TimeSpan.FromSeconds(15));
+        }
         return 0;
     }
     catch (OperationCanceledException) when (cancellation.IsCancellationRequested)

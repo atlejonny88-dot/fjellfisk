@@ -15,6 +15,7 @@ import {
   normalizePairingCode,
 } from './crypto.js';
 import {PairingError} from './errors.js';
+import {validateSensorBatch, validateSensorMappings, type SensorSnapshot} from './telemetry.js';
 import type {PairingRepository, PairingTransaction} from './repository.js';
 import type {
   AuthorizedAdmin,
@@ -148,6 +149,54 @@ export class PairingService {
       const device = await this.authenticateCollector(transaction, auth);
       await transaction.updateCollector(device.collectorId, {lastSeenAt: now});
       return this.statusFromDevice(device);
+    });
+  }
+
+  async ingestSensors(auth: CollectorAuthentication, input: unknown): Promise<{accepted: boolean}> {
+    const now = this.now();
+    return this.repository.transaction(async (transaction) => {
+      const device = await this.authenticateCollector(transaction, auth);
+      if (device.state !== 'PAIRED' || !device.siteId) throw new PairingError('FORBIDDEN', 403);
+      if (!await transaction.hasActiveSensorEntitlement(device.siteId, now)) {
+        throw new PairingError('COLLECTOR_ENTITLEMENT_REQUIRED', 403);
+      }
+      await this.consumeRateLimit(transaction, 'telemetry', device.collectorId, now);
+      const batch = validateSensorBatch(input, now);
+      const accepted = await transaction.saveSensorBatch(device.collectorId, batch, now);
+      await transaction.updateCollector(device.collectorId, {
+        lastSeenAt: now, collectorVersion: batch.collectorVersion,
+      });
+      return {accepted};
+    });
+  }
+
+  async getSensors(actor: AuthorizedAdmin, siteIdInput: unknown, collectorIdInput: unknown): Promise<SensorSnapshot> {
+    const siteId = requireNonEmptyString(siteIdInput);
+    const collectorId = requireNonEmptyString(collectorIdInput);
+    this.requireSiteAccess(actor, siteId);
+    return this.repository.transaction(async (transaction) => {
+      const device = await transaction.getCollector(collectorId);
+      if (!device || device.siteId !== siteId) throw new PairingError('FORBIDDEN', 403);
+      return transaction.readSensorSnapshot(collectorId);
+    });
+  }
+
+  async saveSensorMappings(actor: AuthorizedAdmin, siteIdInput: unknown, collectorIdInput: unknown, input: unknown): Promise<{saved: number}> {
+    const siteId = requireNonEmptyString(siteIdInput);
+    const collectorId = requireNonEmptyString(collectorIdInput);
+    this.requireSiteAccess(actor, siteId);
+    const mappings = validateSensorMappings(input);
+    return this.repository.transaction(async (transaction) => {
+      const device = await transaction.getCollector(collectorId);
+      if (!device || device.siteId !== siteId || device.state !== 'PAIRED') throw new PairingError('FORBIDDEN', 403);
+      if (!await transaction.hasActiveSensorEntitlement(siteId, this.now())) throw new PairingError('COLLECTOR_ENTITLEMENT_REQUIRED', 403);
+      const snapshot = await transaction.readSensorSnapshot(collectorId);
+      const ids = new Set(snapshot.sensors.map((sensor) => sensor.sensorId));
+      if (mappings.some((mapping) => !ids.has(mapping.sensorId))) throw new PairingError('INVALID_ARGUMENT', 400);
+      await transaction.replaceSensorMappings(collectorId, siteId, mappings);
+      await transaction.appendAudit({eventType: 'SENSOR_MAPPINGS_UPDATED', collectorId,
+        siteId, actorUid: actor.uid, createdAt: this.now()});
+      return {saved: mappings.length};
     });
   }
 
@@ -302,6 +351,8 @@ export class PairingService {
         throw new PairingError('FORBIDDEN', 403);
       }
       const reset = state === 'UNPAIRED';
+      // Disconnect removes current assignments, not sensor measurements/history.
+      await transaction.replaceSensorMappings(collectorId, siteId, []);
       if (state === 'REVOKED') {
         for (const activeCode of await transaction.listActiveCodes(collectorId)) {
           await transaction.updateCode(activeCode.codeDigest, {state: 'SUPERSEDED'});

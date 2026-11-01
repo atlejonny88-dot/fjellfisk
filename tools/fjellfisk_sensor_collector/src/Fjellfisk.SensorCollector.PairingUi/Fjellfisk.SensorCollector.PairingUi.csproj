@@ -9,7 +9,7 @@
     <Platforms>x86</Platforms>
     <RuntimeIdentifiers>win-x86</RuntimeIdentifiers>
     <AssemblyName>Fjellfisk.Collector.PairingUi</AssemblyName>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>

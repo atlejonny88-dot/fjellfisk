@@ -85,6 +85,15 @@ public sealed class PairingFileLogger : ICollectorPairingLogger
     {
         lock (_gate)
         {
+            if (File.Exists(_path) && new FileInfo(_path).Length >= 2 * 1024 * 1024)
+            {
+                for (var index = 2; index >= 1; index--)
+                {
+                    var old = _path + "." + index;
+                    if (File.Exists(old)) File.Move(old, _path + "." + (index + 1), overwrite: true);
+                }
+                File.Move(_path, _path + ".1", overwrite: true);
+            }
             File.AppendAllText(
                 _path,
                 $"{DateTimeOffset.UtcNow:O} [{eventName}] {message}{Environment.NewLine}");
@@ -211,6 +220,7 @@ public sealed class HttpCollectorPairingBackend : ICollectorPairingBackend, IDis
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
     private readonly Uri _endpoint;
@@ -227,7 +237,7 @@ public sealed class HttpCollectorPairingBackend : ICollectorPairingBackend, IDis
         }
 
         _endpoint = configuration.Endpoint;
-        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        _httpClient = httpClient ?? new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(15) };
         _disposeClient = httpClient is null;
     }
 
@@ -236,7 +246,7 @@ public sealed class HttpCollectorPairingBackend : ICollectorPairingBackend, IDis
         string platform,
         CancellationToken cancellationToken)
     {
-        var body = JsonSerializer.Serialize(new RegistrationRequest(collectorVersion, platform));
+        var body = JsonSerializer.Serialize(new RegistrationRequest(collectorVersion, platform), JsonOptions);
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_endpoint, "register"))
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
@@ -556,14 +566,19 @@ public sealed class CollectorPairingCoordinator
 
     public CollectorPairingSnapshot Snapshot { get; private set; }
 
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? pairedCycle = null, TimeSpan? pairedInterval = null)
     {
+        if (pairedInterval is { } interval && interval < TimeSpan.FromSeconds(10))
+            throw new ArgumentOutOfRangeException(nameof(pairedInterval));
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 await RunSingleCycleAsync(cancellationToken);
-                await WaitForNextCycleAsync(cancellationToken);
+                if (Snapshot.State == CollectorPairingState.Paired && pairedCycle is not null)
+                    await pairedCycle(cancellationToken);
+                await WaitForNextCycleAsync(cancellationToken, pairedInterval);
             }
         }
         finally
@@ -729,12 +744,12 @@ public sealed class CollectorPairingCoordinator
         _logger.Log("pairing_authentication_failed", stableCode);
     }
 
-    private async Task WaitForNextCycleAsync(CancellationToken cancellationToken)
+    private async Task WaitForNextCycleAsync(CancellationToken cancellationToken, TimeSpan? pairedInterval)
     {
         var delay = Snapshot.State switch
         {
             CollectorPairingState.PairingCodeActive => PollInterval,
-            CollectorPairingState.Paired => PairedStatusInterval,
+            CollectorPairingState.Paired => pairedInterval ?? PairedStatusInterval,
             CollectorPairingState.Revoked or CollectorPairingState.AuthenticationFailed => RevokedStatusInterval,
             CollectorPairingState.BackendUnavailable => RetryDelays[Math.Min(_retryIndex++, RetryDelays.Length - 1)],
             _ => TimeSpan.FromSeconds(1),

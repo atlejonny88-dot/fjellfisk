@@ -129,7 +129,7 @@ if ($taskProcedureStart -lt 0 -or $taskProcedureEnd -le $taskProcedureStart) {
 }
 
 $taskProcedure = $scriptContent.Substring($taskProcedureStart, $taskProcedureEnd - $taskProcedureStart)
-if (-not $taskProcedure.Contains('--pairing', [StringComparison]::Ordinal)) {
+if (-not $taskProcedure.Contains('--run', [StringComparison]::Ordinal)) {
     throw 'Collector autostart must start the pairing workflow.'
 }
 

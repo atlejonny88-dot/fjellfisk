@@ -286,3 +286,28 @@ docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d fjellfisk_rest
 - Ingen sensoropplasting eller fysisk styring.
 - Ingen autostart, systemd-tjeneste eller installasjon på Pelasyn.
 - Ingen åpne porter, routerendringer, CasaOS-endringer eller offentlig DNS.
+# Sensor telemetry and setup
+
+The existing paired device credential authenticates `POST /collector/v1/measurements`.
+The backend derives the facility from the paired device, never from uploaded client
+fields. Active facility and Collector entitlement are required. Revoked/unpaired
+devices cannot upload. Batches are bounded to 128 readings/256 KiB, rate limited,
+and idempotent by device/batch UUID. Only latest readings are retained; receipt
+deduplication records expire after seven days. Buffered older samples never
+overwrite newer readings. No VIGO PhysIds or device control commands are exposed.
+
+Migration `003_collector_sensors.sql` adds latest sensor snapshots, receipt IDs,
+and persistent sensor-to-tank mappings. It does not replace production logs or
+change existing data. Back up the database before applying migrations.
+
+`GET /admin/v1/sites/{siteId}/collectors/{collectorId}/sensors` returns readings
+and mappings to active PostgreSQL facility members. Existing Firebase login only
+proves UID; it does not grant PostgreSQL membership automatically. A disabled
+user/member is rejected. Sensor mapping writes use the existing admin-only
+authorizer and active entitlement via `POST /admin/v1/collectors/{id}/mappings`.
+Facility is always server-authorized. Section/tank IDs and display names are
+operator-selected metadata from the app's existing Firestore catalogue; these
+names do not grant access to any other facility. One sensor per tank is enforced.
+
+PostgreSQL integration tests refuse to run unless the test URL names an explicit
+`fjellfisk_*test_*` disposable database. Never point them at the active database.

@@ -24,6 +24,7 @@ export interface CollectorEntitlementUpdate {
 
 export interface AuthorityRepository {
   getAdminAccess(firebaseUid: string, facilityId: string): Promise<AuthorityAdminAccess | null>;
+  getMemberAccess(firebaseUid: string, facilityId: string): Promise<AuthorityAdminAccess | null>;
   bootstrapInitialAuthority(input: InitialAuthorityBootstrap): Promise<void>;
 }
 
@@ -46,6 +47,14 @@ export class PostgresAuthorityRepository implements AuthorityRepository {
   constructor(private readonly pool: Pool) {}
 
   async getAdminAccess(firebaseUid: string, facilityId: string): Promise<AuthorityAdminAccess | null> {
+    return this.getAccess(firebaseUid, facilityId, true);
+  }
+
+  async getMemberAccess(firebaseUid: string, facilityId: string): Promise<AuthorityAdminAccess | null> {
+    return this.getAccess(firebaseUid, facilityId, false);
+  }
+
+  private async getAccess(firebaseUid: string, facilityId: string, adminOnly: boolean): Promise<AuthorityAdminAccess | null> {
     const result = await this.pool.query<AdminAccessRow>(
       `SELECT
         facility.organization_id,
@@ -66,9 +75,9 @@ export class PostgresAuthorityRepository implements AuthorityRepository {
         AND account.status = 'ACTIVE'
         AND membership.facility_id = $2
         AND membership.status = 'ACTIVE'
-        AND membership.role = 'ADMIN'
+        AND (NOT $3::boolean OR membership.role = 'ADMIN')
         AND facility.status = 'ACTIVE'`,
-      [firebaseUid, facilityId],
+      [firebaseUid, facilityId, adminOnly],
     );
     const row = result.rows[0];
     return row

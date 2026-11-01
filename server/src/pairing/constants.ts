@@ -26,6 +26,7 @@ export const DEFAULT_RATE_LIMITS = {
   claimSource: {limit: 30, windowSeconds: 600},
   pairingCode: {limit: 8, windowSeconds: 600},
   registration: {limit: 5, windowSeconds: 600},
+  telemetry: {limit: 120, windowSeconds: 60},
 } as const;
 
 export type RateLimitScope = keyof typeof DEFAULT_RATE_LIMITS;

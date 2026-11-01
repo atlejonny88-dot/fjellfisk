@@ -5,6 +5,7 @@ import type {
   RateLimitRecord,
 } from './types.js';
 import type {RateLimitScope} from './constants.js';
+import type {SensorBatch, SensorMapping, SensorSnapshot} from './telemetry.js';
 
 export interface PairingTransaction {
   getCollector(collectorId: string): Promise<CollectorDevice | null>;
@@ -18,6 +19,10 @@ export interface PairingTransaction {
   getRateLimit(scope: RateLimitScope, subjectDigest: string): Promise<RateLimitRecord | null>;
   upsertRateLimit(record: RateLimitRecord): Promise<void>;
   appendAudit(event: AuditEvent): Promise<void>;
+  hasActiveSensorEntitlement(siteId: string, now: Date): Promise<boolean>;
+  saveSensorBatch(collectorId: string, batch: SensorBatch, now: Date): Promise<boolean>;
+  readSensorSnapshot(collectorId: string): Promise<SensorSnapshot>;
+  replaceSensorMappings(collectorId: string, siteId: string, mappings: SensorMapping[]): Promise<void>;
 }
 
 export interface PairingRepository {

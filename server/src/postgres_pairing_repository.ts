@@ -1,7 +1,9 @@
 import {randomUUID} from 'node:crypto';
 import {Pool, type PoolClient, type QueryResultRow} from 'pg';
+import {PairingError} from './pairing/errors.js';
 
 import type {RateLimitScope} from './pairing/constants.js';
+import type {SensorBatch, SensorMapping, SensorSnapshot} from './pairing/telemetry.js';
 import type {PairingRepository, PairingTransaction} from './pairing/repository.js';
 import type {
   AuditEvent,
@@ -102,6 +104,59 @@ const codeColumns: Record<keyof Omit<PairingCodeRecord, 'codeDigest' | 'collecto
 
 class PostgresPairingTransaction implements PairingTransaction {
   constructor(private readonly client: PoolClient) {}
+
+  async hasActiveSensorEntitlement(siteId: string, now: Date): Promise<boolean> {
+    const result = await this.client.query(`SELECT 1 FROM collector_facilities f
+      JOIN collector_addon_entitlements e ON e.facility_id = f.facility_id
+      WHERE f.facility_id = $1 AND f.status = 'ACTIVE' AND e.addon_key = 'collector'
+      AND e.status = 'ACTIVE' AND (e.expires_at IS NULL OR e.expires_at > $2)`, [siteId, now]);
+    return result.rowCount === 1;
+  }
+
+  async saveSensorBatch(collectorId: string, batch: SensorBatch, now: Date): Promise<boolean> {
+    const receipt = await this.client.query(`INSERT INTO collector_sensor_batches
+      (collector_id, batch_id, received_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+    [collectorId, batch.batchId, now]);
+    if (!receipt.rowCount) return false;
+    for (const reading of batch.readings) {
+      await this.client.query(`INSERT INTO collector_sensors
+        (collector_id, sensor_id, sample_at, received_at, reading) VALUES ($1,$2,$3,$4,$5)
+        ON CONFLICT (collector_id, sensor_id) DO UPDATE SET
+        sample_at = EXCLUDED.sample_at, received_at = EXCLUDED.received_at, reading = EXCLUDED.reading
+        WHERE EXCLUDED.sample_at >= collector_sensors.sample_at`,
+      [collectorId, reading.sensorId, reading.timestampUtc, now, JSON.stringify(reading)]);
+    }
+    await this.client.query(`DELETE FROM collector_sensor_batches WHERE collector_id = $1
+      AND received_at < $2::timestamptz - interval '7 days'`, [collectorId, now]);
+    return true;
+  }
+
+  async readSensorSnapshot(collectorId: string): Promise<SensorSnapshot> {
+    const sensors = await this.client.query(`SELECT reading, received_at FROM collector_sensors
+      WHERE collector_id = $1 ORDER BY sensor_id`, [collectorId]);
+    const mappings = await this.client.query(`SELECT sensor_id AS "sensorId", section_id AS "sectionId",
+      section_name AS "sectionName", tank_id AS "tankId", tank_name AS "tankName"
+      FROM collector_sensor_mappings WHERE collector_id = $1 ORDER BY sensor_id`, [collectorId]);
+    return {
+      sensors: sensors.rows.map((row) => ({...row.reading, receivedAt: row.received_at.toISOString()})),
+      mappings: mappings.rows as SensorMapping[],
+    };
+  }
+
+  async replaceSensorMappings(collectorId: string, siteId: string, mappings: SensorMapping[]): Promise<void> {
+    await this.client.query('DELETE FROM collector_sensor_mappings WHERE collector_id = $1', [collectorId]);
+    for (const mapping of mappings) {
+      try {
+      await this.client.query(`INSERT INTO collector_sensor_mappings
+        (collector_id, sensor_id, site_id, section_id, section_name, tank_id, tank_name)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)`, [collectorId, mapping.sensorId, siteId,
+        mapping.sectionId, mapping.sectionName, mapping.tankId, mapping.tankName]);
+      } catch (error) {
+        if ((error as {code?: string}).code === '23505') throw new PairingError('SENSOR_MAPPING_CONFLICT', 409);
+        throw error;
+      }
+    }
+  }
 
   async getCollector(collectorId: string): Promise<CollectorDevice | null> {
     const result = await this.client.query<DeviceRow>(

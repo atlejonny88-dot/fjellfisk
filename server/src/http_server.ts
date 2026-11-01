@@ -4,7 +4,7 @@ import type {AdminAuthorizer} from './admin_authorizer.js';
 import {asPairingError, PairingError} from './pairing/errors.js';
 import type {PairingService} from './pairing/service.js';
 
-const maxJsonBytes = 32 * 1024;
+const maxJsonBytes = 256 * 1024;
 
 type ResponseHeaders = Record<string, string>;
 
@@ -147,6 +147,12 @@ export function createHttpApi(options: HttpApiOptions): Server {
         return;
       }
 
+      if (method === 'POST' && url.pathname === '/collector/v1/measurements') {
+        const input = await readJson(request);
+        sendJson(response, 200, await options.pairingService.ingestSensors(collectorAuth(request), input));
+        return;
+      }
+
       if (method === 'POST' && url.pathname === '/admin/v1/collectors/claim') {
         const body = await readJson(request);
         const siteId = typeof body.siteId === 'string' ? body.siteId : '';
@@ -165,8 +171,22 @@ export function createHttpApi(options: HttpApiOptions): Server {
       }
 
       const parts = pathParts(url.pathname);
+      if (method === 'GET' && parts.length === 7 && parts[0] === 'admin' && parts[1] === 'v1' &&
+          parts[2] === 'sites' && parts[4] === 'collectors' && parts[6] === 'sensors') {
+        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, parts[3], {readOnly: true});
+        sendJson(response, 200, await options.pairingService.getSensors(actor, parts[3], parts[5]), adminResponseHeaders);
+        return;
+      }
+      if (method === 'POST' && parts.length === 5 && parts[0] === 'admin' && parts[1] === 'v1' &&
+          parts[2] === 'collectors' && parts[4] === 'mappings') {
+        const body = await readJson(request);
+        const siteId = typeof body.siteId === 'string' ? body.siteId : '';
+        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, siteId, {requireCollectorEntitlement: true});
+        sendJson(response, 200, await options.pairingService.saveSensorMappings(actor, siteId, parts[3], body.mappings), adminResponseHeaders);
+        return;
+      }
       if (method === 'GET' && parts.length === 5 && parts[0] === 'admin' && parts[1] === 'v1' && parts[2] === 'sites' && parts[4] === 'collectors') {
-        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, parts[3]);
+        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, parts[3], {readOnly: true});
         sendJson(response, 200, await options.pairingService.listCollectorsForSite(actor, parts[3]), adminResponseHeaders);
         return;
       }

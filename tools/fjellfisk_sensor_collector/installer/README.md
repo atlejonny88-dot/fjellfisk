@@ -65,3 +65,28 @@ but never runs the generated setup.
 
 Before customer distribution, test fresh install, same-version repair, upgrade,
 normal uninstall, and explicit data removal in an isolated Windows VM.
+# 1.0.5: read-only sensor collection
+
+The login task retains its 60-second delay, but now runs `--run`: pairing first,
+then sequential discovery-allowlisted sensor reads and authenticated HTTPS uploads.
+`--pairing` remains a pairing-only diagnostic/start path and never reads sensors.
+Installation does not start a sensor read; the task starts at the next login, or
+an operator can start the task after upgrading. No Windows/VIGO restart is needed.
+
+Upgrade over the installed version; do not uninstall or delete ProgramData.
+AppId, backend configuration, DPAPI identity, pairing credential, logs and buffer
+remain in their existing locations. Existing secure uninstall semantics are kept.
+The production URL is supplied by the existing build/config mechanism.
+
+Sampling is 15 seconds after each sequential round, only after a fresh PAIRED
+status. No server-supplied PhysIds, setpoints or control operations are accepted.
+COM failures do not restart or reconfigure VIGO/P-NET. Failed uploads retry with
+15-300 second backoff, retaining stable batch UUIDs in a bounded local queue
+(300 files / 50 MiB). A full queue pauses collection rather than deleting recent
+unsent data. Batches older than seven days expire to match server acceptance.
+Pairing/telemetry logs rotate at 2 MiB with three retained archives.
+
+Only Production Collector and PairingUi are packaged. Sensor runtime, network
+retries, restart identity, API authorization and mapping persistence must be
+validated with test doubles/disposable databases before using the installer on
+an OxyGuard PC. Do not run live COM tests from a development PC.
