@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../utils/load_error.dart';
 import '../utils/data_values.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,8 @@ import 'package:flutter/foundation.dart';
 
 import '../l10n/localizations.dart';
 import '../services/addon_service.dart';
+import '../services/collector_claim_service.dart';
+import '../services/remote_addon_service.dart';
 import '../services/user_service.dart';
 import '../services/registration_round.dart';
 import '../utils/tank_status.dart';
@@ -35,14 +39,28 @@ class _SectionScreenState extends State<SectionScreen> {
   int _refreshKey = 0;
   late final Future<String> _roleFuture;
   late final AddOnService _addOnService;
+  CollectorClaimService? _collectorApi;
+  Timer? _sensorRefresh;
 
   @override
   void initState() {
     super.initState();
     RegistrationRound.session.setUser(UserService.currentUserId);
     RegistrationRound.session.addListener(_refresh);
-    _addOnService = widget.addOnService ?? MockAddOnService.shared;
-    _addOnService.addListener(_refresh);
+    if (widget.addOnService != null) {
+      _addOnService = widget.addOnService!;
+    } else {
+      _collectorApi = CollectorClaimService.fromEnvironment();
+      _addOnService = _collectorApi!.isConfigured
+          ? RemoteAddOnService(
+              api: _collectorApi!, facilityId: widget.facilityId)
+          : MockAddOnService.shared;
+    }
+    if (_addOnService is RemoteAddOnService) {
+      unawaited(_addOnService.refresh());
+      _sensorRefresh = Timer.periodic(const Duration(seconds: 15),
+          (_) => unawaited(_addOnService.refresh()));
+    }
     _roleFuture = UserService.getCurrentUserRole();
   }
 
@@ -58,7 +76,11 @@ class _SectionScreenState extends State<SectionScreen> {
   @override
   void dispose() {
     RegistrationRound.session.removeListener(_refresh);
-    _addOnService.removeListener(_refresh);
+    _sensorRefresh?.cancel();
+    if (widget.addOnService == null && _addOnService is RemoteAddOnService) {
+      _addOnService.dispose();
+    }
+    _collectorApi?.dispose();
     super.dispose();
   }
 
@@ -654,66 +676,73 @@ class _SectionScreenState extends State<SectionScreen> {
                 'ukjent')
             .toString();
     final noteTimestamp = activeNote?['updatedAt'] ?? activeNote?['createdAt'];
-    final collectorSensor = _addOnService.sensorForTank(
-      facilityId: widget.facilityId,
-      sectionId: widget.sectionId,
-      sectionName: widget.sectionName,
-      tankId: tank['id'].toString(),
-      tankName: tank['name'].toString(),
-    );
+    return ListenableBuilder(
+        listenable: _addOnService,
+        builder: (context, _) {
+          final collectorSensor = _addOnService.sensorForTank(
+            facilityId: widget.facilityId,
+            sectionId: widget.sectionId,
+            sectionName: widget.sectionName,
+            tankId: tank['id'].toString(),
+            tankName: tank['name'].toString(),
+          );
 
-    return TankOverviewCard(
-      key: ValueKey("tank-card-${tank['id']}"),
-      reviewed: RegistrationRound.session.isReviewed(
-        widget.facilityId,
-        widget.sectionId,
-        tank['id'].toString(),
-      ),
-      name: tank['name'].toString(),
-      isActive: isActive,
-      fishCountLabel: isActive ? '${_formatFish(fishCount)} stk' : '0 stk',
-      biomassLabel:
-          isActive ? _formatBiomass(context, biomassKg) : context.l10n.notInUse,
-      weightLabel: !isActive
-          ? context.l10n.noValue
-          : latestWeight > 0
-              ? '${_formatDecimal(latestWeight)} g'
-              : context.l10n.noData,
-      feedLabel: !isActive
-          ? context.l10n.noFeed
-          : '${_formatDecimal(feedKgLast24h)} kg',
-      mortalityLabel: !isActive ? context.l10n.noValue : '$mortality7d stk',
-      temperatureLabel: !isActive
-          ? context.l10n.noValue
-          : latestTemperature > 0
-              ? '${_formatDecimal(latestTemperature)} °C'
-              : context.l10n.noData,
-      statusLabel: _statusLabel(context, statusLevel),
-      statusMessage: _statusMessage(
-        context: context,
-        level: statusLevel,
-        mortality7d: mortality7d,
-      ),
-      statusColor: statusColor,
-      statusIcon: tank['statusIcon'] as IconData,
-      noteText: noteText,
-      noteMeta: noteText == null
-          ? null
-          : '$noteAuthor · ${_formatNoteDate(noteTimestamp)}',
-      notesUnavailable: tank['notesUnavailable'] as bool? ?? false,
-      collectorSensor: collectorSensor,
-      onNoteTap: activeNote == null
-          ? null
-          : () => _showNoteDialog(context, activeNote),
-      onDelete: isAdmin
-          ? () => _confirmDeleteTank(
-                context,
-                tank['id'].toString(),
-                tank['name'].toString(),
-              )
-          : null,
-      onTap: () => _openTank(context, tank),
-    );
+          return TankOverviewCard(
+            key: ValueKey("tank-card-${tank['id']}"),
+            reviewed: RegistrationRound.session.isReviewed(
+              widget.facilityId,
+              widget.sectionId,
+              tank['id'].toString(),
+            ),
+            name: tank['name'].toString(),
+            isActive: isActive,
+            fishCountLabel:
+                isActive ? '${_formatFish(fishCount)} stk' : '0 stk',
+            biomassLabel: isActive
+                ? _formatBiomass(context, biomassKg)
+                : context.l10n.notInUse,
+            weightLabel: !isActive
+                ? context.l10n.noValue
+                : latestWeight > 0
+                    ? '${_formatDecimal(latestWeight)} g'
+                    : context.l10n.noData,
+            feedLabel: !isActive
+                ? context.l10n.noFeed
+                : '${_formatDecimal(feedKgLast24h)} kg',
+            mortalityLabel:
+                !isActive ? context.l10n.noValue : '$mortality7d stk',
+            temperatureLabel: !isActive
+                ? context.l10n.noValue
+                : latestTemperature > 0
+                    ? '${_formatDecimal(latestTemperature)} °C'
+                    : context.l10n.noData,
+            statusLabel: _statusLabel(context, statusLevel),
+            statusMessage: _statusMessage(
+              context: context,
+              level: statusLevel,
+              mortality7d: mortality7d,
+            ),
+            statusColor: statusColor,
+            statusIcon: tank['statusIcon'] as IconData,
+            noteText: noteText,
+            noteMeta: noteText == null
+                ? null
+                : '$noteAuthor · ${_formatNoteDate(noteTimestamp)}',
+            notesUnavailable: tank['notesUnavailable'] as bool? ?? false,
+            collectorSensor: collectorSensor,
+            onNoteTap: activeNote == null
+                ? null
+                : () => _showNoteDialog(context, activeNote),
+            onDelete: isAdmin
+                ? () => _confirmDeleteTank(
+                      context,
+                      tank['id'].toString(),
+                      tank['name'].toString(),
+                    )
+                : null,
+            onTap: () => _openTank(context, tank),
+          );
+        });
   }
 }
 

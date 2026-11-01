@@ -33,6 +33,9 @@ void main() {
       tokenProvider: _Token(),
       client: MockClient((request) async {
         if (forbidden) return http.Response('{}', 403);
+        if (request.url.path.endsWith('/sensors')) {
+          return http.Response('{"sensors":[],"mappings":[]}', 200);
+        }
         if (request.method == 'POST') {
           claims++;
           paired = true;
@@ -83,8 +86,8 @@ void main() {
     expect(find.text('Collector Setup'), findsWidgets);
     expect(find.text('Pacific 01'), findsNothing);
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-    expect(
-        find.textContaining('Sensorliste og kobling til kar'), findsOneWidget);
+    expect(find.text('Ingen sensorer er mottatt fra Collector ennå.'),
+        findsOneWidget);
     final save = find.byKey(const ValueKey('save-collector-setup'));
     expect(tester.widget<FilledButton>(save).onPressed, isNull);
   });
@@ -123,15 +126,14 @@ void main() {
     expect(claims, 0);
   });
 
-  testWidgets('readers cannot manage real collector or call admin list',
+  testWidgets('readers can view real status but cannot manage collector',
       (tester) async {
     paired = true;
     await tester.pumpWidget(app(role: 'leser'));
     await tester.pumpAndSettle();
-    expect(gets, 0);
+    expect(gets, 1);
     expect(find.text('Koble til collector'), findsNothing);
-    expect(tester.widget<FilledButton>(setup('fjellfisk-collector')).onPressed,
-        isNull);
+    expect(tester.widget<FilledButton>(setup('real-device')).onPressed, isNull);
   });
 
   testWidgets(
