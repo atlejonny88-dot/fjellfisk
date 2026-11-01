@@ -611,6 +611,7 @@
   "collectorSetupSaved": "Konfiguracja collector została zapisana lokalnie.",
   "collectorSetupAdminOnly": "Tylko administratorzy mogą zmieniać konfigurację czujników.",
   "collectorNoSensorsInFilter": "Żadne czujniki nie pasują do tego filtra.",
+  "collectorSensorSetupUnavailable": "Collector jest sparowany. Lista czujników i przypisywanie do zbiorników nie są jeszcze dostępne w usłudze.",
   "oxygenConcentration": "Stężenie O₂",
   "oxygenSaturation": "Nasycenie O₂",
   "collectorLive": "Na żywo",

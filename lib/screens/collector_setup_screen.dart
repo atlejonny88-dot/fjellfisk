@@ -5,6 +5,7 @@ import '../l10n/language_controller.dart';
 import '../l10n/localizations.dart';
 import '../models/addon.dart';
 import '../services/addon_service.dart';
+import '../services/remote_addon_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
 
@@ -239,7 +240,9 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
                     ),
                     const SizedBox(height: 16),
                     if (visibleSensors.isEmpty)
-                      _EmptySensorState()
+                      _EmptySensorState(
+                        awaitingInventory: widget.service is RemoteAddOnService,
+                      )
                     else
                       ...visibleSensors.map(
                         (sensor) => Padding(
@@ -261,10 +264,12 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
                       alignment: Alignment.centerRight,
                       child: FilledButton.icon(
                         key: const ValueKey('save-collector-setup'),
-                        onPressed:
-                            canManage && collector.isConnected && !_saving
-                                ? () => _save(canManage)
-                                : null,
+                        onPressed: canManage &&
+                                collector.isConnected &&
+                                sensors.isNotEmpty &&
+                                !_saving
+                            ? () => _save(canManage)
+                            : null,
                         icon: _saving
                             ? const SizedBox(
                                 width: 18,
@@ -778,13 +783,20 @@ class _ReadOnlyBanner extends StatelessWidget {
 }
 
 class _EmptySensorState extends StatelessWidget {
+  const _EmptySensorState({this.awaitingInventory = false});
+
+  final bool awaitingInventory;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 34),
       child: Center(
         child: Text(
-          context.l10n.collectorNoSensorsInFilter,
+          awaitingInventory
+              ? context.l10n.collectorSensorSetupUnavailable
+              : context.l10n.collectorNoSensorsInFilter,
+          textAlign: TextAlign.center,
           style: const TextStyle(color: AppTheme.textSecondary),
         ),
       ),

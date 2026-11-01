@@ -1925,6 +1925,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Żadne czujniki nie pasują do tego filtra.';
 
   @override
+  String get collectorSensorSetupUnavailable =>
+      'Collector jest sparowany. Lista czujników i przypisywanie do zbiorników nie są jeszcze dostępne w usłudze.';
+
+  @override
   String get oxygenConcentration => 'Stężenie O₂';
 
   @override
