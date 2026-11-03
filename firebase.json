@@ -39,7 +39,10 @@
     "hosting":  [
                     {
                     "target": "legacy",
-                    "predeploy": ["node tool/prepare_web_release.cjs"],
+                    "predeploy": [
+                                   "node tool/verify_production_web_build.cjs",
+                                   "node tool/prepare_web_release.cjs"
+                                 ],
                     "public":  "build/web",
                     "ignore":  [
                                    "firebase.json",
@@ -122,7 +125,10 @@
                     },
                     {
                     "target": "fjellfisk",
-                    "predeploy": ["node tool/prepare_web_release.cjs"],
+                    "predeploy": [
+                                   "node tool/verify_production_web_build.cjs",
+                                   "node tool/prepare_web_release.cjs"
+                                 ],
                     "public":  "build/web",
                     "ignore":  [
                                    "firebase.json",
