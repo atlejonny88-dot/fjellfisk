@@ -10,13 +10,18 @@ import 'package:intl/intl.dart';
 import '../l10n/language_controller.dart';
 import '../l10n/localizations.dart';
 import '../services/excel_service.dart';
+import '../services/addon_service.dart';
+import '../services/collector_claim_service.dart';
+import '../services/dashboard_temperature_service.dart';
 import '../services/notification_service.dart';
+import '../services/remote_addon_service.dart';
 import '../services/user_service.dart';
 import '../services/web_update_guard.dart';
 import '../models/app_notification.dart';
 import '../utils/tank_status.dart';
 import '../utils/ui_motion.dart';
 import '../widgets/dashboard_v3_widgets.dart';
+import '../widgets/dashboard_temperature_kpi.dart';
 import '../widgets/diary_log_panel.dart';
 import '../widgets/notification_center.dart';
 import 'admin_users_screen.dart';
@@ -53,6 +58,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isRefreshing = false;
   int _diaryRefreshKey = 0;
   Timer? _webUpdateTimer;
+  Timer? _sensorRefresh;
+  late final AddOnService _addOnService;
+  CollectorClaimService? _collectorApi;
+  late final DashboardTemperatureConfigurationStore _temperatureStore;
 
   CollectionReference<Map<String, dynamic>> get _sectionsRef {
     return FirebaseFirestore.instance
@@ -66,6 +75,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _dashboardFuture = _loadDashboard().timeout(_loadTimeout);
     _roleFuture = UserService.getCurrentUserRole();
+    _temperatureStore = FirestoreDashboardTemperatureConfigurationStore();
+    _collectorApi = CollectorClaimService.fromEnvironment();
+    _addOnService = _collectorApi!.isConfigured
+        ? RemoteAddOnService(
+            api: _collectorApi!,
+            facilityId: widget.facilityId,
+          )
+        : MockAddOnService.shared;
+    unawaited(_addOnService.loadSections());
+    if (_addOnService is RemoteAddOnService) {
+      unawaited(_addOnService.refresh());
+      _sensorRefresh = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => unawaited(_addOnService.refresh()),
+      );
+    }
     // The bell and sheet can listen at the same time. Keep the last value so a
     // newly opened sheet does not wait for the next Firestore event.
     _notificationStream =
@@ -89,6 +114,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _scrollController.dispose();
     _notificationSubscription?.cancel();
     _webUpdateTimer?.cancel();
+    _sensorRefresh?.cancel();
+    if (_addOnService is RemoteAddOnService) _addOnService.dispose();
+    _collectorApi?.dispose();
     super.dispose();
   }
 
@@ -190,8 +218,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double totalBiomassKg = 0;
     double recommendedFeedKg = 0;
     double feedTodayKg = 0;
-    double tempSum = 0;
-    int tempCount = 0;
+    final activeTemperatureTanks = <DashboardTemperatureTankKey>{};
     final sectionRows = <Map<String, dynamic>>[];
 
     final sectionsSnap = await _getQuery(
@@ -227,6 +254,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           activeTanks++;
           sectionFish += fishCount;
           totalFish += fishCount;
+          activeTemperatureTanks.add(
+            DashboardTemperatureTankKey(
+              sectionId: section.id,
+              tankId: tank.id,
+            ),
+          );
         } else {
           sectionEmptyTanks++;
           emptyTanks++;
@@ -262,15 +295,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mortalityToday += DataValues.integer(mortality);
             feedTodayKg += DataValues.decimal(feed);
           }
-
-          final temp = DataValues.decimal(data['temperature']);
-          if (temp > 0 &&
-              date != null &&
-              !date.isAfter(now) &&
-              !date.isBefore(now.subtract(const Duration(hours: 24)))) {
-            tempSum += temp;
-            tempCount++;
-          }
         }
       }
 
@@ -296,7 +320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'recommendedFeedKg': recommendedFeedKg,
       'mortalityToday': mortalityToday,
       'feedTodayKg': feedTodayKg,
-      'avgTemp': tempCount == 0 ? 0.0 : tempSum / tempCount,
+      'activeTemperatureTanks': activeTemperatureTanks,
       'sectionRows': sectionRows,
     };
   }
@@ -660,7 +684,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final biomassKg = data['biomassKg'] as double;
     final recommendedFeedKg = data['recommendedFeedKg'] as double;
     final feedTodayKg = data['feedTodayKg'] as double;
-    final avgTemp = data['avgTemp'] as double;
+    final activeTemperatureTanks =
+        data['activeTemperatureTanks'] as Set<DashboardTemperatureTankKey>;
 
     return RefreshIndicator(
       onRefresh: _refreshFromUser,
@@ -720,17 +745,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         icon: Icons.warning_amber_rounded,
                         accent: const Color(0xFFD43838),
                       ),
-                      DashboardKpiCard(
-                        title: l10n.averageTemperature,
-                        value: avgTemp > 0
-                            ? '${_decimal(avgTemp)} °C'
-                            : l10n.noData,
-                        detail: l10n.recordedMeasurements,
-                        note: avgTemp > 0
-                            ? l10n.updatedFromTankLogs
-                            : l10n.notEnoughData,
-                        icon: Icons.device_thermostat,
-                        accent: const Color(0xFF1678D2),
+                      StreamBuilder<DashboardTemperatureConfiguration>(
+                        stream: _temperatureStore.watch(widget.facilityId),
+                        builder: (context, snapshot) => DashboardTemperatureKpi(
+                          service: _addOnService,
+                          facilityId: widget.facilityId,
+                          configuration: snapshot.data ??
+                              const DashboardTemperatureConfiguration
+                                  .unconfigured(),
+                          activeTanks: activeTemperatureTanks,
+                        ),
                       ),
                     ],
                   ),
@@ -785,16 +809,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 12),
                   _actionGrid(),
                   const SizedBox(height: 28),
-                  const Center(
-                    child: Text(
-                      'Fjellfisk 3.0',
-                      style: TextStyle(
-                        color: Color(0xFF7A8AA0),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

@@ -16,9 +16,9 @@ void main() {
     await tester.pumpWidget(_loginApp(controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('Fjellfisk'), findsOneWidget);
+    expect(find.bySemanticsLabel('Fjellfisk'), findsOneWidget);
     expect(find.text('Drift. Oversikt. Kontroll.'), findsOneWidget);
-    expect(find.text('Fjellfisk v3.0.0'), findsOneWidget);
+    expect(find.textContaining('v3.0'), findsNothing);
     expect(find.text('Logg inn'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });

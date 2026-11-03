@@ -548,9 +548,9 @@ class _SectionScreenState extends State<SectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Fjellfisk 3.0',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          context.l10n.appTitle,
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
           IconButton(

@@ -1957,6 +1957,59 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dashboardTemperatureSettings => 'Average temperature';
+
+  @override
+  String get dashboardTemperatureSettingsSubtitle =>
+      'Choose active tanks with a mapped Collector temperature to include on the dashboard.';
+
+  @override
+  String get dashboardTemperatureDefaultSelection =>
+      'All active mapped tanks are used temporarily until you save a selection.';
+
+  @override
+  String get dashboardTemperatureTemporaryDefault =>
+      'Temporary: all mapped tanks';
+
+  @override
+  String get dashboardTemperatureNotConfigured => 'Not configured';
+
+  @override
+  String get dashboardTemperatureChooseSources =>
+      'Choose temperature sources in Collector Setup';
+
+  @override
+  String dashboardTemperatureSourceCount(int count) {
+    return '$count selected tanks';
+  }
+
+  @override
+  String get dashboardTemperatureNoLiveData => 'No valid live measurements';
+
+  @override
+  String get dashboardTemperatureLive => 'Live Collector data';
+
+  @override
+  String get dashboardTemperatureConfigureInSetup =>
+      'Configure in Collector Setup';
+
+  @override
+  String get dashboardTemperatureNoEligibleTanks =>
+      'No active tanks with a mapped Collector temperature are available.';
+
+  @override
+  String get dashboardTemperatureAdminOnly =>
+      'Only administrators can change which tanks are included in the average temperature.';
+
+  @override
+  String get dashboardTemperatureSaved =>
+      'The average temperature has been saved for this facility.';
+
+  @override
+  String get dashboardTemperatureSaveFailed =>
+      'The average temperature could not be saved. Please try again.';
+
+  @override
   String get saveCollectorSetup => 'Save setup';
 
   @override
