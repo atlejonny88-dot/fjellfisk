@@ -3580,6 +3580,90 @@ abstract class AppLocalizations {
   /// **'Siste data {time}'**
   String collectorLastDataAt(String time);
 
+  /// No description provided for @dashboardTemperatureSettings.
+  ///
+  /// In nb, this message translates to:
+  /// **'Snittemperatur'**
+  String get dashboardTemperatureSettings;
+
+  /// No description provided for @dashboardTemperatureSettingsSubtitle.
+  ///
+  /// In nb, this message translates to:
+  /// **'Velg aktive kar med en koblet Collector-temperatur som skal inngå på dashboardet.'**
+  String get dashboardTemperatureSettingsSubtitle;
+
+  /// No description provided for @dashboardTemperatureDefaultSelection.
+  ///
+  /// In nb, this message translates to:
+  /// **'Alle aktive, mappede kar brukes midlertidig til du lagrer et eget utvalg.'**
+  String get dashboardTemperatureDefaultSelection;
+
+  /// No description provided for @dashboardTemperatureTemporaryDefault.
+  ///
+  /// In nb, this message translates to:
+  /// **'Midlertidig: alle mappede kar'**
+  String get dashboardTemperatureTemporaryDefault;
+
+  /// No description provided for @dashboardTemperatureNotConfigured.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ikke konfigurert'**
+  String get dashboardTemperatureNotConfigured;
+
+  /// No description provided for @dashboardTemperatureChooseSources.
+  ///
+  /// In nb, this message translates to:
+  /// **'Velg temperaturkilder i Collector Setup'**
+  String get dashboardTemperatureChooseSources;
+
+  /// No description provided for @dashboardTemperatureSourceCount.
+  ///
+  /// In nb, this message translates to:
+  /// **'{count} valgte kar'**
+  String dashboardTemperatureSourceCount(int count);
+
+  /// No description provided for @dashboardTemperatureNoLiveData.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen gyldige live-målinger'**
+  String get dashboardTemperatureNoLiveData;
+
+  /// No description provided for @dashboardTemperatureLive.
+  ///
+  /// In nb, this message translates to:
+  /// **'Live Collector-data'**
+  String get dashboardTemperatureLive;
+
+  /// No description provided for @dashboardTemperatureConfigureInSetup.
+  ///
+  /// In nb, this message translates to:
+  /// **'Konfigurer i Collector Setup'**
+  String get dashboardTemperatureConfigureInSetup;
+
+  /// No description provided for @dashboardTemperatureNoEligibleTanks.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen aktive kar med koblet Collector-temperatur er tilgjengelige.'**
+  String get dashboardTemperatureNoEligibleTanks;
+
+  /// No description provided for @dashboardTemperatureAdminOnly.
+  ///
+  /// In nb, this message translates to:
+  /// **'Bare administratorer kan endre hvilke kar som inngår i snittemperaturen.'**
+  String get dashboardTemperatureAdminOnly;
+
+  /// No description provided for @dashboardTemperatureSaved.
+  ///
+  /// In nb, this message translates to:
+  /// **'Snittemperaturen er lagret for dette anlegget.'**
+  String get dashboardTemperatureSaved;
+
+  /// No description provided for @dashboardTemperatureSaveFailed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Snittemperaturen kunne ikke lagres. Prøv igjen.'**
+  String get dashboardTemperatureSaveFailed;
+
   /// No description provided for @saveCollectorSetup.
   ///
   /// In nb, this message translates to:

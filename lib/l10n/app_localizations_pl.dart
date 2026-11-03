@@ -1973,6 +1973,60 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get dashboardTemperatureSettings => 'Średnia temperatura';
+
+  @override
+  String get dashboardTemperatureSettingsSubtitle =>
+      'Wybierz aktywne zbiorniki z przypisaną temperaturą Collector, które mają być uwzględniane na pulpicie.';
+
+  @override
+  String get dashboardTemperatureDefaultSelection =>
+      'Wszystkie aktywne przypisane zbiorniki są tymczasowo używane do czasu zapisania własnego wyboru.';
+
+  @override
+  String get dashboardTemperatureTemporaryDefault =>
+      'Tymczasowo: wszystkie przypisane zbiorniki';
+
+  @override
+  String get dashboardTemperatureNotConfigured => 'Nieskonfigurowane';
+
+  @override
+  String get dashboardTemperatureChooseSources =>
+      'Wybierz źródła temperatury w konfiguracji Collector';
+
+  @override
+  String dashboardTemperatureSourceCount(int count) {
+    return 'Wybrane zbiorniki: $count';
+  }
+
+  @override
+  String get dashboardTemperatureNoLiveData =>
+      'Brak prawidłowych pomiarów na żywo';
+
+  @override
+  String get dashboardTemperatureLive => 'Dane Collector na żywo';
+
+  @override
+  String get dashboardTemperatureConfigureInSetup =>
+      'Skonfiguruj w ustawieniach Collector';
+
+  @override
+  String get dashboardTemperatureNoEligibleTanks =>
+      'Brak aktywnych zbiorników z przypisaną temperaturą Collector.';
+
+  @override
+  String get dashboardTemperatureAdminOnly =>
+      'Tylko administratorzy mogą zmieniać zbiorniki uwzględniane w średniej temperaturze.';
+
+  @override
+  String get dashboardTemperatureSaved =>
+      'Średnia temperatura została zapisana dla tego obiektu.';
+
+  @override
+  String get dashboardTemperatureSaveFailed =>
+      'Nie udało się zapisać średniej temperatury. Spróbuj ponownie.';
+
+  @override
   String get saveCollectorSetup => 'Zapisz konfigurację';
 
   @override

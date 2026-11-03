@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../l10n/language_controller.dart';
 import '../l10n/localizations.dart';
 import '../utils/ui_motion.dart';
+import '../widgets/fjellfisk_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,9 +16,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const _buildName =
-      String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '3.0.0');
-
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
@@ -195,15 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 20),
-                                Text(
-                                  l10n.appVersion(_buildName),
-                                  style: const TextStyle(
-                                    color: Color(0xFF7A8BA2),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                               ],
                             ),
                           ),
@@ -230,34 +219,9 @@ class _LoginBrand extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            color: const Color(0xFF082C51),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1A082C51),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.terrain_rounded,
-            color: Colors.white,
-            size: 30,
-          ),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          context.l10n.appTitle,
-          style: const TextStyle(
-            color: Color(0xFF0A1733),
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-          ),
+        const FjellfiskLogo(
+          height: 68,
+          alignment: Alignment.center,
         ),
         const SizedBox(height: 5),
         Text(

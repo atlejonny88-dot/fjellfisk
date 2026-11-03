@@ -16,6 +16,7 @@ import 'screens/login_screen.dart';
 import 'services/user_service.dart';
 import 'services/registration_round.dart';
 import 'theme/app_theme.dart';
+import 'widgets/mobile_navigation_safe_area.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,6 +109,10 @@ class _FjellfiskAppState extends State<FjellfiskApp> {
           title: 'Fjellfisk',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
+          builder: (context, child) => MobileNavigationSafeArea(
+            enabled: !kIsWeb && defaultTargetPlatform == TargetPlatform.android,
+            child: child ?? const SizedBox.shrink(),
+          ),
           locale: _languageController.locale,
           localizationsDelegates: const [
             AppLocalizations.delegate,
