@@ -185,6 +185,7 @@ public sealed class ProductionCollectorRuntime
     private readonly CollectorBuildMetadata _buildMetadata;
     private readonly IClock _clock;
     private readonly ICollectorBatchBuffer _buffer;
+    private readonly ICollectorSensorReadDiagnostics _diagnostics;
 
     public ProductionCollectorRuntime(
         ISensorReader reader,
@@ -192,7 +193,8 @@ public sealed class ProductionCollectorRuntime
         CollectorIdentity identity,
         CollectorBuildMetadata buildMetadata,
         ICollectorBatchBuffer buffer,
-        IClock? clock = null)
+        IClock? clock = null,
+        ICollectorSensorReadDiagnostics? diagnostics = null)
     {
         _reader = reader;
         _allowlist = allowlist;
@@ -200,6 +202,7 @@ public sealed class ProductionCollectorRuntime
         _buildMetadata = buildMetadata;
         _buffer = buffer;
         _clock = clock ?? SystemClock.Instance;
+        _diagnostics = diagnostics ?? NullCollectorSensorReadDiagnostics.Instance;
     }
 
     public async Task<CollectorBatch> ReadOneCycleAsync(
@@ -259,6 +262,11 @@ public sealed class ProductionCollectorRuntime
                         status,
                         reading.ErrorCode == 0 ? null : reading.ErrorCode,
                         (long)Math.Ceiling(reading.Duration.TotalMilliseconds)));
+                    _diagnostics.RecordMeasurementFailure(new SensorReadDiagnosticEvent(
+                        sensor.SourceType,
+                        ToOutputField(measurement.Kind),
+                        status,
+                        reading.ErrorCode == 0 ? null : reading.ErrorCode));
                     continue;
                 }
 
@@ -290,6 +298,10 @@ public sealed class ProductionCollectorRuntime
                     status,
                     null,
                     null));
+                _diagnostics.RecordMeasurementFailure(new SensorReadDiagnosticEvent(
+                    sensor.SourceType,
+                    ToOutputField(measurement.Kind),
+                    status));
             }
         }
 

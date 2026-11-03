@@ -108,6 +108,7 @@ public sealed class ProductionTelemetrySession : IDisposable
     private readonly Func<CollectorBackendIdentity?> _backendIdentity;
     private readonly ICollectorPairingLogger _logger;
     private readonly IClock _clock;
+    private readonly ICollectorSensorReadDiagnostics _diagnostics;
     private ProductionDiscoveryResult? _discovery;
     private ISensorReader? _reader;
     private ProductionCollectorRuntime? _runtime;
@@ -117,11 +118,13 @@ public sealed class ProductionTelemetrySession : IDisposable
     public ProductionTelemetrySession(Func<CancellationToken, Task<ProductionDiscoveryResult>> discover,
         Func<RuntimeSensorAllowlist, ISensorReader> createReader, CollectorIdentity identity,
         CollectorBuildMetadata metadata, ProductionTelemetryQueue queue, IProductionTelemetryUploader uploader,
-        CollectorPairingStateStore stateStore, ICollectorPairingLogger logger, IClock? clock = null)
+        CollectorPairingStateStore stateStore, ICollectorPairingLogger logger, IClock? clock = null,
+        ICollectorSensorReadDiagnostics? diagnostics = null)
     {
         _discover = discover; _createReader = createReader; _identity = identity; _metadata = metadata;
         _queue = queue; _uploader = uploader; _backendIdentity = stateStore.GetBackendIdentity; _logger = logger;
         _clock = clock ?? SystemClock.Instance;
+        _diagnostics = diagnostics ?? NullCollectorSensorReadDiagnostics.Instance;
     }
 
     public async Task ReadAndUploadAsync(CancellationToken token)
@@ -144,7 +147,7 @@ public sealed class ProductionTelemetrySession : IDisposable
                 var allowlist = _discovery.CreateRuntimeAllowlist();
                 _reader = _createReader(allowlist);
                 _runtime = new ProductionCollectorRuntime(_reader, allowlist, _identity, _metadata,
-                    new NoExtraBatchFile(), _clock);
+                    new NoExtraBatchFile(), _clock, _diagnostics);
             }
             var batch = await _runtime.ReadOneCycleAsync(_discovery!, token);
             foreach (var readings in batch.Readings.Chunk(128))

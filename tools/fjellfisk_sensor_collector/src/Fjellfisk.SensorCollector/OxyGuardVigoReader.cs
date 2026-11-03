@@ -11,16 +11,19 @@ public sealed class OxyGuardVigoReader : ISensorReader, IDisposable
     private readonly IClock _clock;
     private readonly IReadOnlySensorAllowlist _allowlist;
     private readonly TimeSpan _readTimeout;
+    private readonly ICollectorSensorReadDiagnostics _diagnostics;
     private StaVigoReadExecutor? _executor;
 
     public OxyGuardVigoReader(
         IClock clock,
         IReadOnlySensorAllowlist allowlist,
-        TimeSpan? readTimeout = null)
+        TimeSpan? readTimeout = null,
+        ICollectorSensorReadDiagnostics? diagnostics = null)
     {
         _clock = clock;
         _allowlist = allowlist ?? throw new ArgumentNullException(nameof(allowlist));
         _readTimeout = readTimeout ?? DefaultReadTimeout;
+        _diagnostics = diagnostics ?? NullCollectorSensorReadDiagnostics.Instance;
         if (_readTimeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(readTimeout));
@@ -35,9 +38,13 @@ public sealed class OxyGuardVigoReader : ISensorReader, IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var allowlistedSensor = RequireExactAllowlistedSensor(sensor);
-        _executor ??= new StaVigoReadExecutor();
+        _executor ??= new StaVigoReadExecutor(_diagnostics);
+        var context = new VigoReadOperationContext(
+            SourceTypeFor(allowlistedSensor),
+            MeasurementFor(allowlistedSensor.Kind));
         return await _executor.ExecuteAsync(
-            () => ReadAllowlistedValue(allowlistedSensor, cancellationToken),
+            context,
+            () => ReadAllowlistedValue(allowlistedSensor, context, cancellationToken),
             _readTimeout,
             cancellationToken);
     }
@@ -49,17 +56,22 @@ public sealed class OxyGuardVigoReader : ISensorReader, IDisposable
 
     private SensorReadResult ReadAllowlistedValue(
         SensorDefinition sensor,
+        VigoReadOperationContext context,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var started = Stopwatch.GetTimestamp();
         using var vigo = new VigoComScalarReadSession();
 
+        context.SetStage("create-com");
         vigo.CreateCom();
+        context.SetStage("select-physid");
         vigo.SelectPhysId(sensor.PhysId);
+        context.SetStage("read-value");
         var scalarValue = Convert.ToSingle(
             vigo.ReadValue(),
             System.Globalization.CultureInfo.InvariantCulture);
+        context.SetStage("read-error-code");
         var errorCode = Convert.ToInt32(
             vigo.ReadErrorCode(),
             System.Globalization.CultureInfo.InvariantCulture);
@@ -88,6 +100,19 @@ public sealed class OxyGuardVigoReader : ISensorReader, IDisposable
         return required;
     }
 
+    private static string SourceTypeFor(SensorDefinition sensor) =>
+        sensor.Key.StartsWith("pacific", StringComparison.OrdinalIgnoreCase) ? "Pacific" :
+        sensor.Key.StartsWith("dom", StringComparison.OrdinalIgnoreCase) ? "DOM" :
+        "Unknown";
+
+    private static string MeasurementFor(SensorKind kind) => kind switch
+    {
+        SensorKind.TemperatureC => "temperatureC",
+        SensorKind.OxygenMgL => "oxygenMgL",
+        SensorKind.OxygenSaturationPct => "oxygenSaturationPct",
+        _ => "unknown",
+    };
+
 }
 
 // A single background STA thread prevents MTA/COM apartment ambiguity and limits a
@@ -96,11 +121,13 @@ internal sealed class StaVigoReadExecutor : IDisposable
 {
     private readonly BlockingCollection<ReadWorkItem> _queue = new();
     private readonly Thread _thread;
+    private readonly ICollectorSensorReadDiagnostics _diagnostics;
     private int _stalled;
     private bool _disposed;
 
-    public StaVigoReadExecutor()
+    public StaVigoReadExecutor(ICollectorSensorReadDiagnostics? diagnostics = null)
     {
+        _diagnostics = diagnostics ?? NullCollectorSensorReadDiagnostics.Instance;
         _thread = new Thread(Run)
         {
             IsBackground = true,
@@ -111,12 +138,18 @@ internal sealed class StaVigoReadExecutor : IDisposable
     }
 
     public async Task<SensorReadResult> ExecuteAsync(
+        VigoReadOperationContext context,
         Func<SensorReadResult> operation,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         if (Volatile.Read(ref _stalled) == 1)
         {
+            _diagnostics.RecordStaReaderState(new StaReaderDiagnosticEvent(
+                context.SourceType,
+                context.Measurement,
+                context.Stage,
+                AlreadyBlocked: true));
             throw new TimeoutException("The VIGO reader is waiting for a previous timed-out read.");
         }
 
@@ -139,7 +172,14 @@ internal sealed class StaVigoReadExecutor : IDisposable
 
         cancellationToken.ThrowIfCancellationRequested();
         workItem.MarkAbandoned();
-        Interlocked.Exchange(ref _stalled, 1);
+        if (Interlocked.CompareExchange(ref _stalled, 1, 0) == 0)
+        {
+            _diagnostics.RecordStaReaderState(new StaReaderDiagnosticEvent(
+                context.SourceType,
+                context.Measurement,
+                context.Stage,
+                AlreadyBlocked: false));
+        }
         throw new TimeoutException("VIGO.PRO read timed out; the collector will back off without restarting VIGO.");
     }
 
@@ -193,4 +233,23 @@ internal sealed class StaVigoReadExecutor : IDisposable
 
         public void MarkAbandoned() => Interlocked.Exchange(ref _abandoned, 1);
     }
+}
+
+internal sealed class VigoReadOperationContext
+{
+    private string _stage = "queued";
+
+    public VigoReadOperationContext(string sourceType, string measurement)
+    {
+        SourceType = sourceType;
+        Measurement = measurement;
+    }
+
+    public string SourceType { get; }
+
+    public string Measurement { get; }
+
+    public string Stage => Volatile.Read(ref _stage);
+
+    public void SetStage(string stage) => Volatile.Write(ref _stage, stage);
 }

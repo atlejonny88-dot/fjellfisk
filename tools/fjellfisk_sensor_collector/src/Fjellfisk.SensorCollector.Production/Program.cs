@@ -117,6 +117,7 @@ static async Task<int> RunPairingAsync(
     using var pairingWindow = new PairingWindowProcessHost(AppContext.BaseDirectory);
     var stateStore = new CollectorPairingStateStore(layout.IdentityDirectory);
     var logger = new PairingFileLogger(layout.LogsDirectory);
+    var sensorDiagnostics = new LocalSensorReadDiagnostics(layout.LogsDirectory, SystemClock.Instance);
     var coordinator = new CollectorPairingCoordinator(
         stateStore,
         backend,
@@ -145,10 +146,13 @@ static async Task<int> RunPairingAsync(
                     await ProductionDiscoveryCache.PersistAsync(layout.DiscoveryCachePath, discovered, token);
                     return discovered;
                 },
-                allowlist => new OxyGuardVigoReader(SystemClock.Instance, allowlist),
+                allowlist => new OxyGuardVigoReader(
+                    SystemClock.Instance,
+                    allowlist,
+                    diagnostics: sensorDiagnostics),
                 identity, metadata,
                 new ProductionTelemetryQueue(Path.Combine(layout.BufferDirectory, "sensor-upload")),
-                uploader, stateStore, logger);
+                uploader, stateStore, logger, diagnostics: sensorDiagnostics);
             await coordinator.RunAsync(cancellation.Token, telemetry.ReadAndUploadAsync, TimeSpan.FromSeconds(15));
         }
         return 0;
@@ -176,16 +180,19 @@ static async Task<int> RunControlledReadOnceAsync(
 
     var allowlist = discovery.CreateRuntimeAllowlist();
     var output = new LocalProductionReadOutput(layout.BufferDirectory);
+    var sensorDiagnostics = new LocalSensorReadDiagnostics(layout.LogsDirectory, SystemClock.Instance);
     using var reader = new OxyGuardVigoReader(
         SystemClock.Instance,
-        allowlist);
+        allowlist,
+        diagnostics: sensorDiagnostics);
     var runtime = new ProductionCollectorRuntime(
         reader,
         allowlist,
         identity,
         metadata,
         output,
-        SystemClock.Instance);
+        SystemClock.Instance,
+        sensorDiagnostics);
     var batch = await runtime.ReadOneCycleAsync(discovery, CancellationToken.None);
     var summary = ProductionReadSummary.Create(discovery, batch);
 

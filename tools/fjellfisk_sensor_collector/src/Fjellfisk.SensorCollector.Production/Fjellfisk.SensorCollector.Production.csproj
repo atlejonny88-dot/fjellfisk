@@ -25,6 +25,7 @@
     <Compile Include="..\Fjellfisk.SensorCollector\SensorContracts.cs" Link="SensorContracts.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\CollectorIdentity.cs" Link="CollectorIdentity.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\OxyGuardVigoReader.cs" Link="OxyGuardVigoReader.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\SensorReadDiagnostics.cs" Link="SensorReadDiagnostics.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\VigoComScalarReadSession.cs" Link="VigoComScalarReadSession.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\ProductionDiscovery.cs" Link="ProductionDiscovery.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\ProductionRuntime.cs" Link="ProductionRuntime.cs" />
