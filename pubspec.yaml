@@ -2,7 +2,7 @@ name: fjellfisk
 description: Oppdrettslogg for landbasert fiskeoppdrett
 publish_to: 'none'
 
-version: 3.2.1+13
+version: 3.2.2+14
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -44,6 +44,8 @@ flutter:
   generate: true
   uses-material-design: true
   assets:
-      - assets/fonts/DejaVuSans.ttf
-      - assets/fonts/DejaVuSans-Bold.ttf
-      - assets/images/aquaculture_tank.png
+    - assets/fonts/DejaVuSans.ttf
+    - assets/fonts/DejaVuSans-Bold.ttf
+    - assets/images/aquaculture_tank.png
+    - assets/images/branding/fjellfisk_logo.png
+    - assets/images/branding/fjellfisk_app_icon.png

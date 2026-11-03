@@ -4,6 +4,7 @@ import '../l10n/language_controller.dart';
 import '../l10n/localizations.dart';
 import '../models/app_notification.dart';
 import '../utils/ui_motion.dart';
+import 'fjellfisk_logo.dart';
 import 'notification_center.dart';
 
 class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
@@ -41,48 +42,15 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: 64,
       automaticallyImplyLeading: !isDesktop,
       centerTitle: false,
-      backgroundColor: const Color(0xFF082C51),
-      foregroundColor: Colors.white,
+      backgroundColor: Colors.white,
+      foregroundColor: const Color(0xFF082C51),
       elevation: 0,
       shape: const Border(
-        bottom: BorderSide(color: Color(0xFF173F64)),
+        bottom: BorderSide(color: Color(0xFFD9E4EF)),
       ),
-      titleSpacing: isDesktop ? 28 : 0,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isDesktop) ...[
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.14),
-                ),
-              ),
-              child: const Icon(Icons.terrain, size: 21),
-            ),
-            const SizedBox(width: 11),
-          ],
-          Text(
-            'Fjellfisk',
-            style: TextStyle(
-              fontSize: isDesktop ? 22 : 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '3.0',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontSize: isDesktop ? 17 : 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+      titleSpacing: isDesktop ? 24 : 0,
+      title: FjellfiskLogo(
+        height: isDesktop ? 38 : 30,
       ),
       actions: [
         if (isDesktop)
@@ -91,7 +59,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             onPressed: isRefreshing ? null : onRefresh,
             icon: _RefreshIcon(
               isRefreshing: isRefreshing,
-              color: Colors.white,
+              color: const Color(0xFF082C51),
               size: 20,
             ),
           ),
@@ -107,13 +75,13 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFF315477),
+              color: const Color(0xFFE8F1F8),
               borderRadius: BorderRadius.circular(7),
             ),
             child: const Icon(
               Icons.person_outline,
               size: 20,
-              color: Colors.white,
+              color: Color(0xFF0B3C5D),
             ),
           ),
           const SizedBox(width: 10),
@@ -128,7 +96,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF163A5D),
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -138,7 +106,7 @@ class DashboardTopBar extends StatelessWidget implements PreferredSizeWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: Color(0xFF5D7186),
                     fontSize: 11,
                   ),
                 ),
@@ -262,9 +230,9 @@ class _LanguageMenuButton extends StatelessWidget {
         alignment: Alignment.center,
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: const Color(0xFFF4F8FC),
           borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+          border: Border.all(color: const Color(0xFFD5E2EE)),
         ),
         child: AnimatedSwitcher(
           duration: uiMotionDuration(context),

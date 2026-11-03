@@ -95,7 +95,7 @@ void main() {
     await tester.pumpWidget(testDashboard(desktop: false));
     await tester.pumpAndSettle();
 
-    expect(find.text('Fjellfisk'), findsOneWidget);
+    expect(find.bySemanticsLabel('Fjellfisk'), findsOneWidget);
     expect(find.text('Aktive kar'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

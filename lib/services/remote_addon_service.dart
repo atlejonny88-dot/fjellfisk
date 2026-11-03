@@ -64,7 +64,8 @@ class RemoteAddOnService extends AddOnService {
                       id: tank.id,
                       name: tank.data()['name'] is String
                           ? tank.data()['name']
-                          : tank.id)
+                          : tank.id,
+                      isActive: _isActiveTank(tank.data()))
               ]));
         }
       }
@@ -77,6 +78,15 @@ class RemoteAddOnService extends AddOnService {
       if (!_disposed) _sectionsUnavailable = true;
     }
     if (!_disposed) notifyListeners();
+  }
+
+  static bool _isActiveTank(Map<String, dynamic> data) {
+    final value = data['fishCount'];
+    if (value is num) return value > 0;
+    if (value is String) {
+      return (num.tryParse(value.replaceAll(',', '.')) ?? 0) > 0;
+    }
+    return false;
   }
 
   static const _unconnected = AddOn(

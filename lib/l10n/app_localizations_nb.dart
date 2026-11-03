@@ -1956,6 +1956,59 @@ class AppLocalizationsNb extends AppLocalizations {
   }
 
   @override
+  String get dashboardTemperatureSettings => 'Snittemperatur';
+
+  @override
+  String get dashboardTemperatureSettingsSubtitle =>
+      'Velg aktive kar med en koblet Collector-temperatur som skal inngå på dashboardet.';
+
+  @override
+  String get dashboardTemperatureDefaultSelection =>
+      'Alle aktive, mappede kar brukes midlertidig til du lagrer et eget utvalg.';
+
+  @override
+  String get dashboardTemperatureTemporaryDefault =>
+      'Midlertidig: alle mappede kar';
+
+  @override
+  String get dashboardTemperatureNotConfigured => 'Ikke konfigurert';
+
+  @override
+  String get dashboardTemperatureChooseSources =>
+      'Velg temperaturkilder i Collector Setup';
+
+  @override
+  String dashboardTemperatureSourceCount(int count) {
+    return '$count valgte kar';
+  }
+
+  @override
+  String get dashboardTemperatureNoLiveData => 'Ingen gyldige live-målinger';
+
+  @override
+  String get dashboardTemperatureLive => 'Live Collector-data';
+
+  @override
+  String get dashboardTemperatureConfigureInSetup =>
+      'Konfigurer i Collector Setup';
+
+  @override
+  String get dashboardTemperatureNoEligibleTanks =>
+      'Ingen aktive kar med koblet Collector-temperatur er tilgjengelige.';
+
+  @override
+  String get dashboardTemperatureAdminOnly =>
+      'Bare administratorer kan endre hvilke kar som inngår i snittemperaturen.';
+
+  @override
+  String get dashboardTemperatureSaved =>
+      'Snittemperaturen er lagret for dette anlegget.';
+
+  @override
+  String get dashboardTemperatureSaveFailed =>
+      'Snittemperaturen kunne ikke lagres. Prøv igjen.';
+
+  @override
   String get saveCollectorSetup => 'Lagre oppsett';
 
   @override

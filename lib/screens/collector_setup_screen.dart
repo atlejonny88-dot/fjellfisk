@@ -11,6 +11,7 @@ import '../services/collector_claim_service.dart';
 import '../services/remote_addon_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_theme.dart';
+import 'dashboard_temperature_settings_screen.dart';
 
 enum _CollectorSetupFilter {
   all,
@@ -204,7 +205,6 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
                           .where((sensor) => _mappingFor(sensor).isComplete)
                           .length,
                     ),
-                    const SizedBox(height: 18),
                     if (!canManage) _ReadOnlyBanner(),
                     if (!canManage) const SizedBox(height: 18),
                     Container(
@@ -278,32 +278,55 @@ class _CollectorSetupScreenState extends State<CollectorSetupScreen> {
                         ),
                       ),
                     const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton.icon(
-                        key: const ValueKey('save-collector-setup'),
-                        onPressed: canManage &&
-                                collector.canConfigure &&
-                                sensors.isNotEmpty &&
-                                _draftMappings.values
-                                    .every((mapping) => mapping.isComplete) &&
-                                !_saving
-                            ? () => _save(canManage)
-                            : null,
-                        icon: _saving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.save_outlined),
-                        label: Text(
-                          _saving ? l10n.saving : l10n.saveCollectorSetup,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        OutlinedButton.icon(
+                          key: const ValueKey(
+                            'open-dashboard-temperature-settings',
+                          ),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  DashboardTemperatureSettingsScreen(
+                                facilityId:
+                                    widget.service.mappingFacilityId ?? '',
+                                service: widget.service,
+                                roleLoader: widget.roleLoader,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.device_thermostat_outlined),
+                          label:
+                              Text(context.l10n.dashboardTemperatureSettings),
                         ),
-                      ),
+                        FilledButton.icon(
+                          key: const ValueKey('save-collector-setup'),
+                          onPressed: canManage &&
+                                  collector.canConfigure &&
+                                  sensors.isNotEmpty &&
+                                  _draftMappings.values
+                                      .every((mapping) => mapping.isComplete) &&
+                                  !_saving
+                              ? () => _save(canManage)
+                              : null,
+                          icon: _saving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.save_outlined),
+                          label: Text(
+                            _saving ? l10n.saving : l10n.saveCollectorSetup,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

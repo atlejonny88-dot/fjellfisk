@@ -186,10 +186,12 @@ class CollectorTankOption {
   const CollectorTankOption({
     required this.id,
     required this.name,
+    this.isActive = true,
   });
 
   final String id;
   final String name;
+  final bool isActive;
 }
 
 class CollectorSectionOption {
