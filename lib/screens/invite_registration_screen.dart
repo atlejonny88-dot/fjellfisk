@@ -166,9 +166,9 @@ class _InviteRegistrationScreenState extends State<InviteRegistrationScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text(
-          'Fjellfisk 3.0',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          context.l10n.appTitle,
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
       body: FutureBuilder<UserInvite>(
