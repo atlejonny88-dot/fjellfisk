@@ -45,7 +45,7 @@ $requiredFragments = @(
 )
 
 foreach ($fragment in $requiredFragments) {
-    if (-not $scriptContent.Contains($fragment, [StringComparison]::Ordinal)) {
+    if ($scriptContent.IndexOf($fragment, [StringComparison]::Ordinal) -lt 0) {
         throw "Installer script is missing required configuration: $fragment"
     }
 }
@@ -72,7 +72,7 @@ if ($deleteCallIndex -lt 0 -or $deleteGateIndex -lt 0 -or $deleteGateIndex -gt $
     throw 'Persistent Collector data deletion must be guarded by the explicit uninstall confirmation.'
 }
 
-if (($scriptContent.Split($deleteCall).Count - 1) -ne 1) {
+if ([regex]::Matches($scriptContent, [regex]::Escape($deleteCall)).Count -ne 1) {
     throw 'Persistent Collector data may only have one explicit deletion call.'
 }
 
@@ -93,7 +93,7 @@ $forbiddenFragments = @(
 )
 
 foreach ($fragment in $forbiddenFragments) {
-    if ($scriptContent.Contains($fragment, [StringComparison]::OrdinalIgnoreCase)) {
+    if ($scriptContent.IndexOf($fragment, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
         throw "Installer script contains forbidden runtime configuration: $fragment"
     }
 }
@@ -106,7 +106,7 @@ $requiredTaskFragments = @(
 )
 
 foreach ($fragment in $requiredTaskFragments) {
-    if (-not $scriptContent.Contains($fragment, [StringComparison]::Ordinal)) {
+    if ($scriptContent.IndexOf($fragment, [StringComparison]::Ordinal) -lt 0) {
         throw "Installer script is missing required autostart or configuration behavior: $fragment"
     }
 }
@@ -129,7 +129,7 @@ if ($taskProcedureStart -lt 0 -or $taskProcedureEnd -le $taskProcedureStart) {
 }
 
 $taskProcedure = $scriptContent.Substring($taskProcedureStart, $taskProcedureEnd - $taskProcedureStart)
-if (-not $taskProcedure.Contains('--run', [StringComparison]::Ordinal)) {
+if ($taskProcedure.IndexOf('--run', [StringComparison]::Ordinal) -lt 0) {
     throw 'Collector autostart must start the pairing workflow.'
 }
 
