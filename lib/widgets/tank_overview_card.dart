@@ -601,6 +601,10 @@ class _CollectorMetricPanel extends StatelessWidget {
           l10n.collectorStale,
           const Color(0xFFD97706)
         ),
+      CollectorSensorStatus.failed => (
+          l10n.collectorSensorFailed,
+          const Color(0xFFB91C1C)
+        ),
       CollectorSensorStatus.offline => (
           l10n.collectorOffline,
           const Color(0xFF64748B)

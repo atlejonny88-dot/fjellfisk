@@ -1774,6 +1774,9 @@ class AppLocalizationsNb extends AppLocalizations {
   String get addOnStatusConnected => 'Tilkoblet';
 
   @override
+  String get addOnStatusDelayed => 'Forsinket';
+
+  @override
   String get addOnStatusOffline => 'Frakoblet';
 
   @override
@@ -1943,6 +1946,100 @@ class AppLocalizationsNb extends AppLocalizations {
   String collectorLastDataAt(String time) {
     return 'Siste data $time';
   }
+
+  @override
+  String get collectorSensorReading => 'Sensorlesing';
+
+  @override
+  String get collectorSensorReadingWorking => 'Fungerer';
+
+  @override
+  String get collectorSensorReadingPartialFailure => 'Delvis feil';
+
+  @override
+  String get collectorSensorReadingFailed => 'Feilet';
+
+  @override
+  String get collectorSensorReadingNoData => 'Ingen data';
+
+  @override
+  String get collectorConnectedSensorReadFailed =>
+      'Collector er tilkoblet, men klarer ikke å lese sensorverdiene.';
+
+  @override
+  String get collectorSensorSetupUnavailable =>
+      'Ingen sensorer er mottatt fra Collector ennå.';
+
+  @override
+  String get collectorCatalogUnavailable =>
+      'Seksjoner og kar kunne ikke lastes.';
+
+  @override
+  String get collectorRemoveMapping => 'Fjern kar-kobling';
+
+  @override
+  String get collectorMappingSaveFailed =>
+      'Sensoroppsettet kunne ikke lagres. Kontroller at hver sensor er koblet til et eget kar. Valgene er beholdt.';
+
+  @override
+  String get collectorSensorFailed => 'Sensorfeil';
+
+  @override
+  String get dashboardShowingLastSavedData =>
+      'Kunne ikke oppdatere akkurat nå. Sist innlastede dashboard vises fortsatt.';
+
+  @override
+  String get dashboardTemperatureSettings => 'Snittemperatur';
+
+  @override
+  String get dashboardTemperatureSettingsSubtitle =>
+      'Velg aktive kar med en koblet Collector-temperatur som skal inngå på dashboardet.';
+
+  @override
+  String get dashboardTemperatureDefaultSelection =>
+      'Alle aktive, mappede kar brukes midlertidig til du lagrer et eget utvalg.';
+
+  @override
+  String get dashboardTemperatureTemporaryDefault =>
+      'Midlertidig: alle mappede kar';
+
+  @override
+  String get dashboardTemperatureNotConfigured => 'Ikke konfigurert';
+
+  @override
+  String get dashboardTemperatureChooseSources =>
+      'Velg temperaturkilder i Collector Setup';
+
+  @override
+  String dashboardTemperatureSourceCount(int count) {
+    return '$count valgte kar';
+  }
+
+  @override
+  String get dashboardTemperatureNoLiveData => 'Ingen gyldige live-målinger';
+
+  @override
+  String get dashboardTemperatureLive => 'Live Collector-data';
+
+  @override
+  String get dashboardTemperatureConfigureInSetup =>
+      'Konfigurer i Collector Setup';
+
+  @override
+  String get dashboardTemperatureNoEligibleTanks =>
+      'Ingen aktive kar med koblet Collector-temperatur er tilgjengelige.';
+
+  @override
+  String get dashboardTemperatureAdminOnly =>
+      'Bare administratorer kan endre hvilke kar som inngår i snittemperaturen.';
+
+  @override
+  String get dashboardTemperatureSaved =>
+      'Snittemperaturen er lagret for dette anlegget.';
+
+  @override
+  String get dashboardTemperatureSaveFailed =>
+      'Snittemperaturen kunne ikke lagres. Prøv igjen.';
 
   @override
   String get saveCollectorSetup => 'Lagre oppsett';

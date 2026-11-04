@@ -35,68 +35,6 @@
 </head>
 <body>
   <script src="app-update.js" defer></script>
-  <script>
-    (function () {
-      var flutterLoaded = false;
-
-      function loadFlutter() {
-        if (flutterLoaded) {
-          return;
-        }
-        flutterLoaded = true;
-
-        var script = document.createElement('script');
-        script.src = 'flutter_bootstrap.js';
-        script.async = true;
-        document.body.appendChild(script);
-      }
-
-      function clearFlutterCaches() {
-        if (!window.caches) {
-          return Promise.resolve();
-        }
-
-        return caches.keys().then(function (keys) {
-          return Promise.all(keys.map(function (key) {
-            if (
-              key === 'flutter-app-cache' ||
-              key === 'flutter-temp-cache' ||
-              key === 'flutter-app-manifest'
-            ) {
-              return caches.delete(key);
-            }
-            return Promise.resolve(false);
-          }));
-        });
-      }
-
-      function clearServiceWorkers() {
-        if (!('serviceWorker' in navigator)) {
-          return Promise.resolve();
-        }
-
-        return navigator.serviceWorker.getRegistrations().then(function (registrations) {
-          return Promise.all(registrations.map(function (registration) {
-            var worker = registration.active || registration.waiting || registration.installing;
-            if (worker && new URL(worker.scriptURL).pathname ===
-                new URL('flutter_service_worker.js', document.baseURI).pathname) {
-              return registration.unregister();
-            }
-            return Promise.resolve(false);
-          }));
-        });
-      }
-
-      window.setTimeout(loadFlutter, 1500);
-
-      Promise.all([
-        clearFlutterCaches(),
-        clearServiceWorkers()
-      ]).then(loadFlutter).catch(function (error) {
-        console.warn('Fjellfisk web cache cleanup failed:', error);
-        loadFlutter();
-      });
-    }());
-  </script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

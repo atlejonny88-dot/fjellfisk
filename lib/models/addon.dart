@@ -9,6 +9,7 @@ enum AddOnStatus {
   notConnected,
   pending,
   connected,
+  delayed,
   offline,
   revoked,
   error,
@@ -45,7 +46,9 @@ class AddOn {
   final int? sensorCount;
   final DateTime? latestMeasurementAt;
 
-  bool get isConnected => status == AddOnStatus.connected;
+  bool get isConnected =>
+      status == AddOnStatus.connected || status == AddOnStatus.delayed;
+  bool get canConfigure => isConnected || status == AddOnStatus.offline;
 
   AddOn copyWith({
     AddOnStatus? status,
@@ -85,6 +88,7 @@ class AddOn {
 enum CollectorSensorStatus {
   live,
   stale,
+  failed,
   offline,
 }
 
@@ -185,10 +189,12 @@ class CollectorTankOption {
   const CollectorTankOption({
     required this.id,
     required this.name,
+    this.isActive = true,
   });
 
   final String id;
   final String name;
+  final bool isActive;
 }
 
 class CollectorSectionOption {

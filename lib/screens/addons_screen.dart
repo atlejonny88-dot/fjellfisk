@@ -350,6 +350,7 @@ class _AddOnCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final hasConnectionDetails = addOn.status == AddOnStatus.connected ||
+        addOn.status == AddOnStatus.delayed ||
         addOn.status == AddOnStatus.offline ||
         addOn.status == AddOnStatus.error;
     return Card(
@@ -488,6 +489,7 @@ class _AddOnCard extends StatelessWidget {
     if (!canManage) return setup;
 
     final collectorAction = addOn.status == AddOnStatus.connected ||
+            addOn.status == AddOnStatus.delayed ||
             addOn.status == AddOnStatus.offline ||
             addOn.status == AddOnStatus.error
         ? OutlinedButton.icon(
@@ -528,6 +530,10 @@ class _StatusChip extends StatelessWidget {
       AddOnStatus.connected => (
           context.l10n.addOnStatusConnected,
           const Color(0xFF15803D),
+        ),
+      AddOnStatus.delayed => (
+          context.l10n.addOnStatusDelayed,
+          const Color(0xFFD97706),
         ),
       AddOnStatus.offline => (
           context.l10n.addOnStatusOffline,

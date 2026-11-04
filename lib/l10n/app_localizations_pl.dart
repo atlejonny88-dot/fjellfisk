@@ -1789,6 +1789,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get addOnStatusConnected => 'Połączono';
 
   @override
+  String get addOnStatusDelayed => 'Opóźnione';
+
+  @override
   String get addOnStatusOffline => 'Offline';
 
   @override
@@ -1960,6 +1963,101 @@ class AppLocalizationsPl extends AppLocalizations {
   String collectorLastDataAt(String time) {
     return 'Ostatnie dane $time';
   }
+
+  @override
+  String get collectorSensorReading => 'Odczyt czujników';
+
+  @override
+  String get collectorSensorReadingWorking => 'Działa';
+
+  @override
+  String get collectorSensorReadingPartialFailure => 'Częściowy błąd';
+
+  @override
+  String get collectorSensorReadingFailed => 'Błąd';
+
+  @override
+  String get collectorSensorReadingNoData => 'Brak danych';
+
+  @override
+  String get collectorConnectedSensorReadFailed =>
+      'Collector jest połączony, ale nie może odczytać wartości czujników.';
+
+  @override
+  String get collectorSensorSetupUnavailable =>
+      'Nie odebrano jeszcze żadnych czujników z Collectora.';
+
+  @override
+  String get collectorCatalogUnavailable =>
+      'Nie udało się wczytać sekcji i zbiorników.';
+
+  @override
+  String get collectorRemoveMapping => 'Usuń przypisanie do zbiornika';
+
+  @override
+  String get collectorMappingSaveFailed =>
+      'Nie udało się zapisać konfiguracji czujników. Sprawdź, czy każdy czujnik ma osobny zbiornik. Wybrane ustawienia zostały zachowane.';
+
+  @override
+  String get collectorSensorFailed => 'Błąd czujnika';
+
+  @override
+  String get dashboardShowingLastSavedData =>
+      'Nie można teraz odświeżyć. Nadal wyświetlany jest ostatnio wczytany pulpit.';
+
+  @override
+  String get dashboardTemperatureSettings => 'Średnia temperatura';
+
+  @override
+  String get dashboardTemperatureSettingsSubtitle =>
+      'Wybierz aktywne zbiorniki z przypisaną temperaturą Collector, które mają być uwzględniane na pulpicie.';
+
+  @override
+  String get dashboardTemperatureDefaultSelection =>
+      'Wszystkie aktywne przypisane zbiorniki są tymczasowo używane do czasu zapisania własnego wyboru.';
+
+  @override
+  String get dashboardTemperatureTemporaryDefault =>
+      'Tymczasowo: wszystkie przypisane zbiorniki';
+
+  @override
+  String get dashboardTemperatureNotConfigured => 'Nieskonfigurowane';
+
+  @override
+  String get dashboardTemperatureChooseSources =>
+      'Wybierz źródła temperatury w konfiguracji Collector';
+
+  @override
+  String dashboardTemperatureSourceCount(int count) {
+    return 'Wybrane zbiorniki: $count';
+  }
+
+  @override
+  String get dashboardTemperatureNoLiveData =>
+      'Brak prawidłowych pomiarów na żywo';
+
+  @override
+  String get dashboardTemperatureLive => 'Dane Collector na żywo';
+
+  @override
+  String get dashboardTemperatureConfigureInSetup =>
+      'Skonfiguruj w ustawieniach Collector';
+
+  @override
+  String get dashboardTemperatureNoEligibleTanks =>
+      'Brak aktywnych zbiorników z przypisaną temperaturą Collector.';
+
+  @override
+  String get dashboardTemperatureAdminOnly =>
+      'Tylko administratorzy mogą zmieniać zbiorniki uwzględniane w średniej temperaturze.';
+
+  @override
+  String get dashboardTemperatureSaved =>
+      'Średnia temperatura została zapisana dla tego obiektu.';
+
+  @override
+  String get dashboardTemperatureSaveFailed =>
+      'Nie udało się zapisać średniej temperatury. Spróbuj ponownie.';
 
   @override
   String get saveCollectorSetup => 'Zapisz konfigurację';

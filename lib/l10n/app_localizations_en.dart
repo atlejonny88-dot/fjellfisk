@@ -1776,6 +1776,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addOnStatusConnected => 'Connected';
 
   @override
+  String get addOnStatusDelayed => 'Delayed';
+
+  @override
   String get addOnStatusOffline => 'Offline';
 
   @override
@@ -1944,6 +1947,100 @@ class AppLocalizationsEn extends AppLocalizations {
   String collectorLastDataAt(String time) {
     return 'Last data $time';
   }
+
+  @override
+  String get collectorSensorReading => 'Sensor reading';
+
+  @override
+  String get collectorSensorReadingWorking => 'Working';
+
+  @override
+  String get collectorSensorReadingPartialFailure => 'Partial failure';
+
+  @override
+  String get collectorSensorReadingFailed => 'Failed';
+
+  @override
+  String get collectorSensorReadingNoData => 'No data';
+
+  @override
+  String get collectorConnectedSensorReadFailed =>
+      'The collector is connected but cannot read sensor values.';
+
+  @override
+  String get collectorSensorSetupUnavailable =>
+      'No sensors have been received from Collector yet.';
+
+  @override
+  String get collectorCatalogUnavailable =>
+      'Sections and tanks could not be loaded.';
+
+  @override
+  String get collectorRemoveMapping => 'Remove tank mapping';
+
+  @override
+  String get collectorMappingSaveFailed =>
+      'The sensor setup could not be saved. Check that each sensor has its own tank. Your selections have been kept.';
+
+  @override
+  String get collectorSensorFailed => 'Sensor failure';
+
+  @override
+  String get dashboardShowingLastSavedData =>
+      'Could not refresh right now. The last loaded dashboard is still shown.';
+
+  @override
+  String get dashboardTemperatureSettings => 'Average temperature';
+
+  @override
+  String get dashboardTemperatureSettingsSubtitle =>
+      'Choose active tanks with a mapped Collector temperature to include on the dashboard.';
+
+  @override
+  String get dashboardTemperatureDefaultSelection =>
+      'All active mapped tanks are used temporarily until you save a selection.';
+
+  @override
+  String get dashboardTemperatureTemporaryDefault =>
+      'Temporary: all mapped tanks';
+
+  @override
+  String get dashboardTemperatureNotConfigured => 'Not configured';
+
+  @override
+  String get dashboardTemperatureChooseSources =>
+      'Choose temperature sources in Collector Setup';
+
+  @override
+  String dashboardTemperatureSourceCount(int count) {
+    return '$count selected tanks';
+  }
+
+  @override
+  String get dashboardTemperatureNoLiveData => 'No valid live measurements';
+
+  @override
+  String get dashboardTemperatureLive => 'Live Collector data';
+
+  @override
+  String get dashboardTemperatureConfigureInSetup =>
+      'Configure in Collector Setup';
+
+  @override
+  String get dashboardTemperatureNoEligibleTanks =>
+      'No active tanks with a mapped Collector temperature are available.';
+
+  @override
+  String get dashboardTemperatureAdminOnly =>
+      'Only administrators can change which tanks are included in the average temperature.';
+
+  @override
+  String get dashboardTemperatureSaved =>
+      'The average temperature has been saved for this facility.';
+
+  @override
+  String get dashboardTemperatureSaveFailed =>
+      'The average temperature could not be saved. Please try again.';
 
   @override
   String get saveCollectorSetup => 'Save setup';

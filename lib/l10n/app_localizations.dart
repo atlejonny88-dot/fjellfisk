@@ -3256,6 +3256,12 @@ abstract class AppLocalizations {
   /// **'Tilkoblet'**
   String get addOnStatusConnected;
 
+  /// No description provided for @addOnStatusDelayed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Forsinket'**
+  String get addOnStatusDelayed;
+
   /// No description provided for @addOnStatusOffline.
   ///
   /// In nb, this message translates to:
@@ -3561,6 +3567,162 @@ abstract class AppLocalizations {
   /// In nb, this message translates to:
   /// **'Siste data {time}'**
   String collectorLastDataAt(String time);
+
+  /// No description provided for @collectorSensorReading.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sensorlesing'**
+  String get collectorSensorReading;
+
+  /// No description provided for @collectorSensorReadingWorking.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fungerer'**
+  String get collectorSensorReadingWorking;
+
+  /// No description provided for @collectorSensorReadingPartialFailure.
+  ///
+  /// In nb, this message translates to:
+  /// **'Delvis feil'**
+  String get collectorSensorReadingPartialFailure;
+
+  /// No description provided for @collectorSensorReadingFailed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Feilet'**
+  String get collectorSensorReadingFailed;
+
+  /// No description provided for @collectorSensorReadingNoData.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen data'**
+  String get collectorSensorReadingNoData;
+
+  /// No description provided for @collectorConnectedSensorReadFailed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Collector er tilkoblet, men klarer ikke å lese sensorverdiene.'**
+  String get collectorConnectedSensorReadFailed;
+
+  /// No description provided for @collectorSensorSetupUnavailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen sensorer er mottatt fra Collector ennå.'**
+  String get collectorSensorSetupUnavailable;
+
+  /// No description provided for @collectorCatalogUnavailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'Seksjoner og kar kunne ikke lastes.'**
+  String get collectorCatalogUnavailable;
+
+  /// No description provided for @collectorRemoveMapping.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fjern kar-kobling'**
+  String get collectorRemoveMapping;
+
+  /// No description provided for @collectorMappingSaveFailed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sensoroppsettet kunne ikke lagres. Kontroller at hver sensor er koblet til et eget kar. Valgene er beholdt.'**
+  String get collectorMappingSaveFailed;
+
+  /// No description provided for @collectorSensorFailed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Sensorfeil'**
+  String get collectorSensorFailed;
+
+  /// No description provided for @dashboardShowingLastSavedData.
+  ///
+  /// In nb, this message translates to:
+  /// **'Kunne ikke oppdatere akkurat nå. Sist innlastede dashboard vises fortsatt.'**
+  String get dashboardShowingLastSavedData;
+
+  /// No description provided for @dashboardTemperatureSettings.
+  ///
+  /// In nb, this message translates to:
+  /// **'Snittemperatur'**
+  String get dashboardTemperatureSettings;
+
+  /// No description provided for @dashboardTemperatureSettingsSubtitle.
+  ///
+  /// In nb, this message translates to:
+  /// **'Velg aktive kar med en koblet Collector-temperatur som skal inngå på dashboardet.'**
+  String get dashboardTemperatureSettingsSubtitle;
+
+  /// No description provided for @dashboardTemperatureDefaultSelection.
+  ///
+  /// In nb, this message translates to:
+  /// **'Alle aktive, mappede kar brukes midlertidig til du lagrer et eget utvalg.'**
+  String get dashboardTemperatureDefaultSelection;
+
+  /// No description provided for @dashboardTemperatureTemporaryDefault.
+  ///
+  /// In nb, this message translates to:
+  /// **'Midlertidig: alle mappede kar'**
+  String get dashboardTemperatureTemporaryDefault;
+
+  /// No description provided for @dashboardTemperatureNotConfigured.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ikke konfigurert'**
+  String get dashboardTemperatureNotConfigured;
+
+  /// No description provided for @dashboardTemperatureChooseSources.
+  ///
+  /// In nb, this message translates to:
+  /// **'Velg temperaturkilder i Collector Setup'**
+  String get dashboardTemperatureChooseSources;
+
+  /// No description provided for @dashboardTemperatureSourceCount.
+  ///
+  /// In nb, this message translates to:
+  /// **'{count} valgte kar'**
+  String dashboardTemperatureSourceCount(int count);
+
+  /// No description provided for @dashboardTemperatureNoLiveData.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen gyldige live-målinger'**
+  String get dashboardTemperatureNoLiveData;
+
+  /// No description provided for @dashboardTemperatureLive.
+  ///
+  /// In nb, this message translates to:
+  /// **'Live Collector-data'**
+  String get dashboardTemperatureLive;
+
+  /// No description provided for @dashboardTemperatureConfigureInSetup.
+  ///
+  /// In nb, this message translates to:
+  /// **'Konfigurer i Collector Setup'**
+  String get dashboardTemperatureConfigureInSetup;
+
+  /// No description provided for @dashboardTemperatureNoEligibleTanks.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen aktive kar med koblet Collector-temperatur er tilgjengelige.'**
+  String get dashboardTemperatureNoEligibleTanks;
+
+  /// No description provided for @dashboardTemperatureAdminOnly.
+  ///
+  /// In nb, this message translates to:
+  /// **'Bare administratorer kan endre hvilke kar som inngår i snittemperaturen.'**
+  String get dashboardTemperatureAdminOnly;
+
+  /// No description provided for @dashboardTemperatureSaved.
+  ///
+  /// In nb, this message translates to:
+  /// **'Snittemperaturen er lagret for dette anlegget.'**
+  String get dashboardTemperatureSaved;
+
+  /// No description provided for @dashboardTemperatureSaveFailed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Snittemperaturen kunne ikke lagres. Prøv igjen.'**
+  String get dashboardTemperatureSaveFailed;
 
   /// No description provided for @saveCollectorSetup.
   ///
