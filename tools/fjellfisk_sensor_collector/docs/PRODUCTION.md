@@ -125,6 +125,35 @@ does not stop pairing and a fresh code opens one window again. `PAIRED` closes
 the window, while `REVOKED` remains blocked until the backend explicitly
 resets it to `UNPAIRED`.
 
+## Operational continuity and safe recovery
+
+The interactive login Scheduled Task starts the production Collector with
+`--run` 60 seconds after the Windows user signs in. A local run lock permits
+only one Collector process. This is intentional: the Collector must run in
+the interactive Windows session that has access to the VIGO.PRO COM server.
+
+Transient backend failures do not clear the DPAPI-protected identity, pairing
+credential, Collector ID, pairing state or sensor mappings. The pairing state
+machine retries its existing backend flow and does not open a new pairing
+window for an already paired Collector solely because the network is
+temporarily unavailable.
+
+Read-only sensor failures are recorded locally in the rotating
+`logs\\sensor-read.log` file. Entries contain a safe failure classification
+(`timeout`, `com-error`, `vigo-error`, `invalid-read` or `read-error`), sensor
+family and reader state, but never credentials, pairing codes, complete PhysIds
+or measurement values. The active log is bounded to 2 MiB and retains two
+rotated archives.
+
+A timed-out STA COM call marks the current reader as blocked. The Collector
+does not create parallel COM readers, repeatedly create STA threads, restart
+Vigo, restart P-NET, or automatically restart itself. This prevents a second
+COM call from racing with a call that may still be executing. If
+`sensor-read.log` confirms a blocked reader, a trained operator may assess a
+controlled restart of the Collector process only after confirming that process
+has exited; this does not re-pair, alter DPAPI identity or change mappings.
+It is not an automatic recovery mechanism.
+
 ## Release hardening
 
 Production builds are `Release`, `win-x86`, self-contained, with PDB symbols
