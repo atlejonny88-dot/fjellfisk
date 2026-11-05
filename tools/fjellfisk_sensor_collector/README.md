@@ -31,8 +31,10 @@ OxyGuard PC, connected to Firebase, deployed, or used to read a live sensor.
   selector property plus the `Value` and `ErrorCode` read properties.
 - It never exposes the COM object, a generic COM invocation method, a write
   operation, a command queue, setpoint support, or cloud-to-VIGO traffic.
-- A failed read only produces a local log entry and backoff. It never restarts
-  VIGO, P-NET, Windows, a service, or hardware.
+- A failed read produces a safe local log entry and transport backoff. A timed
+  out STA reader exits only its isolated Collector worker after one final
+  failed batch; the parent waits for that worker to exit before any bounded
+  replacement. It never restarts VIGO, P-NET, Windows, a service, or hardware.
 - The first real read must be manually approved after the values are compared
   with VisualVIGO. This repository change does not grant that approval.
 

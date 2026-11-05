@@ -5,7 +5,7 @@ namespace Fjellfisk.SensorCollector;
 
 // This reader has one purpose: read exact read-only allowlisted scalar values.
 // It deliberately does not expose a COM object or any generic member invocation API.
-public sealed class OxyGuardVigoReader : ISensorReader, IDisposable
+public sealed class OxyGuardVigoReader : ISensorReader, IDisposable, ICollectorSensorReadHealth
 {
     private static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(10);
     private readonly IClock _clock;
@@ -31,6 +31,10 @@ public sealed class OxyGuardVigoReader : ISensorReader, IDisposable
     }
 
     public string ReaderName => "OxyGuardVigoReader (VIGO.PRO, read-only pilot)";
+
+    // A timeout leaves the one STA worker unsafe for further COM calls. The
+    // production host observes this flag and replaces only its worker process.
+    public bool IsStalled => _executor?.IsStalled == true;
 
     public async Task<SensorReadResult> ReadAsync(
         SensorDefinition sensor,
@@ -136,6 +140,8 @@ internal sealed class StaVigoReadExecutor : IDisposable
         _thread.SetApartmentState(ApartmentState.STA);
         _thread.Start();
     }
+
+    public bool IsStalled => Volatile.Read(ref _stalled) == 1;
 
     public async Task<SensorReadResult> ExecuteAsync(
         VigoReadOperationContext context,

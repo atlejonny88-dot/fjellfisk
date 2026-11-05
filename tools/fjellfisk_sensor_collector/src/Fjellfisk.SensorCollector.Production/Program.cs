@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Fjellfisk.SensorCollector;
 
 var arguments = args.ToList();
@@ -11,9 +12,15 @@ try
     }
 
     var layout = ProductionStorageLayout.Open(GetDataDirectory(arguments));
-    using var instanceLock = command is ProductionCommand.Pairing or ProductionCommand.Run
-        ? new FileStream(Path.Combine(layout.RootDirectory, "collector-run.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)
-        : null;
+    var lockFileName = command switch
+    {
+        ProductionCommand.Pairing or ProductionCommand.Run => "collector-run.lock",
+        ProductionCommand.RunWorker => "collector-worker.lock",
+        _ => null,
+    };
+    using var instanceLock = lockFileName is null
+        ? null
+        : new FileStream(Path.Combine(layout.RootDirectory, lockFileName), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
     var identity = new CollectorIdentityStore(layout.IdentityDirectory, SystemClock.Instance).LoadOrCreate();
     var pairingState = new CollectorPairingStateStore(layout.IdentityDirectory);
     var metadata = CollectorBuildMetadata.Current;
@@ -61,11 +68,19 @@ try
             return await RunPairingAsync(layout, identity, metadata, arguments, collectSensors: false);
 
         case ProductionCommand.Run:
+            return await RunSupervisedCollectorAsync(layout, arguments);
+
+        case ProductionCommand.RunWorker:
             return await RunPairingAsync(layout, identity, metadata, arguments, collectSensors: true);
 
         default:
             throw new ArgumentOutOfRangeException(nameof(command));
     }
+}
+catch (CollectorSensorReadStalledException)
+{
+    Console.Error.WriteLine("Read-only VIGO worker stalled; exiting Collector worker for controlled recovery.");
+    return CollectorReadRecoverySupervisor.StalledReaderExitCode;
 }
 catch (Exception exception)
 {
@@ -89,6 +104,59 @@ static void PrintUsage()
     Console.WriteLine("Pairing uses HTTPS from pairing-backend.json or FJELLFISK_COLLECTOR_PAIRING_URL.");
     Console.WriteLine("A local emulator additionally requires --pairing-emulator and an explicit loopback URL.");
     Console.WriteLine("The production executable does not expose diagnostic or service commands.");
+}
+
+static async Task<int> RunSupervisedCollectorAsync(
+    ProductionStorageLayout layout,
+    IReadOnlyCollection<string> arguments)
+{
+    var executablePath = Environment.ProcessPath;
+    if (string.IsNullOrWhiteSpace(executablePath))
+    {
+        throw new InvalidOperationException("Collector executable path is unavailable.");
+    }
+
+    using var cancellation = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, eventArgs) =>
+    {
+        eventArgs.Cancel = true;
+        cancellation.Cancel();
+    };
+
+    var logger = new PairingFileLogger(layout.LogsDirectory);
+    var worker = new ProcessCollectorWorker(executablePath, SelectWorkerArguments(arguments));
+    var supervisor = new CollectorReadRecoverySupervisor(
+        worker,
+        logger,
+        SystemClock.Instance,
+        SystemCollectorRecoveryDelay.Instance);
+    Console.WriteLine("Fjellfisk Collector supervisor started. Press Ctrl+C to stop.");
+    try
+    {
+        return await supervisor.RunAsync(cancellation.Token);
+    }
+    catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+    {
+        return 0;
+    }
+}
+
+static IReadOnlyList<string> SelectWorkerArguments(IReadOnlyCollection<string> arguments)
+{
+    const string dataDirectoryPrefix = "--data-dir=";
+    const string backendUrlPrefix = "--pairing-backend-url=";
+    var forwarded = new List<string>();
+    foreach (var argument in arguments)
+    {
+        if (argument.StartsWith(dataDirectoryPrefix, StringComparison.OrdinalIgnoreCase) ||
+            argument.StartsWith(backendUrlPrefix, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(argument, "--pairing-emulator", StringComparison.OrdinalIgnoreCase))
+        {
+            forwarded.Add(argument);
+        }
+    }
+
+    return forwarded;
 }
 
 static async Task<int> RunPairingAsync(
@@ -239,4 +307,61 @@ static void PrintDiscovery(ProductionDiscoveryResult discovery, string cachePath
     Console.WriteLine($"Discovery issues: {discovery.Issues.Count}");
     Console.WriteLine($"Local cache: {cachePath}");
     Console.WriteLine("VIGO read state: idle");
+}
+
+// The worker process contains the STA/COM client. It is replaced only after
+// it has exited, never by starting another in-process STA reader.
+sealed class ProcessCollectorWorker : ICollectorWorkerProcess
+{
+    private readonly string _executablePath;
+    private readonly IReadOnlyList<string> _forwardedArguments;
+
+    public ProcessCollectorWorker(string executablePath, IReadOnlyList<string> forwardedArguments)
+    {
+        _executablePath = executablePath;
+        _forwardedArguments = forwardedArguments;
+    }
+
+    public async Task<int> RunAsync(CancellationToken cancellationToken)
+    {
+        var startInfo = new ProcessStartInfo(_executablePath)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        startInfo.ArgumentList.Add("--run-worker");
+        foreach (var argument in _forwardedArguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo) ??
+            throw new InvalidOperationException("Unable to start the Collector worker process.");
+        using var cancellationRegistration = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The process exited concurrently with cancellation.
+            }
+        });
+
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            await process.WaitForExitAsync();
+            throw;
+        }
+
+        return process.ExitCode;
+    }
 }

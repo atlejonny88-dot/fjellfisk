@@ -169,6 +169,14 @@ public sealed class ProductionTelemetrySession : IDisposable
             }
             await _queue.FlushAsync(backendIdentity, _uploader, token);
             _logger.Log("sensor_upload_ok", $"sensors={batch.Readings.Count} bufferCount={_queue.Files.Length}");
+            if (_reader is ICollectorSensorReadHealth { IsStalled: true })
+            {
+                // The final failed batch is already persisted/uploaded above.
+                // Continuing in this process would only repeat blocked COM reads.
+                _logger.Log("sensor_reader_stalled",
+                    "Read-only VIGO worker is stalled; exiting this Collector worker without restarting VIGO or P-NET.");
+                throw new CollectorSensorReadStalledException();
+            }
             if (batch.Readings.All(reading => reading.Health == "failed")) Backoff("sensor_read_backoff");
             else _failures = 0;
         }

@@ -145,14 +145,17 @@ family and reader state, but never credentials, pairing codes, complete PhysIds
 or measurement values. The active log is bounded to 2 MiB and retains two
 rotated archives.
 
-A timed-out STA COM call marks the current reader as blocked. The Collector
-does not create parallel COM readers, repeatedly create STA threads, restart
-Vigo, restart P-NET, or automatically restart itself. This prevents a second
-COM call from racing with a call that may still be executing. If
-`sensor-read.log` confirms a blocked reader, a trained operator may assess a
-controlled restart of the Collector process only after confirming that process
-has exited; this does not re-pair, alter DPAPI identity or change mappings.
-It is not an automatic recovery mechanism.
+A timed-out STA COM call marks the current reader as blocked. The active worker
+uploads one final failed batch, records the safe timeout state, and exits with a
+dedicated status. Its parent Collector waits for that worker process to exit
+before it considers a replacement, so two Collector-side COM clients cannot
+run in parallel. Recovery waits 60 seconds and is limited to three worker
+restarts in a rolling 15-minute window; a fourth stalled worker stops the
+Collector for operator review. This restarts neither Vigo nor P-NET, does not
+re-pair, and does not alter DPAPI identity, configuration or mappings. The
+process boundary protects the Collector client only; a controlled OxyGuard-PC
+rollout must still confirm that the VIGO.PRO server remains stable after a
+real timeout before treating automatic recovery as operationally proven.
 
 ## Release hardening
 

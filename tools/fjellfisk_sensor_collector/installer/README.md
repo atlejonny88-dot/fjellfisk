@@ -28,7 +28,7 @@ overwrites an existing configuration during repair or upgrade.
 
 The installer creates the `Fjellfisk Collector` Scheduled Task for the
 installing interactive user. It starts the Production Collector with
-`--pairing` 60 seconds after that user logs in, runs at limited privilege, and
+`--run` 60 seconds after that user logs in, runs at limited privilege, and
 is removed on uninstall. There is no Windows service, Run registry entry, or
 sensor read started by setup itself.
 
@@ -65,6 +65,18 @@ but never runs the generated setup.
 
 Before customer distribution, test fresh install, same-version repair, upgrade,
 normal uninstall, and explicit data removal in an isolated Windows VM.
+# 1.0.6: bounded stalled-reader recovery
+
+Version 1.0.6 retains the existing 60-second interactive login task and uses a
+single parent Collector process with one isolated read-only worker. A VIGO.PRO
+timeout marks the worker as stalled, writes the existing safe local diagnostic,
+uploads one final failed batch, and exits only that worker. The parent waits for
+the worker process to exit before a replacement is considered. Recovery waits
+60 seconds and is limited to three restarts in fifteen minutes; the Collector
+then stops and requires an operator check. Neither VIGO nor P-NET is restarted,
+and existing identity, pairing, configuration, buffer and mappings are not
+modified.
+
 # 1.0.5: read-only sensor collection
 
 The login task retains its 60-second delay, but now runs `--run`: pairing first,

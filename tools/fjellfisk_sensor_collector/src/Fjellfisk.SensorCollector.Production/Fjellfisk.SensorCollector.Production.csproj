@@ -7,9 +7,9 @@
     <PlatformTarget>x86</PlatformTarget>
     <Platforms>x86</Platforms>
     <AssemblyName>Fjellfisk.SensorCollector</AssemblyName>
-    <Version>1.0.5</Version>
-    <AssemblyVersion>1.0.5.0</AssemblyVersion>
-    <FileVersion>1.0.5.0</FileVersion>
+    <Version>1.0.6</Version>
+    <AssemblyVersion>1.0.6.0</AssemblyVersion>
+    <FileVersion>1.0.6.0</FileVersion>
     <FjellfiskBuildId Condition="'$(FjellfiskBuildId)' == ''">local</FjellfiskBuildId>
     <InformationalVersion>$(FileVersion)</InformationalVersion>
     <DebugType>none</DebugType>
@@ -30,6 +30,7 @@
     <Compile Include="..\Fjellfisk.SensorCollector\ProductionDiscovery.cs" Link="ProductionDiscovery.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\ProductionRuntime.cs" Link="ProductionRuntime.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\ProductionTelemetry.cs" Link="ProductionTelemetry.cs" />
+    <Compile Include="..\Fjellfisk.SensorCollector\CollectorReadRecoverySupervisor.cs" Link="CollectorReadRecoverySupervisor.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\ProductionCliPolicy.cs" Link="ProductionCliPolicy.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\ProductionPairing.cs" Link="ProductionPairing.cs" />
     <Compile Include="..\Fjellfisk.SensorCollector\PairingWindowProcessHost.cs" Link="PairingWindowProcessHost.cs" />

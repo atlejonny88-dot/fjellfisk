@@ -113,6 +113,47 @@ static class ProductionTelemetryTests
         finally { Directory.Delete(root, true); }
     }
 
+    public static async Task StalledReaderEscalatesAfterFinalBatchAsync()
+    {
+        var root = DirectoryPath();
+        try
+        {
+            var clock = new FakeClock(DateTimeOffset.UtcNow);
+            var backend = new PairingBackendFake(clock) { State = "PAIRED" };
+            var state = new CollectorPairingStateStore(Path.Combine(root, "identity"));
+            var logger = new TestPairingLogger();
+            var coordinator = new CollectorPairingCoordinator(state, backend, new TestPairingUi(), logger, clock,
+                new PairingTestDelay(), "1.0.6", "windows-x86");
+            await coordinator.RunSingleCycleAsync(CancellationToken.None);
+            var reader = new StalledReader();
+            var handler = new Handler();
+            using var client = new HttpClient(handler);
+            using var uploader = new HttpsProductionTelemetryUploader(new(new Uri("https://api.example/collector/v1/"), "test"), client);
+            var discovery = new ProductionDiscoveryService(new[] { new InMemoryVigoConfigurationSource("test", new[] {
+                "Commander5:Master_Box_1.Pacific.Pacific_01.Probe_01", "Commander5:Master_Box_1.DOM.DO_Meter_0.DO_0" }) }, clock: clock);
+            using var session = new ProductionTelemetrySession(discovery.DiscoverAsync, _ => reader,
+                new CollectorIdentityStore(Path.Combine(root, "local"), clock).LoadOrCreate(),
+                new("1.0.6", "1.0.6.0", "test"), new ProductionTelemetryQueue(Path.Combine(root, "queue")),
+                uploader, state, logger, clock);
+
+            try
+            {
+                await session.ReadAndUploadAsync(CancellationToken.None);
+                throw new Exception("A stalled reader did not request controlled worker exit.");
+            }
+            catch (CollectorSensorReadStalledException)
+            {
+            }
+
+            Check(reader.ReadCalls == 6, "The stalled reader did not complete exactly one failed sensor round.");
+            Check(handler.Body.Contains("\"health\":\"failed\"", StringComparison.Ordinal),
+                "The final failed telemetry batch was not uploaded before worker exit.");
+            Check(logger.Messages.Any(message => message.StartsWith("sensor_reader_stalled:", StringComparison.Ordinal)),
+                "The stalled worker state was not logged safely.");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     public static async Task TransportSafetyAsync()
     {
         try { using var bad = new HttpsProductionTelemetryUploader(new(new Uri("http://127.0.0.1/collector/v1/"), "test")); throw new Exception("HTTP accepted."); }
@@ -147,6 +188,20 @@ static class ProductionTelemetryTests
             Body = await request.Content!.ReadAsStringAsync(); Path = request.RequestUri!.AbsolutePath;
             HeadersValid = request.Headers.Contains("x-fjellfisk-collector-id") && request.Headers.Contains("x-fjellfisk-device-credential");
             return new(Redirect ? HttpStatusCode.Redirect : HttpStatusCode.OK) { Content = new StringContent("{\"accepted\":true}") };
+        }
+    }
+
+    sealed class StalledReader : ISensorReader, ICollectorSensorReadHealth
+    {
+        public bool IsStalled => true;
+        public int ReadCalls { get; private set; }
+        public string ReaderName => "StalledReader";
+
+        public Task<SensorReadResult> ReadAsync(SensorDefinition sensor, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadCalls++;
+            return Task.FromException<SensorReadResult>(new TimeoutException("simulated stalled reader"));
         }
     }
 }

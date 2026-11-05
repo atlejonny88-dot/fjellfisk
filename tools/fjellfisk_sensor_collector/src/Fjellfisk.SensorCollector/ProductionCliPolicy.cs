@@ -9,6 +9,7 @@ public enum ProductionCommand
     ReadOnce,
     Pairing,
     Run,
+    RunWorker,
 }
 
 public static class ProductionCliPolicy
@@ -28,6 +29,7 @@ public static class ProductionCliPolicy
             ["--read-once"] = ProductionCommand.ReadOnce,
             ["--pairing"] = ProductionCommand.Pairing,
             ["--run"] = ProductionCommand.Run,
+            ["--run-worker"] = ProductionCommand.RunWorker,
         };
         var selected = arguments.Where(argument => argument.StartsWith("--", StringComparison.Ordinal))
             .Where(argument => !argument.StartsWith("--data-dir=", StringComparison.OrdinalIgnoreCase))

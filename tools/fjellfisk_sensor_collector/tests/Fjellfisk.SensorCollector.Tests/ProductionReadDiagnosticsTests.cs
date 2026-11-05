@@ -55,6 +55,7 @@ static class ProductionReadDiagnosticsTests
             Check(log.Contains("\"classification\":\"timeout\"", StringComparison.Ordinal), "The timeout classification was not logged.");
             Check(log.Contains("\"stage\":\"queued\"", StringComparison.Ordinal), "The safe first-failure stage was not logged.");
             Check(calls == 1, "The initial blocked COM call was executed more than once.");
+            Check(executor.IsStalled, "The STA executor did not retain its stalled state after timeout.");
         }
         finally
         {
@@ -254,7 +255,7 @@ static class ProductionReadDiagnosticsTests
             name.Contains("set", StringComparison.OrdinalIgnoreCase) ||
             name.Contains("control", StringComparison.OrdinalIgnoreCase)),
             "Diagnostics exposed a control or write API on the VIGO reader.");
-        Check(typeof(OxyGuardVigoReader).GetInterfaces().SequenceEqual(new[] { typeof(ISensorReader), typeof(IDisposable) }),
+        Check(typeof(OxyGuardVigoReader).GetInterfaces().SequenceEqual(new[] { typeof(ISensorReader), typeof(IDisposable), typeof(ICollectorSensorReadHealth) }),
             "Diagnostics changed the OxyGuard reader protocol.");
         return Task.CompletedTask;
     }
