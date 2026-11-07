@@ -7,10 +7,8 @@ import '../models/addon.dart';
 import '../services/addon_service.dart';
 import '../services/collector_claim_service.dart';
 import '../services/user_service.dart';
-import '../services/vacon_control_service.dart';
 import '../utils/ui_motion.dart';
 import 'collector_setup_screen.dart';
-import 'vacon_control_screen.dart';
 
 class AddOnsScreen extends StatefulWidget {
   const AddOnsScreen({
@@ -18,15 +16,13 @@ class AddOnsScreen extends StatefulWidget {
     this.service,
     this.claimService,
     this.roleLoader,
-    this.facilityId = MockVaconControlService.defaultFacilityId,
-    this.vaconService,
+    this.facilityId = MockCollectorSetupCatalog.facilityId,
   });
 
   final AddOnService? service;
   final CollectorClaimService? claimService;
   final Future<String> Function()? roleLoader;
   final String facilityId;
-  final VaconControlService? vaconService;
 
   @override
   State<AddOnsScreen> createState() => _AddOnsScreenState();
@@ -117,19 +113,6 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
     );
   }
 
-  void _openVaconControl() {
-    Navigator.of(context).push(
-      subtleFadeSlideRoute<void>(
-        context: context,
-        builder: (_) => VaconControlScreen(
-          facilityId: widget.facilityId,
-          service: widget.vaconService,
-          roleLoader: widget.roleLoader,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,13 +161,6 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
                               ),
                             ),
                           ),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _VaconAddOnCard(
-                          canManage: canManage,
-                          onOpen: _openVaconControl,
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -192,140 +168,6 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _VaconAddOnCard extends StatelessWidget {
-  const _VaconAddOnCard({
-    required this.canManage,
-    required this.onOpen,
-  });
-
-  final bool canManage;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final icon = Container(
-              width: 46,
-              height: 46,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF4E5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.settings_input_component_outlined,
-                color: Color(0xFF9A6700),
-                size: 25,
-              ),
-            );
-            final description = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.vaconControlName,
-                  style: const TextStyle(
-                    color: Color(0xFF0A1733),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.vaconControlDescription,
-                  style: const TextStyle(
-                    color: Color(0xFF5F7088),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            );
-            final simulationBadge = Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF4E5),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                l10n.vaconSimulationBadge,
-                style: const TextStyle(
-                  color: Color(0xFF9A6700),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            );
-            final header = constraints.maxWidth < 420
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          icon,
-                          const SizedBox(width: 14),
-                          Expanded(child: description),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      simulationBadge,
-                    ],
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      icon,
-                      const SizedBox(width: 14),
-                      Expanded(child: description),
-                      const SizedBox(width: 10),
-                      simulationBadge,
-                    ],
-                  );
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                header,
-                const SizedBox(height: 16),
-                Text(
-                  l10n.vaconPhysicalControlLocked,
-                  style:
-                      const TextStyle(color: Color(0xFF5F7088), fontSize: 13),
-                ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    FilledButton.icon(
-                      key: const ValueKey('open-vacon-control'),
-                      onPressed: onOpen,
-                      icon: const Icon(Icons.visibility_outlined),
-                      label: Text(l10n.openVaconControl),
-                    ),
-                    if (!canManage)
-                      Text(
-                        l10n.vaconReadOnlySetup,
-                        style: const TextStyle(
-                          color: Color(0xFF687A92),
-                          fontSize: 12,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
       ),
     );
   }

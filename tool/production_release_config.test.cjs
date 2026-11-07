@@ -7,6 +7,7 @@ const test = require('node:test');
 const {
   readProductionReleaseConfig,
   validateCollectorBackendUrl,
+  verifyVaconProductionExclusion,
   verifyWebArtifact,
 } = require('./production_release_config.cjs');
 
@@ -14,6 +15,22 @@ test('accepts the configured production Collector endpoint', () => {
   const config = readProductionReleaseConfig();
   assert.equal(config.firebaseProjectId, 'trolltungaarctictrout');
   assert.equal(config.collectorBackendUrl, 'https://api.tosprotein.com');
+  assert.equal(config.vaconControlEnabled, false);
+});
+
+test('rejects a production Add-ons route to VACON', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fjellfisk-vacon-'));
+  const addOnsPath = path.join(directory, 'addons_screen.dart');
+  const firebaseConfigPath = path.join(directory, 'firebase.json');
+  try {
+    fs.writeFileSync(addOnsPath, "import 'vacon_control_screen.dart';");
+    fs.writeFileSync(firebaseConfigPath, '{}');
+    assert.throws(() =>
+      verifyVaconProductionExclusion({addOnsPath, firebaseConfigPath}),
+    );
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
 });
 
 for (const [label, value] of [

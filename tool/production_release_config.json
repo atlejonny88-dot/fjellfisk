@@ -1,4 +1,5 @@
 {
   "firebaseProjectId": "trolltungaarctictrout",
-  "collectorBackendUrl": "https://api.tosprotein.com"
+  "collectorBackendUrl": "https://api.tosprotein.com",
+  "vaconControlEnabled": false
 }

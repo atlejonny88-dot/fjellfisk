@@ -18,6 +18,7 @@ const args = [
   target,
   '--release',
   `--dart-define=FJELLFISK_COLLECTOR_BACKEND_URL=${config.collectorBackendUrl}`,
+  `--dart-define=FJELLFISK_VACON_CONTROL_ENABLED=${config.vaconControlEnabled}`,
 ];
 const result = spawnSync(flutter, args, {
   cwd: path.resolve(__dirname, '..'),

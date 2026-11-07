@@ -49,11 +49,30 @@ function readProductionReleaseConfig(configPath = defaultConfigPath) {
   if (raw?.firebaseProjectId !== 'trolltungaarctictrout') {
     throw new Error('Production Firebase project must be trolltungaarctictrout.');
   }
+  if (raw?.vaconControlEnabled !== false) {
+    throw new Error('VACON Control must be explicitly disabled for production releases.');
+  }
 
   return {
     firebaseProjectId: raw.firebaseProjectId,
     collectorBackendUrl: validateCollectorBackendUrl(raw.collectorBackendUrl),
+    vaconControlEnabled: false,
   };
+}
+
+function verifyVaconProductionExclusion({
+  addOnsPath = path.join(root, 'lib', 'screens', 'addons_screen.dart'),
+  firebaseConfigPath = path.join(root, 'firebase.json'),
+} = {}) {
+  const addOns = fs.readFileSync(addOnsPath, 'utf8');
+  if (/vacon_control|VaconControl|_VaconAddOnCard/i.test(addOns)) {
+    throw new Error('VACON Control must not be reachable from production Add-ons.');
+  }
+
+  const firebaseConfig = fs.readFileSync(firebaseConfigPath, 'utf8');
+  if (/vacon/i.test(firebaseConfig)) {
+    throw new Error('VACON deployment configuration is not allowed in this release.');
+  }
 }
 
 function verifyFirebaseProject(projectId, firebaseOptionsPath = path.join(root, 'lib', 'firebase_options.dart')) {
@@ -81,6 +100,7 @@ function verifyWebArtifact(buildDirectory, backendUrl) {
 function verifyProductionRelease({buildDirectory} = {}) {
   const config = readProductionReleaseConfig();
   verifyFirebaseProject(config.firebaseProjectId);
+  verifyVaconProductionExclusion();
   if (buildDirectory) verifyWebArtifact(buildDirectory, config.collectorBackendUrl);
   return config;
 }
@@ -89,6 +109,7 @@ module.exports = {
   defaultConfigPath,
   readProductionReleaseConfig,
   validateCollectorBackendUrl,
+  verifyVaconProductionExclusion,
   verifyFirebaseProject,
   verifyProductionRelease,
   verifyWebArtifact,

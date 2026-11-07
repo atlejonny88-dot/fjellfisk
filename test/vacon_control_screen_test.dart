@@ -1,9 +1,7 @@
 import 'package:fjellfisk/l10n/app_localizations.dart';
 import 'package:fjellfisk/l10n/language_controller.dart';
 import 'package:fjellfisk/models/vacon_control.dart';
-import 'package:fjellfisk/screens/addons_screen.dart';
 import 'package:fjellfisk/screens/vacon_control_screen.dart';
-import 'package:fjellfisk/services/addon_service.dart';
 import 'package:fjellfisk/services/vacon_control_service.dart';
 import 'package:fjellfisk/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -22,22 +20,18 @@ void main() {
         home: home,
       );
 
-  testWidgets('Add-ons shows VACON beside the existing Collector',
-      (tester) async {
+  testWidgets('development VACON screen remains standalone', (tester) async {
     await tester.pumpWidget(
       app(
-        AddOnsScreen(
-          service: MockAddOnService(claimDelay: () async {}),
+        VaconControlScreen(
+          facilityId: MockVaconControlService.defaultFacilityId,
           roleLoader: () async => 'admin',
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Fjellfisk Collector'), findsOneWidget);
     expect(find.text('VACON Control'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('open-vacon-control')));
-    await tester.pumpAndSettle();
     expect(find.text('Simulert testmodus'), findsWidgets);
     expect(tester.takeException(), isNull);
   });

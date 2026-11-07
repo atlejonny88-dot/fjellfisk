@@ -89,6 +89,15 @@ void main() {
     expect(setup.onPressed, isNull);
   });
 
+  testWidgets('production Add-ons does not expose VACON Control',
+      (tester) async {
+    await tester.pumpWidget(app(service: service(), role: 'admin'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('VACON Control'), findsNothing);
+    expect(find.byKey(const ValueKey('open-vacon-control')), findsNothing);
+  });
+
   testWidgets('setup is disabled until a collector is connected',
       (tester) async {
     await tester.pumpWidget(app(service: service(), role: 'admin'));
