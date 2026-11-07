@@ -23,6 +23,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "VACON Monitor-testene feilet med kode $LASTEXITCODE."
 }
 
+Remove-Item -LiteralPath (Join-Path $publishDirectory 'Fjellfisk.VaconControl.pdb') -Force -ErrorAction SilentlyContinue
+
 & $dotnet publish $monitorProject --configuration Release --runtime win-x86 --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
@@ -31,5 +33,5 @@ if ($LASTEXITCODE -ne 0) {
     throw "VACON Monitor publish feilet med kode $LASTEXITCODE."
 }
 
-Write-Host "Ferdig: $(Join-Path $publishDirectory 'Fjellfisk.VaconMonitor.exe')"
+Write-Host "Ferdig: $(Join-Path $publishDirectory 'Fjellfisk.VaconControl.exe')"
 

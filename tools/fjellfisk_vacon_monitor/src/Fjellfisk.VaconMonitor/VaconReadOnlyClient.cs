@@ -5,7 +5,7 @@ namespace Fjellfisk.VaconMonitor;
 public sealed record VaconInputRegisterSnapshot(
     DateTimeOffset ObservedAtUtc,
     decimal ActualFrequencyHz,
-    int? MotorSpeedRpm = null,
+    ushort? MotorSpeedRaw = null,
     decimal? MotorCurrentAmperes = null,
     VaconDriveStatus DriveStatus = VaconDriveStatus.Unknown,
     VaconActiveFault? ActiveFault = null,
@@ -48,11 +48,6 @@ public sealed class VaconReadOnlyModbusClient : IVaconReadOnlyClient
 
     public VaconReadOnlyModbusClient(VaconMonitorOptions options, IVaconModbusTransport transport)
     {
-        if (options.Simulated)
-        {
-            throw new ArgumentException("The Modbus client cannot be created for simulated mode.", nameof(options));
-        }
-
         if (options.UnitId == 0)
         {
             throw new ArgumentException("Modbus Unit ID 0 is not supported.", nameof(options));

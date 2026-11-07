@@ -2,9 +2,9 @@ namespace Fjellfisk.VaconMonitor;
 
 public enum VaconConnectionState
 {
+    Disconnected,
     Connecting,
     Connected,
-    Simulated,
     Stale,
     Unavailable,
 }
@@ -14,7 +14,7 @@ public sealed record VaconMonitorSnapshot(
     decimal? ActualFrequencyHz,
     DateTimeOffset? LastSuccessfulReadUtc,
     string? FailureCategory,
-    int? MotorSpeedRpm = null,
+    ushort? MotorSpeedRaw = null,
     decimal? MotorCurrentAmperes = null,
     VaconDriveStatus DriveStatus = VaconDriveStatus.Unknown,
     VaconActiveFault? ActiveFault = null,
@@ -47,24 +47,33 @@ public sealed class VaconMonitorController : IDisposable
         _options = options;
         _logger = logger;
         _controlGateway = controlGateway ?? new BlockedLiveVaconControlGateway();
-        _commandModel = new VaconCommandModel(_controlGateway.IsSimulation, _controlGateway.Limits);
-        _commandLogger = new VaconCommandLogger(_logger, options.DriveId, _controlGateway.IsSimulation);
+        _commandModel = new VaconCommandModel(_controlGateway.Limits);
+        _commandLogger = new VaconCommandLogger(_logger, options.DriveId);
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
-        _current = new VaconMonitorSnapshot(VaconConnectionState.Connecting, null, null, null);
+        _current = new VaconMonitorSnapshot(VaconConnectionState.Disconnected, null, null, null);
     }
 
     public event Action<VaconMonitorSnapshot>? Updated;
 
     public VaconMonitorSnapshot Current => _current;
 
-    public bool ControlsEnabled => _controlGateway.ControlsEnabled &&
-        (_current.State == VaconConnectionState.Simulated || _current.State == VaconConnectionState.Connected);
-
-    public bool IsSimulation => _controlGateway.IsSimulation;
+    public bool ControlsEnabled => _controlGateway.ControlsEnabled && _current.State == VaconConnectionState.Connected;
 
     public VaconControlLimits? ControlLimits => _controlGateway.Limits;
 
     public string ControlsDisabledReason => _controlGateway.DisabledReason;
+
+    public void BeginConnection()
+    {
+        ThrowIfDisposed();
+        Publish(_current with { State = VaconConnectionState.Connecting, FailureCategory = null });
+    }
+
+    public void Disconnect()
+    {
+        ThrowIfDisposed();
+        Publish(_current with { State = VaconConnectionState.Disconnected, FailureCategory = null });
+    }
 
     public async Task PollOnceAsync(CancellationToken cancellationToken)
     {
@@ -191,9 +200,9 @@ public sealed class VaconMonitorController : IDisposable
             {
                 ReadbackFrequencyHz = readback?.ActualFrequencyHz,
                 Acknowledged = acknowledged,
-                ResultCode = result.Accepted && !acknowledged ? "simulated-readback-not-acknowledged" : result.ResultCode,
-                SimulatedControlWord = preparation.Command?.ControlWord,
-                SimulatedReferenceRaw = preparation.Command?.NormalizedReference,
+                ResultCode = result.Accepted && !acknowledged ? "readback-not-acknowledged" : result.ResultCode,
+                PreparedControlWord = preparation.Command?.ControlWord,
+                PreparedReferenceRaw = preparation.Command?.NormalizedReference,
             };
             _commandLogger.Log(completed, readback?.ActualFrequencyHz ?? _current.ActualFrequencyHz);
             return completed;
@@ -206,13 +215,13 @@ public sealed class VaconMonitorController : IDisposable
 
     private void PublishReading(VaconInputRegisterSnapshot reading)
     {
-        var state = _options.Simulated ? VaconConnectionState.Simulated : VaconConnectionState.Connected;
+        _logger.LogTelemetry(reading, _options.DriveId);
         Publish(new VaconMonitorSnapshot(
-            state,
+            VaconConnectionState.Connected,
             reading.ActualFrequencyHz,
             reading.ObservedAtUtc,
             null,
-            reading.MotorSpeedRpm,
+            reading.MotorSpeedRaw,
             reading.MotorCurrentAmperes,
             reading.DriveStatus,
             reading.ActiveFault,
@@ -224,6 +233,11 @@ public sealed class VaconMonitorController : IDisposable
 
     private void Publish(VaconMonitorSnapshot snapshot)
     {
+        if (_current.State != snapshot.State)
+        {
+            _logger.LogConnectionState(snapshot.State, snapshot.FailureCategory);
+        }
+
         _current = snapshot;
         Updated?.Invoke(snapshot);
     }

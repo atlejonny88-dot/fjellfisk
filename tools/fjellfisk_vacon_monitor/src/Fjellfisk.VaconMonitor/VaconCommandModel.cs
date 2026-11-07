@@ -1,16 +1,17 @@
 namespace Fjellfisk.VaconMonitor;
 
 /// <summary>
-/// Models commands before they reach a gateway. Live mode cannot pass this
-/// boundary: the only executable command gateway in this version is simulated.
+/// Models the documented control-word/reference contract without granting a
+/// path to a physical transport. The live control gateway is deliberately
+/// blocked until formal commissioning is complete.
 /// </summary>
 public sealed class VaconCommandModel
 {
     private readonly VaconSafetyValidator _safetyValidator;
 
-    public VaconCommandModel(bool isSimulation, VaconControlLimits? limits)
+    public VaconCommandModel(VaconControlLimits? limits)
     {
-        _safetyValidator = new VaconSafetyValidator(isSimulation, limits);
+        _safetyValidator = new VaconSafetyValidator(limits);
     }
 
     public VaconCommandPreparation Prepare(

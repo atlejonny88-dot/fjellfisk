@@ -1,7 +1,6 @@
 namespace Fjellfisk.VaconMonitor;
 
 public sealed record VaconMonitorOptions(
-    bool Simulated,
     string Host,
     int Port,
     byte UnitId,
@@ -15,8 +14,7 @@ public sealed record VaconMonitorOptions(
     public const byte DefaultUnitId = 255;
     public const string DefaultDriveId = "vacon-100-flow";
 
-    public static VaconMonitorOptions SimulatedDefaults { get; } = new(
-        Simulated: true,
+    public static VaconMonitorOptions LiveDefaults { get; } = new(
         Host: DefaultHost,
         Port: DefaultPort,
         UnitId: DefaultUnitId,
@@ -32,15 +30,12 @@ public sealed record VaconMonitorOptions(
 
     public static VaconMonitorOptions Parse(string[] args)
     {
-        var live = args.Any(argument => string.Equals(argument, "--live", StringComparison.OrdinalIgnoreCase));
-        var unsupported = args.Where(argument => !string.Equals(argument, "--live", StringComparison.OrdinalIgnoreCase)).ToArray();
-
-        if (unsupported.Length > 0)
+        if (args.Length != 0)
         {
-            throw new ArgumentException("VACON Monitor supports only --live. Without it, the safe simulation is used.");
+            throw new ArgumentException("Command-line modes are not supported. VACON Control always starts in live read-only monitoring mode.");
         }
 
-        return SimulatedDefaults with { Simulated = !live };
+        return LiveDefaults;
     }
 
     public VaconMonitorOptions ForDrive(VaconDriveConfiguration drive)

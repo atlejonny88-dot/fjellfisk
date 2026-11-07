@@ -1,8 +1,9 @@
 namespace Fjellfisk.VaconMonitor;
 
 /// <summary>
-/// Simulator-only representation of the documented fixed control-word bit 0.
-/// No live Modbus transport accepts or sends this value.
+/// Documented representation of the fixed control-word bit 0 for a future,
+/// separately commissioned control implementation. No live transport accepts
+/// or sends this value in v0.4.0.
 /// </summary>
 public static class VaconControlWord
 {

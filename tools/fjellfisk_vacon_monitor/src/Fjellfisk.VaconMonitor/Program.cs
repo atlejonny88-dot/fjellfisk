@@ -30,27 +30,15 @@ internal static class Program
 
         options = options.ForDrive(configuration.SelectedDrive);
         var logger = new VaconMonitorLogger();
-        logger.LogStartup(options.Simulated);
-        SimulatedVaconDrive? simulation = null;
-        IVaconReadOnlyClient client;
-        IVaconControlGateway controlGateway;
-        if (options.Simulated)
-        {
-            simulation = new SimulatedVaconDrive(options.Drive.ToControlLimits("local-configuration"));
-            client = new SimulatedVaconReadOnlyClient(simulation);
-            controlGateway = new SimulatedVaconControlGateway(simulation);
-        }
-        else
-        {
-            client = new VaconReadOnlyModbusClient(options, new TcpVaconModbusTransport(options));
-            controlGateway = new BlockedLiveVaconControlGateway();
-        }
+        logger.LogStartup();
+        IVaconReadOnlyClient client = new VaconReadOnlyModbusClient(options, new TcpVaconModbusTransport(options));
+        IVaconControlGateway controlGateway = new BlockedLiveVaconControlGateway();
 
         using var controller = new VaconMonitorController(client, options, logger, controlGateway);
 
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        Application.Run(new VaconControlForm(controller, options, simulation, configurationStore, configuration));
+        Application.Run(new VaconControlForm(controller, options, configurationStore, configuration));
     }
 }
 

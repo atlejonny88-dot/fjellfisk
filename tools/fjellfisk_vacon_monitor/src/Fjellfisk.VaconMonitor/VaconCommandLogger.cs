@@ -8,17 +8,14 @@ public sealed class VaconCommandLogger
 {
     private readonly VaconMonitorLogger _logger;
     private readonly string _driveId;
-    private readonly bool _simulated;
-
-    public VaconCommandLogger(VaconMonitorLogger logger, string driveId, bool simulated)
+    public VaconCommandLogger(VaconMonitorLogger logger, string driveId)
     {
         _logger = logger;
         _driveId = SanitizeDriveId(driveId);
-        _simulated = simulated;
     }
 
     public void Log(VaconControlAttempt attempt, decimal? actualFrequencyHz) =>
-        _logger.LogControlAttempt(attempt, _driveId, _simulated, actualFrequencyHz);
+        _logger.LogControlAttempt(attempt, _driveId, actualFrequencyHz);
 
     private static string SanitizeDriveId(string driveId)
     {

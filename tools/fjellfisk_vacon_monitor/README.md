@@ -1,145 +1,111 @@
 # Fjellfisk VACON Control v0.4.0
 
-Fjellfisk VACON Control is a separate Windows desktop program for observing a
-VACON 100 FLOW through an already established VPN connection. It is deliberately
-not part of the Fjellfisk Flutter application, the Collector, or the Pelasyn
-backend.
+Fjellfisk VACON Control er et separat Windows-program for direkte,
+skrivebeskyttet overvåking av VACON 100 FLOW over en allerede etablert VPN.
+Programmet er uavhengig av Pelasyn, Fjellfisk-appen og Collector.
 
-The live register mapping follows the Danfoss VACON 100 Modbus TCP/UDP and RTU
-manual, Appendix 1 and Appendix 2. Process Data OUT fields remain dependent on
-the installation's configured mapping.
+## Sikkerhetsgrense
 
-## Safety boundary
+v0.4.0 er **kun overvåking**.
 
-- The simulator has Start, Stop and frequency controls for local test only.
-- Live mode has no Modbus write implementation, no transmitted control word,
-  and no configuration write path. All real control buttons are disabled.
-- It can only construct Modbus TCP function code `04` (Read Input Registers).
-- It can only read the contiguous FC04 process-data block from PDU `2100`
-  through `2110` (documented registers `2101` through `2111`). This includes
-  the status word, output frequency, motor speed, motor current and active
-  fault code. The frequency at `2104` is translated to PDU `2103` (`0x0837`)
-  and divided by `100` for Hz.
-- Process Data OUT mapping is application-configurable. The UI marks motor
-  speed and fault-code descriptions as process data until the installation
-  mapping is confirmed. Motor current is shown as a raw value only: its
-  scaling is not assumed or labelled as amperes.
-- The live status word shows documented Ready, Running, Fault, Alarm and At
-  Reference bits. An active fault code is displayed, but no fault description
-  is invented when the installed fault-code mapping has not been verified.
-- It does not start, stop, configure, or otherwise affect VACON, the VPN,
-  Collector, Vigo, P-NET, Pelasyn, or Fjellfisk production data.
+- Programmet oppretter bare Modbus TCP `FC04`-forespørsler (Read Input
+  Registers).
+- Det kan bare lese den kompilerte prosessdatablokken PDU `2100` til `2110`
+  (dokumenterte registre `2101` til `2111`).
+- Det finnes ingen Modbus-skrivefunksjon, ingen start/stopp-kommando, ingen
+  frekvensskriving og ingen skjult innstilling som kan aktivere dette.
+- Det endrer ikke VACON-parameter, VPN, Windows-nettverk, Collector, Vigo,
+  P-NET, Pelasyn eller Fjellfisk-data.
 
-## v0.4.0 drive setup and command model
+Frekvenskontroll og start/stopp vises som en fremtidig arbeidsflate, men alle
+tilhørende kontroller er deaktivert. De kan ikke sende en fysisk kommando.
 
-The application now separates telemetry reading, command modelling, simulator
-execution, safety validation and command-attempt logging.
+## Faktisk overvåking
 
-- The application can hold multiple local VACON connection profiles. Each has a
-  display name, IPv4 address, subnet mask, gateway, Modbus TCP port, Unit ID,
-  frequency range and a documented-limit marker. These values are local monitor
-  metadata only: editing them never changes Windows networking, VPN settings,
-  VACON parameters or a physical drive.
-- One selected drive is monitored at a time so FC04 polling stays serialized.
-  Selecting a different drive is saved locally and requires the operator to
-  explicitly restart the monitor before the new profile is used.
-- The simulator supports target adjustment in `0.1`, `0.5` and `1.0 Hz`
-  steps, Apply, Start and Stop. Apply, Start and Stop each require an explicit
-  confirmation in the UI.
-- A simulator command is read back and marked acknowledged only when the
-  resulting simulated state matches the requested action.
-- The documented Fieldbus Control Word (`2001`, PDU `2000`) and Fieldbus Speed
-  Reference (`2003`, PDU `2002`) exist only as a simulator command model. No
-  TCP request in this source can write either address, and the live TCP
-  transport exposes no public write/control API.
-- The frequency-reference model converts a configured minimum and maximum
-  frequency to the documented `0..10000` normalized reference. It does not
-  assume a physical maximum such as `50 Hz`.
-- Simulator limits are test-only limits, not approved facility limits. Live
-  mode remains read-only and rejects every attempted command before a Modbus
-  transport can be used.
+Standardprofilen brukes bare når operatøren eksplisitt velger **Koble til**:
 
-The command log contains timestamp, safe drive ID, command, target and actual
-frequency when known, mode, result and acknowledgement. It does not contain a
-password, token, VPN endpoint or Modbus payload.
-
-## Simulator
-
-The default mode is simulated and does not open a TCP connection:
-
-```powershell
-& '.\publish\Fjellfisk.VaconMonitor.exe'
-```
-
-The window must show `SIMULERT` and `13,00 Hz`. It supports safe local tests of
-target frequency, increment/decrement, Apply, Start, Stop, active fault, and
-connection loss. Simulator limits are `0,00–50,00 Hz` and are intentionally not
-represented as physical pump limits.
-
-## Controlled live read
-
-Only after the simulation is approved and the Beijer CloudVPN is confirmed
-connected, start one of the following from the published folder:
-
-```powershell
-& '.\publish\Fjellfisk.VaconMonitor.exe' --live
-```
-
-`--live` uses the active local connection profile and keeps the complete
-Frequency Control panel disabled. The default profile is:
-
-- Host: `192.168.30.50`
-- TCP port: `502`
+- Modell: `VACON 100 FLOW`
+- IP: `192.168.30.50`
+- Port: `502`
 - Unit ID: `255`
-- Function: `04` only
-- Poll interval: 2 seconds
+- Funksjon: `FC04`
+- Oppdateringsintervall: 2 sekunder
+- Utdatert data: etter 8 sekunder uten vellykket lesing
 
-The monitor treats data as stale after 8 seconds without a successful read.
-It keeps the last value visible but labels it as stale; it never presents stale
-data as current.
+Dokumentert output-frekvens er register `2104`, som leses med nullbasert
+PDU-adresse `2103` (`0x0837`) og deles på `100` før den vises i Hz.
 
-The profiles are stored without credentials in:
+Motorhastighet (`2105`) og motorstrøm (`2106`) vises som rå prosessdata til
+skalering og lokal registermapping er verifisert for den aktuelle omformeren.
+De presenteres derfor ikke som verifisert RPM eller ampere. Statusord og aktiv
+feilkode vises, men ingen uverifisert feilkodebeskrivelse blir oppfunnet.
+
+Hvis kommunikasjonen feiler, beholdes siste vellykkede måling synlig med en
+tydelig status for utdaterte data. Programmet krasjer ikke og gjør ingen
+automatisk tilkoblings- eller kontrollhandling uten at operatøren velger
+**Koble til**.
+
+## Lokal konfigurasjon
+
+Oppsettet kan holde flere lokale drive-profiler. En profil inneholder:
+
+- ID, visningsnavn og modell
+- IPv4-adresse, subnettmaske, gateway og valgfri DNS-metadata
+- Modbus-port og Unit ID
+- dokumentert frekvensområde
+
+Profilene endrer aldri PC-ens nettverk eller omformerens konfigurasjon. De
+lagres uten legitimasjon i:
 
 ```text
 %LOCALAPPDATA%\Fjellfisk\VaconMonitor\drives.json
 ```
 
-An invalid profile file is rejected without being overwritten. A configured
-frequency range constrains the simulator only; it never authorizes physical
-control.
+Valg av en annen drive lagres lokalt og tas i bruk ved en eksplisitt omstart av
+monitoren. En ugyldig profil blir avvist uten å overskrive den eksisterende
+filen.
 
-## Conditions before any real control work
+## Logg
 
-Real VACON control is deliberately blocked in v0.4.0. Before a later version
-can implement any write operation, an operator and the responsible electrical /
-process owner must verify and document all of the following:
-
-1. The official VACON 100 FLOW control-word and frequency-reference registers.
-2. The required Modbus write function and exact value scaling.
-3. The active fieldbus control source, including local/remote switching.
-4. Local control, physical emergency stop, pump interlocks and alarm handling.
-5. Approved pump-specific minimum/maximum frequency and acceleration limits.
-6. Communication-loss behaviour and restart behaviour.
-
-No control register or speculative write function is present in this source.
-
-## Build and test
-
-Use the bundled x86 .NET 6 SDK:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\Build-VaconMonitor.ps1
-```
-
-The script runs the local simulated test runner and publishes a self-contained
-`win-x86` executable to `publish\Fjellfisk.VaconMonitor.exe`. Communication
-failures are logged without endpoint, credentials, or payload values to:
+Kommunikasjonsstatus og trygge telemetriopplysninger logges med rotasjon i:
 
 ```text
 C:\ProgramData\Fjellfisk\VaconMonitor\logs\vacon-monitor.log
 ```
 
-Control attempts in simulator mode are logged with timestamp, command, target,
-acceptance and readback. The log contains no password, token, VPN endpoint, or
-Modbus payload.
+Loggen inneholder tidspunkt, trygg drive-ID, feilklasse, faktisk frekvens når
+den finnes og rådata for hastighet/strøm. Den inneholder ikke passord, token,
+VPN-endepunkt eller Modbus-payload.
 
+## Bygg og test
+
+Kjør fra denne mappen:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Build-VaconMonitor.ps1
+```
+
+Scriptet kjører lokale tester med fiktive transportresponser og publiserer en
+selvstendig `win-x86`-fil til:
+
+```text
+publish\Fjellfisk.VaconControl.exe
+```
+
+Testene kontakter ikke VACON. Reell verifikasjon må gjøres kontrollert av
+operatør etter at Beijer CloudVPN er tilkoblet.
+
+## Før fysisk kontroll kan vurderes senere
+
+Ingen fysisk styring er godkjent av denne versjonen. Før en senere, separat
+idriftsettelse må ansvarlig elektro- og prosesseier dokumentere:
+
+1. Eksakt modell, firmware og aktuell Modbus-/fieldbus-opsjon.
+2. Kontrollord, referanseregister, Modbus-funksjon og skaleringsregler.
+3. Feltbuss som aktiv kontrollkilde og korrekt lokal/fjern-velger.
+4. Pumpespesifikke minimums-/maksimumsfrekvenser og ramper.
+5. Prosessinterlocks, nødstopp, manuell overstyring og feilreset.
+6. Atferd ved kommunikasjonsbrudd og restart.
+
+Først etter separat godkjenning kan en ny versjon vurderes. Denne versjonen
+skal ikke brukes til å starte, stoppe eller endre frekvens på fysisk utstyr.

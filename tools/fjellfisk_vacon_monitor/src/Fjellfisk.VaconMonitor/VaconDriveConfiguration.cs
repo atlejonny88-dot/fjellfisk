@@ -17,7 +17,9 @@ public sealed record VaconDriveConfiguration(
     byte UnitId,
     decimal MinimumFrequencyHz,
     decimal MaximumFrequencyHz,
-    bool FrequencyLimitsApproved = false)
+    bool FrequencyLimitsApproved = false,
+    string Model = "VACON 100 FLOW",
+    string? Dns = null)
 {
     public static VaconDriveConfiguration Default { get; } = new(
         "vacon-100-flow",
@@ -52,9 +54,20 @@ public sealed record VaconDriveConfiguration(
             throw new ArgumentException("Drive name is required and must be at most 80 characters.", nameof(DisplayName));
         }
 
+        if (string.IsNullOrWhiteSpace(Model) || Model.Length > 80)
+        {
+            throw new ArgumentException("Drive model is required and must be at most 80 characters.", nameof(Model));
+        }
+
         ValidateIpv4(Host, nameof(Host));
         ValidateSubnetMask(SubnetMask);
         ValidateIpv4(Gateway, nameof(Gateway));
+        if (!string.IsNullOrWhiteSpace(Dns) &&
+            !IPAddress.TryParse(Dns, out _) &&
+            Uri.CheckHostName(Dns) is UriHostNameType.Unknown)
+        {
+            throw new ArgumentException("DNS must be a valid host name or IP address when provided.", nameof(Dns));
+        }
 
         if (Port is < 1 or > 65535)
         {

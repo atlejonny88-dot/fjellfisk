@@ -13,9 +13,11 @@ public sealed class VaconConnectionSetupForm : Form
     private readonly ComboBox _drives = new();
     private readonly TextBox _idInput = new();
     private readonly TextBox _nameInput = new();
+    private readonly TextBox _modelInput = new();
     private readonly TextBox _hostInput = new();
     private readonly TextBox _subnetInput = new();
     private readonly TextBox _gatewayInput = new();
+    private readonly TextBox _dnsInput = new();
     private readonly NumericUpDown _portInput = new();
     private readonly NumericUpDown _unitInput = new();
     private readonly NumericUpDown _minimumInput = new();
@@ -44,7 +46,7 @@ public sealed class VaconConnectionSetupForm : Form
             AutoScroll = true,
             Padding = new Padding(24),
             ColumnCount = 2,
-            RowCount = 15,
+            RowCount = 17,
         };
         page.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
         page.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -78,9 +80,11 @@ public sealed class VaconConnectionSetupForm : Form
 
         ConfigureTextInput(_idInput);
         ConfigureTextInput(_nameInput);
+        ConfigureTextInput(_modelInput);
         ConfigureTextInput(_hostInput);
         ConfigureTextInput(_subnetInput);
         ConfigureTextInput(_gatewayInput);
+        ConfigureTextInput(_dnsInput);
         ConfigureNumberInput(_portInput, 1, 65535, 0);
         ConfigureNumberInput(_unitInput, 1, 255, 0);
         ConfigureNumberInput(_minimumInput, 0, 1000, 2);
@@ -88,18 +92,20 @@ public sealed class VaconConnectionSetupForm : Form
 
         AddRow(page, 3, "Drive ID", _idInput);
         AddRow(page, 4, "Display name", _nameInput);
-        AddRow(page, 5, "IP address", _hostInput);
-        AddRow(page, 6, "Subnet mask", _subnetInput);
-        AddRow(page, 7, "Gateway", _gatewayInput);
-        AddRow(page, 8, "Modbus TCP port", _portInput);
-        AddRow(page, 9, "Modbus Unit ID", _unitInput);
-        AddRow(page, 10, "Minimum Hz", _minimumInput);
-        AddRow(page, 11, "Maximum Hz", _maximumInput);
+        AddRow(page, 5, "Model", _modelInput);
+        AddRow(page, 6, "IP address", _hostInput);
+        AddRow(page, 7, "Subnet mask", _subnetInput);
+        AddRow(page, 8, "Gateway", _gatewayInput);
+        AddRow(page, 9, "DNS (metadata)", _dnsInput);
+        AddRow(page, 10, "Modbus TCP port", _portInput);
+        AddRow(page, 11, "Modbus Unit ID", _unitInput);
+        AddRow(page, 12, "Minimum Hz", _minimumInput);
+        AddRow(page, 13, "Maximum Hz", _maximumInput);
 
         _limitsApprovedInput.Text = "Frekvensgrensene er dokumentert for dette oppsettet";
         _limitsApprovedInput.AutoSize = true;
         _limitsApprovedInput.Margin = new Padding(0, 7, 0, 7);
-        page.Controls.Add(_limitsApprovedInput, 1, 12);
+        page.Controls.Add(_limitsApprovedInput, 1, 14);
 
         var safety = new Label
         {
@@ -108,7 +114,7 @@ public sealed class VaconConnectionSetupForm : Form
             MaximumSize = new Size(400, 0),
             ForeColor = Color.FromArgb(126, 85, 0),
         };
-        page.Controls.Add(safety, 1, 13);
+        page.Controls.Add(safety, 1, 15);
 
         var actions = new FlowLayoutPanel
         {
@@ -132,7 +138,7 @@ public sealed class VaconConnectionSetupForm : Form
         actions.Controls.Add(setActive);
         actions.Controls.Add(save);
         actions.Controls.Add(add);
-        page.Controls.Add(actions, 0, 14);
+        page.Controls.Add(actions, 0, 16);
         page.SetColumnSpan(actions, 2);
 
         Controls.Add(page);
@@ -178,9 +184,11 @@ public sealed class VaconConnectionSetupForm : Form
         _editingId = drive.Id;
         _idInput.Text = drive.Id;
         _nameInput.Text = drive.DisplayName;
+        _modelInput.Text = drive.Model;
         _hostInput.Text = drive.Host;
         _subnetInput.Text = drive.SubnetMask;
         _gatewayInput.Text = drive.Gateway;
+        _dnsInput.Text = drive.Dns ?? string.Empty;
         _portInput.Value = drive.Port;
         _unitInput.Value = drive.UnitId;
         _minimumInput.Value = drive.MinimumFrequencyHz;
@@ -318,7 +326,9 @@ public sealed class VaconConnectionSetupForm : Form
             decimal.ToByte(_unitInput.Value),
             _minimumInput.Value,
             _maximumInput.Value,
-            _limitsApprovedInput.Checked);
+            _limitsApprovedInput.Checked,
+            _modelInput.Text.Trim(),
+            string.IsNullOrWhiteSpace(_dnsInput.Text) ? null : _dnsInput.Text.Trim());
         drive.Validate();
         return drive;
     }
