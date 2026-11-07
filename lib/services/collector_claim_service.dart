@@ -377,10 +377,9 @@ class CollectorClaimService {
     }
 
     final code = _errorCode(response.body);
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      return const ClaimCodeResult(ClaimCodeResultType.unauthorized);
-    }
     return switch (code) {
+      'COLLECTOR_ENTITLEMENT_REQUIRED' =>
+        const ClaimCodeResult(ClaimCodeResultType.notEntitled),
       'PAIRING_CODE_EXPIRED' =>
         const ClaimCodeResult(ClaimCodeResultType.expired),
       'PAIRING_CODE_USED' ||
@@ -389,6 +388,8 @@ class CollectorClaimService {
         const ClaimCodeResult(ClaimCodeResultType.alreadyUsed),
       'PAIRING_CODE_INVALID' =>
         const ClaimCodeResult(ClaimCodeResultType.invalid),
+      _ when response.statusCode == 401 || response.statusCode == 403 =>
+        const ClaimCodeResult(ClaimCodeResultType.unauthorized),
       _ => const ClaimCodeResult(ClaimCodeResultType.unavailable),
     };
   }

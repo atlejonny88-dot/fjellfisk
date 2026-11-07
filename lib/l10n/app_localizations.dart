@@ -3628,30 +3628,6 @@ abstract class AppLocalizations {
   /// **'Collector er tilkoblet, men klarer ikke å lese sensorverdiene.'**
   String get collectorConnectedSensorReadFailed;
 
-  /// No description provided for @collectorSensorSetupUnavailable.
-  ///
-  /// In nb, this message translates to:
-  /// **'Ingen sensorer er mottatt fra Collector ennå.'**
-  String get collectorSensorSetupUnavailable;
-
-  /// No description provided for @collectorCatalogUnavailable.
-  ///
-  /// In nb, this message translates to:
-  /// **'Seksjoner og kar kunne ikke lastes.'**
-  String get collectorCatalogUnavailable;
-
-  /// No description provided for @collectorRemoveMapping.
-  ///
-  /// In nb, this message translates to:
-  /// **'Fjern kar-kobling'**
-  String get collectorRemoveMapping;
-
-  /// No description provided for @collectorMappingSaveFailed.
-  ///
-  /// In nb, this message translates to:
-  /// **'Sensoroppsettet kunne ikke lagres. Kontroller at hver sensor er koblet til et eget kar. Valgene er beholdt.'**
-  String get collectorMappingSaveFailed;
-
   /// No description provided for @collectorSensorFailed.
   ///
   /// In nb, this message translates to:

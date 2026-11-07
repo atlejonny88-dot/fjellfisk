@@ -1999,21 +1999,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Collector jest połączony, ale nie może odczytać wartości czujników.';
 
   @override
-  String get collectorSensorSetupUnavailable =>
-      'Nie odebrano jeszcze żadnych czujników z Collectora.';
-
-  @override
-  String get collectorCatalogUnavailable =>
-      'Nie udało się wczytać sekcji i zbiorników.';
-
-  @override
-  String get collectorRemoveMapping => 'Usuń przypisanie do zbiornika';
-
-  @override
-  String get collectorMappingSaveFailed =>
-      'Nie udało się zapisać konfiguracji czujników. Sprawdź, czy każdy czujnik ma osobny zbiornik. Wybrane ustawienia zostały zachowane.';
-
-  @override
   String get collectorSensorFailed => 'Błąd czujnika';
 
   @override

@@ -7,8 +7,8 @@ const {
 } = require('./production_release_config.cjs');
 
 const target = process.argv[2];
-if (!['web', 'appbundle'].includes(target)) {
-  throw new Error('Usage: node tool/build_production_release.cjs <web|appbundle>');
+if (!['web', 'apk', 'appbundle'].includes(target)) {
+  throw new Error('Usage: node tool/build_production_release.cjs <web|apk|appbundle>');
 }
 
 const config = verifyProductionRelease();

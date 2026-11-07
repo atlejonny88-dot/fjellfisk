@@ -1982,21 +1982,6 @@ class AppLocalizationsNb extends AppLocalizations {
       'Collector er tilkoblet, men klarer ikke å lese sensorverdiene.';
 
   @override
-  String get collectorSensorSetupUnavailable =>
-      'Ingen sensorer er mottatt fra Collector ennå.';
-
-  @override
-  String get collectorCatalogUnavailable =>
-      'Seksjoner og kar kunne ikke lastes.';
-
-  @override
-  String get collectorRemoveMapping => 'Fjern kar-kobling';
-
-  @override
-  String get collectorMappingSaveFailed =>
-      'Sensoroppsettet kunne ikke lagres. Kontroller at hver sensor er koblet til et eget kar. Valgene er beholdt.';
-
-  @override
   String get collectorSensorFailed => 'Sensorfeil';
 
   @override

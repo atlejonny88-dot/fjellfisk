@@ -1983,21 +1983,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'The collector is connected but cannot read sensor values.';
 
   @override
-  String get collectorSensorSetupUnavailable =>
-      'No sensors have been received from Collector yet.';
-
-  @override
-  String get collectorCatalogUnavailable =>
-      'Sections and tanks could not be loaded.';
-
-  @override
-  String get collectorRemoveMapping => 'Remove tank mapping';
-
-  @override
-  String get collectorMappingSaveFailed =>
-      'The sensor setup could not be saved. Check that each sensor has its own tank. Your selections have been kept.';
-
-  @override
   String get collectorSensorFailed => 'Sensor failure';
 
   @override

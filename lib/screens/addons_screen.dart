@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -6,6 +8,7 @@ import '../l10n/localizations.dart';
 import '../models/addon.dart';
 import '../services/addon_service.dart';
 import '../services/collector_claim_service.dart';
+import '../services/remote_addon_service.dart';
 import '../services/user_service.dart';
 import '../utils/ui_motion.dart';
 import 'collector_setup_screen.dart';
@@ -28,7 +31,8 @@ class AddOnsScreen extends StatefulWidget {
   State<AddOnsScreen> createState() => _AddOnsScreenState();
 }
 
-class _AddOnsScreenState extends State<AddOnsScreen> {
+class _AddOnsScreenState extends State<AddOnsScreen>
+    with WidgetsBindingObserver {
   late final AddOnService _service;
   late final CollectorClaimService _claimService;
   late final Future<String> _roleFuture;
@@ -36,16 +40,28 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? MockAddOnService.shared;
     _claimService =
         widget.claimService ?? CollectorClaimService.fromEnvironment();
+    _service = widget.service ??
+        (_claimService.isConfigured
+            ? RemoteAddOnService(
+                api: _claimService,
+                facilityId: widget.facilityId,
+              )
+            : MockAddOnService.shared);
     _roleFuture = (widget.roleLoader ?? UserService.getCurrentUserRole)();
     _service.addListener(_onServiceChanged);
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_refreshCollectorStatus());
   }
 
   @override
   void dispose() {
     _service.removeListener(_onServiceChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    if (widget.service == null && _service is RemoteAddOnService) {
+      _service.dispose();
+    }
     if (widget.claimService == null) _claimService.dispose();
     super.dispose();
   }
@@ -54,16 +70,32 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
     if (mounted) setState(() {});
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshCollectorStatus());
+    }
+  }
+
+  Future<void> _refreshCollectorStatus() async {
+    try {
+      await _roleFuture;
+    } catch (_) {
+      return;
+    }
+    if (mounted) await _service.refresh();
+  }
+
+  String _backendMessage(ClaimCodeResultType? type) =>
+      type == ClaimCodeResultType.unauthorized
+          ? context.l10n.collectorAuthorizationFailed
+          : context.l10n.collectorBackendUnavailable;
+
   Future<void> _openPairingDialog() async {
     final result = await showDialog<ClaimCodeResult>(
       context: context,
       builder: (_) => _CollectorPairingDialog(
-        claim: _claimService.isConfigured
-            ? (claimCode) => _claimService.claimCollector(
-                  facilityId: widget.facilityId,
-                  pairingCode: claimCode,
-                )
-            : _service.claimCollector,
+        claim: _service.claimCollector,
       ),
     );
     if (!mounted || result?.isSuccess != true) return;
@@ -92,7 +124,16 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
       ),
     );
     if (shouldDisconnect != true) return;
-    await _service.disconnect(addOn.id);
+    try {
+      await _service.disconnect(addOn.id);
+    } on CollectorBackendException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_backendMessage(error.type))),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.collectorDisconnected)),
@@ -100,7 +141,7 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
   }
 
   void _openSetup(AddOn addOn) {
-    if (!addOn.isConnected) return;
+    if (!addOn.canConfigure || _service.loadError != null) return;
     Navigator.of(context).push(
       subtleFadeSlideRoute<void>(
         context: context,
@@ -116,7 +157,17 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.addOns)),
+      appBar: AppBar(
+        title: Text(context.l10n.addOns),
+        actions: [
+          IconButton(
+            key: const ValueKey('refresh-collector-status'),
+            tooltip: context.l10n.refresh,
+            onPressed: _service.isRefreshing ? null : _refreshCollectorStatus,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: FutureBuilder<String>(
         future: _roleFuture,
         builder: (context, snapshot) {
@@ -147,6 +198,18 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
+                      if (_service.isRefreshing)
+                        const LinearProgressIndicator(),
+                      if (_service.loadError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Text(
+                            _backendMessage(_service.loadError),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       ..._service.addOns
                           .where((addOn) => addOn.type == AddOnType.collector)
                           .map(
@@ -154,7 +217,9 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
                               padding: const EdgeInsets.only(bottom: 14),
                               child: _AddOnCard(
                                 addOn: addOn,
-                                canManage: canManage,
+                                canManage: canManage &&
+                                    !_service.isRefreshing &&
+                                    _service.loadError == null,
                                 onConnect: _openPairingDialog,
                                 onDisconnect: () => _confirmDisconnect(addOn),
                                 onSetup: () => _openSetup(addOn),
@@ -324,7 +389,7 @@ class _AddOnCard extends StatelessWidget {
   Widget _actions(BuildContext context) {
     final setup = FilledButton.icon(
       key: ValueKey('collector-setup-${addOn.id}'),
-      onPressed: canManage && addOn.isConnected ? onSetup : null,
+      onPressed: canManage && addOn.canConfigure ? onSetup : null,
       icon: const Icon(Icons.settings_outlined),
       label: Text(context.l10n.collectorSetupButton),
     );

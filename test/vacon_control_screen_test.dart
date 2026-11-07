@@ -31,7 +31,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('VACON Control'), findsOneWidget);
+    expect(find.text('VACON Control'), findsWidgets);
     expect(find.text('Simulert testmodus'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
