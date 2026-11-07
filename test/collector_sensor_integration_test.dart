@@ -4,6 +4,7 @@ import 'package:fjellfisk/l10n/app_localizations.dart';
 import 'package:fjellfisk/l10n/language_controller.dart';
 import 'package:fjellfisk/models/addon.dart';
 import 'package:fjellfisk/screens/collector_setup_screen.dart';
+import 'package:fjellfisk/services/addon_service.dart';
 import 'package:fjellfisk/services/collector_claim_service.dart';
 import 'package:fjellfisk/services/remote_addon_service.dart';
 import 'package:fjellfisk/theme/app_theme.dart';
@@ -22,17 +23,22 @@ void main() {
   var mappings = <Map<String, dynamic>>[];
   var saveFails = false;
   var health = 'ok';
+  var backendUnavailable = false;
   late String timestamp;
   setUp(() {
     mappings = [];
     saveFails = false;
     health = 'ok';
+    backendUnavailable = false;
     timestamp = DateTime.now().toUtc().toIso8601String();
     api = CollectorClaimService(
       backendUrl: 'https://collector.example',
       tokenProvider: _Token(),
       client: MockClient((request) async {
         expect(request.headers['authorization'], 'Bearer test-token');
+        if (backendUnavailable) {
+          return http.Response('{"error":{"code":"UNAVAILABLE"}}', 503);
+        }
         if (request.method == 'POST') {
           expect(
               request.url.path, '/admin/v1/collectors/real-collector/mappings');
@@ -156,6 +162,57 @@ void main() {
     remote.dispose();
   });
 
+  test('delayed heartbeat remains paired and keeps setup available', () async {
+    timestamp = DateTime.now()
+        .subtract(const Duration(minutes: 2))
+        .toUtc()
+        .toIso8601String();
+    final remote = service();
+
+    await remote.refresh();
+
+    expect(remote.addOns.single.status, AddOnStatus.delayed);
+    expect(remote.addOns.single.isConnected, isTrue);
+    expect(remote.addOns.single.canConfigure, isTrue);
+    remote.dispose();
+  });
+
+  test('temporary API failure retains the last known sensor state', () async {
+    final remote = service();
+    await remote.refresh();
+
+    backendUnavailable = true;
+    await remote.refresh();
+
+    expect(remote.loadError, ClaimCodeResultType.unavailable);
+    expect(remote.addOns.single.status, AddOnStatus.connected);
+    expect(remote.sensorsForCollector('real-collector').single.status,
+        CollectorSensorStatus.live);
+    remote.dispose();
+  });
+
+  testWidgets('paired collector separates failed sensor reads from connection',
+      (tester) async {
+    health = 'failed';
+    final remote = service();
+    await remote.refresh();
+
+    await tester.pumpWidget(app(remote));
+    await tester.pumpAndSettle();
+
+    expect(remote.sensorsForCollector('real-collector').single.status,
+        CollectorSensorStatus.failed);
+    expect(find.text('Tilkoblet'), findsOneWidget);
+    expect(find.text('Feilet'), findsOneWidget);
+    expect(
+      find.text(
+          'Collector er tilkoblet, men klarer ikke å lese sensorverdiene.'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    remote.dispose();
+  });
+
   testWidgets('Setup chooses actual sections and tanks and saves to backend',
       (tester) async {
     final remote = service();
@@ -165,13 +222,19 @@ void main() {
     expect(find.text('Pacific 01 / Probe 01'), findsOneWidget);
     expect(find.textContaining('11,7 mg/L'), findsOneWidget);
     expect(find.text('Hovedbygg'), findsNothing);
-    await tester
-        .tap(find.byKey(const ValueKey('collector-setup-section-real-probe')));
+    final sectionField =
+        find.byKey(const ValueKey('collector-setup-section-real-probe'));
+    await tester.ensureVisible(sectionField);
+    await tester.pumpAndSettle();
+    await tester.tap(sectionField);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tunnel ekte').last);
     await tester.pumpAndSettle();
-    await tester
-        .tap(find.byKey(const ValueKey('collector-setup-tank-real-probe')));
+    final tankField =
+        find.byKey(const ValueKey('collector-setup-tank-real-probe'));
+    await tester.ensureVisible(tankField);
+    await tester.pumpAndSettle();
+    await tester.tap(tankField);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kar ekte').last);
     await tester.pumpAndSettle();

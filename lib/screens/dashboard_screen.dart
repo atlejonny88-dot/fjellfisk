@@ -1,4 +1,3 @@
-import '../utils/data_values.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,6 +12,8 @@ import '../services/excel_service.dart';
 import '../services/addon_service.dart';
 import '../services/collector_claim_service.dart';
 import '../services/dashboard_temperature_service.dart';
+import '../services/dashboard_snapshot_cache.dart';
+import '../services/dashboard_production_data_service.dart';
 import '../services/notification_service.dart';
 import '../services/remote_addon_service.dart';
 import '../services/user_service.dart';
@@ -22,6 +23,7 @@ import '../utils/tank_status.dart';
 import '../utils/ui_motion.dart';
 import '../widgets/dashboard_v3_widgets.dart';
 import '../widgets/dashboard_temperature_kpi.dart';
+import '../widgets/dashboard_refresh_warning.dart';
 import '../widgets/diary_log_panel.dart';
 import '../widgets/notification_center.dart';
 import 'admin_users_screen.dart';
@@ -46,11 +48,11 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  static const Duration _loadTimeout = Duration(seconds: 25);
-
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _diaryKey = GlobalKey();
   late Future<Map<String, dynamic>> _dashboardFuture;
+  final DashboardSnapshotCache<Map<String, dynamic>> _dashboardCache =
+      DashboardSnapshotCache<Map<String, dynamic>>();
   late Future<String> _roleFuture;
   late Stream<List<AppNotification>> _notificationStream;
   StreamSubscription<List<AppNotification>>? _notificationSubscription;
@@ -62,18 +64,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final AddOnService _addOnService;
   CollectorClaimService? _collectorApi;
   late final DashboardTemperatureConfigurationStore _temperatureStore;
-
-  CollectionReference<Map<String, dynamic>> get _sectionsRef {
-    return FirebaseFirestore.instance
-        .collection('facilities')
-        .doc(widget.facilityId)
-        .collection('sections');
-  }
+  late final DashboardProductionDataService _dashboardDataService;
 
   @override
   void initState() {
     super.initState();
-    _dashboardFuture = _loadDashboard().timeout(_loadTimeout);
+    _dashboardDataService = DashboardProductionDataService(
+      source: FirestoreDashboardProductionDataSource(
+        FirebaseFirestore.instance,
+      ),
+    );
+    _dashboardFuture = _loadDashboardAndCache();
     _roleFuture = UserService.getCurrentUserRole();
     _temperatureStore = FirestoreDashboardTemperatureConfigurationStore();
     _collectorApi = CollectorClaimService.fromEnvironment();
@@ -142,197 +143,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  double _biomassKg(int fishCount, double avgWeightGram) {
-    if (fishCount <= 0 || avgWeightGram <= 0) return 0;
-    return fishCount * avgWeightGram / 1000;
-  }
-
-  double _feedPercent(double weight) {
-    if (weight <= 0) return 0;
-    if (weight < 100) return 1.5;
-    if (weight < 300) return 1.0;
-    if (weight < 1000) return 0.8;
-    return 0.6;
-  }
-
-  Future<double> _latestWeight(
-    CollectionReference<Map<String, dynamic>> logsRef, {
-    required bool forceServer,
-  }) async {
-    final snap = await _getQuery(
-      logsRef.orderBy('date', descending: true).limit(50),
-      forceServer: forceServer,
-    );
-    for (final doc in snap.docs) {
-      final weight = _weightFromLog(doc.data());
-      if (weight > 0) return weight;
-    }
-    return 0;
-  }
-
-  Future<QuerySnapshot<Map<String, dynamic>>> _getQuery(
-    Query<Map<String, dynamic>> query, {
-    required bool forceServer,
-  }) async {
-    if (!forceServer) return query.get();
-
-    try {
-      return await query.get(const GetOptions(source: Source.server));
-    } on FirebaseException catch (error) {
-      if (error.code != 'unavailable' &&
-          error.code != 'deadline-exceeded' &&
-          error.code != 'network-request-failed') {
-        rethrow;
-      }
-      return query.get(const GetOptions(source: Source.cache));
-    }
-  }
-
-  double _toDouble(Object? value) => DataValues.decimal(value);
-
-  double _weightFromLog(Map<String, dynamic> data) {
-    final candidates = [
-      data['avgWeight'],
-      data['avgWeightGram'],
-      data['averageWeight'],
-      data['weight'],
-    ];
-    for (final value in candidates) {
-      final weight = _toDouble(value);
-      if (weight > 0) return weight;
-    }
-    return 0;
-  }
-
-  Future<Map<String, dynamic>> _loadDashboard(
-      {bool forceServer = false}) async {
-    final now = DateTime.now();
-    final startOfToday = DateTime(now.year, now.month, now.day);
-
-    int totalSections = 0;
-    int totalTanks = 0;
-    int activeTanks = 0;
-    int emptyTanks = 0;
-    int totalFish = 0;
-    int mortalityToday = 0;
-    double totalBiomassKg = 0;
-    double recommendedFeedKg = 0;
-    double feedTodayKg = 0;
-    final activeTemperatureTanks = <DashboardTemperatureTankKey>{};
-    final sectionRows = <Map<String, dynamic>>[];
-
-    final sectionsSnap = await _getQuery(
-      _sectionsRef,
-      forceServer: forceServer,
-    );
-    totalSections = sectionsSnap.docs.length;
-
-    for (final section in sectionsSnap.docs) {
-      final sectionData = section.data();
-      final sectionName = (sectionData['name'] ?? section.id).toString();
-      int sectionTanks = 0;
-      int sectionActiveTanks = 0;
-      int sectionEmptyTanks = 0;
-      int sectionFish = 0;
-      double sectionBiomassKg = 0;
-      double sectionFeedKg = 0;
-
-      final tanksSnap = await _getQuery(
-        section.reference.collection('tanks'),
-        forceServer: forceServer,
+  Future<Map<String, dynamic>> _loadDashboardAndCache({
+    bool forceServer = false,
+  }) =>
+      _dashboardCache.load(
+        () => _dashboardDataService.load(
+          facilityId: widget.facilityId,
+          forceServer: forceServer,
+        ),
       );
-      sectionTanks = tanksSnap.docs.length;
-      totalTanks += sectionTanks;
-
-      for (final tank in tanksSnap.docs) {
-        final tankData = tank.data();
-        final fishCount = TankStatus.fishCountFrom(tankData['fishCount']);
-        final isActive = TankStatus.isActiveFishCount(fishCount);
-
-        if (isActive) {
-          sectionActiveTanks++;
-          activeTanks++;
-          sectionFish += fishCount;
-          totalFish += fishCount;
-          activeTemperatureTanks.add(
-            DashboardTemperatureTankKey(
-              sectionId: section.id,
-              tankId: tank.id,
-            ),
-          );
-        } else {
-          sectionEmptyTanks++;
-          emptyTanks++;
-        }
-
-        final logsRef = tank.reference.collection('logs');
-        if (!isActive) continue;
-
-        final latestWeight = await _latestWeight(
-          logsRef,
-          forceServer: forceServer,
-        );
-        final biomass = _biomassKg(fishCount, latestWeight);
-        final dailyFeed = biomass * (_feedPercent(latestWeight) / 100);
-        sectionBiomassKg += biomass;
-        sectionFeedKg += dailyFeed;
-        totalBiomassKg += biomass;
-        recommendedFeedKg += dailyFeed;
-
-        final logsSnap = await _getQuery(
-          logsRef,
-          forceServer: forceServer,
-        );
-        for (final log in logsSnap.docs) {
-          final data = log.data();
-          final dateRaw = data['date'];
-          final date = dateRaw is Timestamp ? dateRaw.toDate() : null;
-          if (date != null &&
-              !date.isBefore(startOfToday) &&
-              !date.isAfter(now)) {
-            final mortality = data['mortality'] ?? data['dead'] ?? 0;
-            final feed = data['feedKg'] ?? 0;
-            mortalityToday += DataValues.integer(mortality);
-            feedTodayKg += DataValues.decimal(feed);
-          }
-        }
-      }
-
-      sectionRows.add({
-        'id': section.id,
-        'name': sectionName,
-        'tanks': sectionTanks,
-        'activeTanks': sectionActiveTanks,
-        'emptyTanks': sectionEmptyTanks,
-        'fish': sectionFish,
-        'biomassKg': sectionBiomassKg,
-        'recommendedFeedKg': sectionFeedKg,
-      });
-    }
-
-    return {
-      'sections': totalSections,
-      'tanks': totalTanks,
-      'activeTanks': activeTanks,
-      'emptyTanks': emptyTanks,
-      'fish': totalFish,
-      'biomassKg': totalBiomassKg,
-      'recommendedFeedKg': recommendedFeedKg,
-      'mortalityToday': mortalityToday,
-      'feedTodayKg': feedTodayKg,
-      'activeTemperatureTanks': activeTemperatureTanks,
-      'sectionRows': sectionRows,
-    };
-  }
 
   Future<void> _refresh({bool showFeedback = false}) async {
     if (_isRefreshing) return;
 
-    final future = _loadDashboard(forceServer: true).timeout(_loadTimeout);
+    final future = _loadDashboardAndCache(forceServer: true);
     setState(() {
       _isRefreshing = true;
       _diaryRefreshKey++;
-      _dashboardFuture = future;
+      _dashboardCache.clearError();
       _roleFuture = UserService.getCurrentUserRole();
     });
     try {
@@ -343,10 +171,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         SnackBar(content: Text(context.l10n.dashboardUpdated)),
       );
     } catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint('Fjellfisk dashboard refresh error: $error\n$stackTrace');
-      }
-      // FutureBuilder shows a local retry state.
+      _logDashboardLoadError(error, stackTrace);
+      // A previous complete dashboard remains usable while a temporary
+      // network or Firebase error is retried.
     } finally {
       if (mounted) {
         setState(() => _isRefreshing = false);
@@ -586,18 +413,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _dashboardErrorMessage(Object? error) {
-    if (error is TimeoutException) {
+    final cause = error is DashboardDataLoadException ? error.cause : error;
+    if (cause is TimeoutException) {
       return context.l10n.dashboardLoadTimeout;
     }
-    if (error is FirebaseException) {
-      if (error.code == 'permission-denied') {
+    if (cause is FirebaseException) {
+      if (cause.code == 'permission-denied') {
         return context.l10n.dashboardPermissionDenied;
       }
-      if (error.code == 'unavailable') {
+      if (cause.code == 'unavailable') {
         return context.l10n.dashboardUnavailable;
       }
     }
     return context.l10n.dashboardLoadFailed;
+  }
+
+  void _logDashboardLoadError(Object error, [StackTrace? stackTrace]) {
+    if (!kDebugMode) return;
+    if (error is DashboardDataLoadException) {
+      debugPrint(
+        'Fjellfisk dashboard read failed '
+        'operation=${error.operation.name} '
+        'category=${error.category} '
+        'durationMs=${error.elapsed.inMilliseconds}',
+      );
+      return;
+    }
+    debugPrint('Fjellfisk dashboard refresh error: $error\n$stackTrace');
   }
 
   @override
@@ -636,21 +478,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: _dashboardFuture,
                   builder: (context, snapshot) {
-                    if (snapshot.hasError) {
+                    final dashboard = _dashboardCache.value ?? snapshot.data;
+                    if (snapshot.hasError && dashboard == null) {
                       if (kDebugMode) {
-                        debugPrint(
-                          'Fjellfisk dashboard load error: ${snapshot.error}',
-                        );
+                        _logDashboardLoadError(snapshot.error!);
                       }
                       return DashboardErrorState(
                         message: _dashboardErrorMessage(snapshot.error),
                         onRetry: _refreshFromUser,
                       );
                     }
-                    if (!snapshot.hasData) {
+                    if (dashboard == null) {
                       return const DashboardLoadingState();
                     }
-                    return _dashboardContent(snapshot.data!);
+                    return _dashboardContent(
+                      dashboard,
+                      refreshError: _dashboardCache.lastRefreshError,
+                    );
                   },
                 ),
               ),
@@ -678,7 +522,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _dashboardContent(Map<String, dynamic> data) {
+  Widget _dashboardContent(
+    Map<String, dynamic> data, {
+    Object? refreshError,
+  }) {
     final l10n = context.l10n;
     final sectionRows = data['sectionRows'] as List<Map<String, dynamic>>;
     final biomassKg = data['biomassKg'] as double;
@@ -707,6 +554,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     isRefreshing: _isRefreshing,
                     onRefresh: _refreshFromUser,
                   ),
+                  if (refreshError != null) ...[
+                    const SizedBox(height: 12),
+                    DashboardRefreshWarning(onRetry: _refreshFromUser),
+                  ],
                   const SizedBox(height: 20),
                   ResponsiveDashboardGrid(
                     minItemWidth: 190,

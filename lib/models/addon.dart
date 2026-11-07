@@ -9,6 +9,7 @@ enum AddOnStatus {
   notConnected,
   pending,
   connected,
+  delayed,
   offline,
   revoked,
   error,
@@ -45,7 +46,8 @@ class AddOn {
   final int? sensorCount;
   final DateTime? latestMeasurementAt;
 
-  bool get isConnected => status == AddOnStatus.connected;
+  bool get isConnected =>
+      status == AddOnStatus.connected || status == AddOnStatus.delayed;
   bool get canConfigure => isConnected || status == AddOnStatus.offline;
 
   AddOn copyWith({
@@ -86,6 +88,7 @@ class AddOn {
 enum CollectorSensorStatus {
   live,
   stale,
+  failed,
   offline,
 }
 

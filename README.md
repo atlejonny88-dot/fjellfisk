@@ -69,3 +69,19 @@ Les [CONTRIBUTING_STUDENTS.md](CONTRIBUTING_STUDENTS.md) for alle reglene.
 - Ikke endre produksjonsdata eller Firestore-regler uten avtale.
 - Ikke rør eller koble til OxyGuard/Vigo.
 - Ikke push direkte til `main` eller merge egne Pull Requests.
+
+## Produksjonsbygg
+
+Bruk alltid de beskyttede byggkommandoene for en kandidat som skal til
+Firebase Hosting eller Google Play. De validerer Firebase-prosjektet og krever
+en gyldig HTTPS-adresse for Collector-backenden før Flutter bygges:
+
+```powershell
+node tool/build_production_release.cjs web
+node tool/build_production_release.cjs appbundle
+```
+
+Produksjonsverdiene ligger i `tool/production_release_config.json`. Firebase
+Hosting nekter dessuten deploy dersom `build/web/main.dart.js` ikke inneholder
+den validerte Collector-adressen. Ikke erstatt disse kommandoene med en vanlig
+`flutter build` ved publisering.

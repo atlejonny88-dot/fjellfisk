@@ -69,6 +69,10 @@ void main() {
 
     expect(await resultFor(403, 'FORBIDDEN'), ClaimCodeResultType.unauthorized);
     expect(
+      await resultFor(403, 'COLLECTOR_ENTITLEMENT_REQUIRED'),
+      ClaimCodeResultType.notEntitled,
+    );
+    expect(
       await resultFor(409, 'PAIRING_CODE_EXPIRED'),
       ClaimCodeResultType.expired,
     );
