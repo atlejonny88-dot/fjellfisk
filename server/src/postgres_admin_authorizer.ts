@@ -40,6 +40,9 @@ export class PostgresAdminAuthorizer implements AdminAuthorizer {
     if (options.requireCollectorEntitlement && !access.collectorEntitled) {
       throw new PairingError('COLLECTOR_ENTITLEMENT_REQUIRED', 403);
     }
+    if (options.requireVaconEntitlement && !access.vaconEntitled) {
+      throw new PairingError('VACON_ENTITLEMENT_REQUIRED', 403);
+    }
     return {uid, organizationId: access.organizationId, allowedSiteIds: [siteId]};
   }
 }

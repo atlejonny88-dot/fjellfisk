@@ -2061,4 +2061,89 @@ class AppLocalizationsNb extends AppLocalizations {
   @override
   String get vaconReadOnlySetup =>
       'Lesetilgang og konfigurering følger eksisterende roller. Ingen fysisk kommando sendes fra denne appen.';
+
+  @override
+  String get vaconMonitoringBadge => 'Skrivebeskyttet overvåking';
+
+  @override
+  String get vaconAddDevice => 'Legg til VACON-enhet';
+
+  @override
+  String get vaconSetup => 'Oppsett';
+
+  @override
+  String get vaconDeviceName => 'Enhetsnavn';
+
+  @override
+  String get vaconManufacturer => 'Produsent';
+
+  @override
+  String get vaconModel => 'Modell';
+
+  @override
+  String get vaconIpAddress => 'IP-adresse';
+
+  @override
+  String get vaconSubnetMask => 'Nettverksmaske';
+
+  @override
+  String get vaconGateway => 'Gateway';
+
+  @override
+  String get vaconDns => 'DNS';
+
+  @override
+  String get vaconModbusPort => 'Modbus TCP-port';
+
+  @override
+  String get vaconFrequencyLimits => 'Godkjente frekvensgrenser';
+
+  @override
+  String get vaconMinimumFrequency => 'Minimum frekvens (Hz)';
+
+  @override
+  String get vaconMaximumFrequency => 'Maksimum frekvens (Hz)';
+
+  @override
+  String get vaconEdgeServer => 'Lokal Edge-server';
+
+  @override
+  String get vaconMonitoringEnabled => 'Overvåking aktiv';
+
+  @override
+  String get vaconTestConnection => 'Test tilkobling';
+
+  @override
+  String get vaconConnectionTestUnavailable =>
+      'Edge-forbindelsen er ikke konfigurert ennå. Ingen Modbus-tilkobling ble forsøkt.';
+
+  @override
+  String get vaconHistory => 'Historikk';
+
+  @override
+  String get vaconMotorSpeed => 'Motorhastighet';
+
+  @override
+  String get vaconUnverified => 'Ikke verifisert';
+
+  @override
+  String get vaconFault => 'Aktiv feil';
+
+  @override
+  String get vaconDataUnavailable => 'Ingen ferske måledata';
+
+  @override
+  String get vaconBackendUnavailable =>
+      'VACON-tjenesten er ikke tilgjengelig akkurat nå.';
+
+  @override
+  String get vaconSetupAdminOnly =>
+      'Bare administratorer kan endre VACON-oppsettet.';
+
+  @override
+  String get vaconReadOnlyMonitoring =>
+      'Fysiske Modbus-kommandoer kan ikke sendes fra Fjellfisk.';
+
+  @override
+  String get vaconFieldRequired => 'Feltet må fylles ut.';
 }

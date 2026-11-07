@@ -8,11 +8,11 @@ import '../models/vacon_control.dart';
 import '../services/user_service.dart';
 import '../services/vacon_control_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/ui_motion.dart';
+import 'vacon_setup_screen.dart';
 
-/// Add-ons > VACON Control.
-///
-/// This V4 surface is intentionally simulator-only. It neither opens a socket
-/// nor has access to Modbus registers, a VPN, credentials or a real gateway.
+/// Add-ons > VACON Control. Flutter uses the protected HTTPS API only. It
+/// never connects to a VPN, Modbus TCP, or a physical drive directly.
 class VaconControlScreen extends StatefulWidget {
   const VaconControlScreen({
     super.key,
@@ -33,6 +33,8 @@ class _VaconControlScreenState extends State<VaconControlScreen> {
   late final VaconControlService _service;
   late final Future<String> _roleFuture;
   bool _commandBusy = false;
+  bool _loading = true;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _VaconControlScreenState extends State<VaconControlScreen> {
     _service = widget.service ?? MockVaconControlService.shared;
     _roleFuture = (widget.roleLoader ?? UserService.getCurrentUserRole)();
     _service.addListener(_onServiceChanged);
+    _refresh();
   }
 
   @override
@@ -52,13 +55,83 @@ class _VaconControlScreenState extends State<VaconControlScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    await _service.refreshFacility(widget.facilityId);
+    if (!mounted) return;
+    setState(() {
+      _refreshing = false;
+      _loading = false;
+    });
+  }
+
+  Future<void> _openSetup({VaconDevice? device}) async {
+    final saved = await Navigator.of(context).push<bool>(
+      subtleFadeSlideRoute<bool>(
+        context: context,
+        builder: (_) => VaconSetupScreen(
+          facilityId: widget.facilityId,
+          service: _service,
+          device: device,
+        ),
+      ),
+    );
+    if (saved == true && mounted) await _refresh();
+  }
+
+  Future<void> _showHistory(VaconDevice device) async {
+    try {
+      final readings = await _service.telemetryHistory(
+        facilityId: widget.facilityId,
+        deviceId: device.id,
+      );
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) => SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.6,
+          child: readings.isEmpty
+              ? Center(child: Text(sheetContext.l10n.vaconDataUnavailable))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: readings.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (_, index) {
+                    final reading = readings[index];
+                    return ListTile(
+                      title: Text(reading.actualHz == null
+                          ? '—'
+                          : '${reading.actualHz!.toStringAsFixed(2)} Hz'),
+                      subtitle: Text(
+                        DateFormat(
+                          'dd.MM.yyyy HH:mm:ss',
+                          LanguageScope.of(sheetContext).language.code,
+                        ).format(reading.measuredAt.toLocal()),
+                      ),
+                      trailing: Text(reading.quality),
+                    );
+                  },
+                ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.vaconBackendUnavailable)),
+      );
+    }
+  }
+
   Future<void> _requestSimulation(
     VaconDevice device,
     String role,
     VaconCommandType command, {
     double? frequencyHz,
   }) async {
-    if (_commandBusy) return;
+    if (_commandBusy || !_service.isSimulator) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -78,15 +151,15 @@ class _VaconControlScreenState extends State<VaconControlScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    final entitlement = _service.entitlementForFacility(widget.facilityId);
     setState(() => _commandBusy = true);
     try {
       final result = await _service.requestSimulation(
         access: VaconAccessContext(
           facilityId: widget.facilityId,
-          canRead: role == 'admin' || role == 'ansatt' || role == 'leser',
+          canRead: const ['admin', 'ansatt', 'leser'].contains(role),
           canControl: role == 'admin',
-          hasEntitlement: entitlement.enabled,
+          hasEntitlement:
+              _service.entitlementForFacility(widget.facilityId).enabled,
         ),
         deviceId: device.id,
         command: command,
@@ -142,10 +215,11 @@ class _VaconControlScreenState extends State<VaconControlScreen> {
     if (input == null) return;
     final hz = double.tryParse(input.replaceAll(',', '.'));
     if (hz == null || hz < device.minHz || hz > device.maxHz) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.vaconCommandBlocked)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.vaconCommandBlocked)),
+        );
+      }
       return;
     }
     await _requestSimulation(
@@ -157,141 +231,195 @@ class _VaconControlScreenState extends State<VaconControlScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.vaconControlName)),
-      body: FutureBuilder<String>(
-        future: _roleFuture,
-        builder: (context, roleSnapshot) {
-          if (!roleSnapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final role = roleSnapshot.data!;
-          final entitlement =
-              _service.entitlementForFacility(widget.facilityId);
-          final sites = _service.sitesForFacility(widget.facilityId);
-          final devices = _service.devicesForFacility(widget.facilityId);
-          return ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1040),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.vaconControlName,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      context.l10n.vaconControlDescription,
-                      style: const TextStyle(color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 20),
-                    _SafetyBanner(entitled: entitlement.enabled),
-                    const SizedBox(height: 22),
-                    Text(
-                      context.l10n.vaconDevices,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (devices.isEmpty)
-                      _EmptyDevices()
-                    else
-                      ...devices.map(
-                        (device) => Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _DeviceCard(
-                            device: device,
-                            site: _siteFor(sites, device.siteId),
-                            canControl: role == 'admin' && entitlement.enabled,
-                            busy: _commandBusy,
-                            onCommand: (command) =>
-                                _requestSimulation(device, role, command),
-                            onFrequency: () => _askFrequency(device, role),
-                          ),
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Text(context.l10n.vaconControlName),
+          actions: [
+            IconButton(
+              tooltip: context.l10n.refresh,
+              onPressed: _refreshing ? null : _refresh,
+              icon: _refreshing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_outlined),
+            ),
+          ],
+        ),
+        body: FutureBuilder<String>(
+          future: _roleFuture,
+          builder: (context, roleSnapshot) {
+            if (!roleSnapshot.hasData || _loading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final role = roleSnapshot.data!;
+            final entitlement =
+                _service.entitlementForFacility(widget.facilityId);
+            final devices = _service.devicesForFacility(widget.facilityId);
+            final error = _service.errorForFacility(widget.facilityId);
+            final canManage = role == 'admin' && entitlement.enabled;
+            return ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1040),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.vaconControlName,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  VaconSite? _siteFor(List<VaconSite> sites, String id) {
-    for (final site in sites) {
-      if (site.id == id) return site;
-    }
-    return null;
-  }
-}
-
-class _SafetyBanner extends StatelessWidget {
-  const _SafetyBanner({required this.entitled});
-
-  final bool entitled;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E8),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFF2D58A)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.lock_outline, color: Color(0xFF9A6700)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.vaconSimulationBadge,
-                  style: const TextStyle(
-                    color: Color(0xFF624600),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  context.l10n.vaconPhysicalControlLocked,
-                  style: const TextStyle(color: Color(0xFF624600)),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  entitled
-                      ? context.l10n.vaconEntitlementActive
-                      : context.l10n.vaconEntitlementInactive,
-                  style: const TextStyle(
-                    color: Color(0xFF624600),
-                    fontWeight: FontWeight.w700,
+                      const SizedBox(height: 6),
+                      Text(
+                        context.l10n.vaconControlDescription,
+                        style: const TextStyle(color: AppTheme.textSecondary),
+                      ),
+                      const SizedBox(height: 20),
+                      _SafetyBanner(
+                        entitled: entitlement.enabled,
+                        simulator: _service.isSimulator,
+                      ),
+                      if (error != null) ...[
+                        const SizedBox(height: 12),
+                        const _ErrorBanner(),
+                      ],
+                      const SizedBox(height: 22),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.l10n.vaconDevices,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (canManage)
+                            FilledButton.icon(
+                              key: const ValueKey('vacon-add-device'),
+                              onPressed: () => _openSetup(),
+                              icon: const Icon(Icons.add),
+                              label: Text(context.l10n.vaconAddDevice),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (devices.isEmpty)
+                        _EmptyDevices()
+                      else
+                        ...devices.map(
+                          (device) => Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _DeviceCard(
+                              device: device,
+                              simulator: _service.isSimulator,
+                              canManage: canManage,
+                              canControl: canManage,
+                              busy: _commandBusy,
+                              onCommand: (command) =>
+                                  _requestSimulation(device, role, command),
+                              onFrequency: () => _askFrequency(device, role),
+                              onSetup: () => _openSetup(device: device),
+                              onHistory: () => _showHistory(device),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
+            );
+          },
+        ),
+      );
+}
+
+class _SafetyBanner extends StatelessWidget {
+  const _SafetyBanner({required this.entitled, required this.simulator});
+
+  final bool entitled;
+  final bool simulator;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8E8),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFF2D58A)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lock_outline, color: Color(0xFF9A6700)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    simulator
+                        ? context.l10n.vaconSimulationBadge
+                        : context.l10n.vaconMonitoringBadge,
+                    style: const TextStyle(
+                      color: Color(0xFF624600),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    simulator
+                        ? context.l10n.vaconPhysicalControlLocked
+                        : context.l10n.vaconReadOnlyMonitoring,
+                    style: const TextStyle(color: Color(0xFF624600)),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    entitled
+                        ? context.l10n.vaconEntitlementActive
+                        : context.l10n.vaconEntitlementInactive,
+                    style: const TextStyle(
+                      color: Color(0xFF624600),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4E5),
+          border: Border.all(color: const Color(0xFFF2D58A)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Color(0xFF9A6700)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(context.l10n.vaconBackendUnavailable)),
+          ],
+        ),
+      );
 }
 
 class _EmptyDevices extends StatelessWidget {
@@ -307,38 +435,39 @@ class _EmptyDevices extends StatelessWidget {
 class _DeviceCard extends StatelessWidget {
   const _DeviceCard({
     required this.device,
-    required this.site,
+    required this.simulator,
+    required this.canManage,
     required this.canControl,
     required this.busy,
     required this.onCommand,
     required this.onFrequency,
+    required this.onSetup,
+    required this.onHistory,
   });
 
   final VaconDevice device;
-  final VaconSite? site;
+  final bool simulator;
+  final bool canManage;
   final bool canControl;
   final bool busy;
   final ValueChanged<VaconCommandType> onCommand;
   final VoidCallback onFrequency;
+  final VoidCallback onSetup;
+  final VoidCallback onHistory;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final now = DateTime.now();
-    final controlAvailable =
-        canControl && device.canSimulateControlAt(now) && !busy;
-    final locale = LanguageScope.of(context).language.code;
-    final timestamp = DateFormat('dd.MM HH:mm:ss', locale)
-        .format(device.telemetry.measuredAt.toLocal());
-    final status = device.connection == VaconConnectionState.online &&
-            device.telemetry.isFreshAt(now)
+    final fresh = device.connection == VaconConnectionState.online &&
+        device.telemetry.isFreshAt(DateTime.now());
+    final status = fresh
         ? (device.telemetry.running ? l10n.vaconRunning : l10n.vaconStopped)
-        : l10n.vaconControlDisabled;
-    final statusColor = device.connection == VaconConnectionState.online &&
-            device.telemetry.isFreshAt(now)
-        ? const Color(0xFF15803D)
-        : const Color(0xFF9A6700);
-
+        : _connectionLabel(context, device.connection);
+    final controlAvailable = simulator &&
+        canControl &&
+        device.canSimulateControlAt(DateTime.now()) &&
+        !busy;
+    final hasTelemetry = device.telemetry.measuredAt.year > 1970;
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -359,11 +488,11 @@ class _DeviceCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                _StatusChip(label: status, color: statusColor),
+                _StatusChip(label: status, color: _statusColor(fresh)),
                 _StatusChip(
-                  label: device.controlMode == VaconControlMode.simulationOnly
+                  label: simulator
                       ? l10n.vaconSimulationBadge
-                      : l10n.vaconControlDisabled,
+                      : l10n.vaconMonitoringBadge,
                   color: const Color(0xFF0B63E5),
                 ),
               ],
@@ -373,20 +502,21 @@ class _DeviceCard extends StatelessWidget {
               spacing: 24,
               runSpacing: 14,
               children: [
-                _Detail(label: l10n.vaconSite, value: site?.name ?? '—'),
                 _Detail(
-                    label: l10n.vaconModelProfile,
-                    value: device.modelProfile.name),
+                  label: l10n.vaconModelProfile,
+                  value: device.modelProfile.name,
+                ),
                 _Detail(
                   label: l10n.vaconGatewayEndpoint,
                   value: '${device.endpointLabel}:${device.port}',
                 ),
                 _Detail(label: l10n.vaconUnitId, value: '${device.unitId}'),
                 _Detail(
-                  label: l10n.vaconPolling,
-                  value: '${device.pollingInterval.inSeconds} s',
+                  label: l10n.vaconLastMeasurement,
+                  value: hasTelemetry
+                      ? _format(context, device.telemetry.measuredAt)
+                      : '—',
                 ),
-                _Detail(label: l10n.vaconLastMeasurement, value: timestamp),
               ],
             ),
             const Divider(height: 32),
@@ -407,20 +537,24 @@ class _DeviceCard extends StatelessWidget {
                   value: _value(device.telemetry.actualHz, 'Hz'),
                 ),
                 _Detail(
-                  label: l10n.vaconReferenceFrequency,
-                  value: _value(device.telemetry.referenceHz, 'Hz'),
+                  label: l10n.vaconMotorSpeed,
+                  value: device.telemetry.motorSpeedVerified
+                      ? _value(device.telemetry.motorSpeedRpm, 'RPM')
+                      : l10n.vaconUnverified,
                 ),
                 _Detail(
                   label: l10n.vaconMotorCurrent,
-                  value: _value(device.telemetry.currentA, 'A'),
-                ),
-                _Detail(
-                  label: l10n.vaconMotorPower,
-                  value: _value(device.telemetry.powerKw, 'kW'),
+                  value: device.telemetry.motorCurrentVerified
+                      ? _value(device.telemetry.currentA, 'A')
+                      : l10n.vaconUnverified,
                 ),
                 _Detail(
                   label: l10n.vaconControlState,
                   value: device.telemetry.statusText ?? '—',
+                ),
+                _Detail(
+                  label: l10n.vaconFault,
+                  value: device.telemetry.faultCode ?? '—',
                 ),
               ],
             ),
@@ -430,35 +564,41 @@ class _DeviceCard extends StatelessWidget {
               runSpacing: 10,
               children: [
                 OutlinedButton.icon(
-                  key: ValueKey('vacon-start-${device.id}'),
-                  onPressed: controlAvailable
-                      ? () => onCommand(VaconCommandType.start)
-                      : null,
-                  icon: const Icon(Icons.play_arrow),
-                  label: Text(l10n.vaconSimulationStart),
+                  key: ValueKey('vacon-history-${device.id}'),
+                  onPressed: onHistory,
+                  icon: const Icon(Icons.history_outlined),
+                  label: Text(l10n.vaconHistory),
                 ),
                 OutlinedButton.icon(
-                  key: ValueKey('vacon-stop-${device.id}'),
-                  onPressed: controlAvailable
-                      ? () => onCommand(VaconCommandType.stop)
-                      : null,
-                  icon: const Icon(Icons.stop_outlined),
-                  label: Text(l10n.vaconSimulationStop),
+                  key: ValueKey('vacon-setup-${device.id}'),
+                  onPressed: canManage ? onSetup : null,
+                  icon: const Icon(Icons.settings_outlined),
+                  label: Text(l10n.vaconSetup),
                 ),
-                OutlinedButton.icon(
-                  key: ValueKey('vacon-frequency-${device.id}'),
-                  onPressed: controlAvailable ? onFrequency : null,
-                  icon: const Icon(Icons.speed_outlined),
-                  label: Text(l10n.vaconSimulationFrequency),
-                ),
-                OutlinedButton.icon(
-                  key: ValueKey('vacon-reset-${device.id}'),
-                  onPressed: controlAvailable
-                      ? () => onCommand(VaconCommandType.faultReset)
-                      : null,
-                  icon: const Icon(Icons.restart_alt),
-                  label: Text(l10n.vaconSimulationReset),
-                ),
+                if (simulator) ...[
+                  OutlinedButton.icon(
+                    key: ValueKey('vacon-start-${device.id}'),
+                    onPressed: controlAvailable
+                        ? () => onCommand(VaconCommandType.start)
+                        : null,
+                    icon: const Icon(Icons.play_arrow),
+                    label: Text(l10n.vaconSimulationStart),
+                  ),
+                  OutlinedButton.icon(
+                    key: ValueKey('vacon-stop-${device.id}'),
+                    onPressed: controlAvailable
+                        ? () => onCommand(VaconCommandType.stop)
+                        : null,
+                    icon: const Icon(Icons.stop_outlined),
+                    label: Text(l10n.vaconSimulationStop),
+                  ),
+                  OutlinedButton.icon(
+                    key: ValueKey('vacon-frequency-${device.id}'),
+                    onPressed: controlAvailable ? onFrequency : null,
+                    icon: const Icon(Icons.speed_outlined),
+                    label: Text(l10n.vaconSimulationFrequency),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
@@ -474,6 +614,22 @@ class _DeviceCard extends StatelessWidget {
       ),
     );
   }
+
+  String _connectionLabel(BuildContext context, VaconConnectionState state) =>
+      switch (state) {
+        VaconConnectionState.stale => context.l10n.collectorStale,
+        VaconConnectionState.offline => context.l10n.collectorOffline,
+        VaconConnectionState.disabled => context.l10n.vaconControlDisabled,
+        VaconConnectionState.online => context.l10n.vaconDataUnavailable,
+      };
+
+  Color _statusColor(bool fresh) =>
+      fresh ? const Color(0xFF15803D) : const Color(0xFF9A6700);
+
+  String _format(BuildContext context, DateTime value) => DateFormat(
+        'dd.MM HH:mm:ss',
+        LanguageScope.of(context).language.code,
+      ).format(value.toLocal());
 
   String _value(double? value, String unit) =>
       value == null ? '—' : '${value.toStringAsFixed(1)} $unit';

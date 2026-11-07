@@ -151,6 +151,71 @@ void main() {
     expect(replay.reason, 'duplicate-request');
     expect(outOfRange.reason, 'frequency-out-of-range');
   });
+
+  test('stores multiple configurations per facility without moving devices',
+      () async {
+    final control = MockVaconControlService(
+      clock: () => now,
+      devices: [_device(now), _device(now, facilityId: 'facility-b')],
+      entitlements: const [
+        VaconEntitlement(facilityId: 'facility-a', enabled: true),
+        VaconEntitlement(facilityId: 'facility-b', enabled: true),
+      ],
+    );
+    const configuration = VaconDeviceConfiguration(
+      displayName: 'Pumpe 2',
+      manufacturer: 'Danfoss',
+      model: 'VACON 100 FLOW',
+      ipAddress: '192.168.30.51',
+      subnetMask: '255.255.255.0',
+      gateway: '192.168.30.1',
+      dns: '192.168.30.1',
+      modbusTcpPort: 502,
+      modbusUnitId: 255,
+      minFrequencyHz: 10,
+      maxFrequencyHz: 50,
+      edgeServerId: 'edge-1',
+      monitoringEnabled: true,
+    );
+
+    final added = await control.saveDevice(
+      facilityId: 'facility-a',
+      configuration: configuration,
+    );
+    final updated = await control.saveDevice(
+      facilityId: 'facility-a',
+      deviceId: added.id,
+      configuration: const VaconDeviceConfiguration(
+        displayName: 'Pumpe 2 - oppdatert',
+        manufacturer: 'Danfoss',
+        model: 'VACON 100 FLOW',
+        ipAddress: '192.168.30.51',
+        subnetMask: '255.255.255.0',
+        gateway: '192.168.30.1',
+        dns: '192.168.30.1',
+        modbusTcpPort: 502,
+        modbusUnitId: 255,
+        minFrequencyHz: 12,
+        maxFrequencyHz: 48,
+        edgeServerId: 'edge-1',
+        monitoringEnabled: false,
+      ),
+    );
+
+    expect(control.devicesForFacility('facility-a'), hasLength(2));
+    expect(control.devicesForFacility('facility-b'), hasLength(1));
+    expect(updated.id, added.id);
+    expect(updated.name, 'Pumpe 2 - oppdatert');
+    expect(updated.telemetry, same(added.telemetry));
+    expect(updated.connection, VaconConnectionState.disabled);
+    expect(
+      await control.telemetryHistory(
+        facilityId: 'facility-b',
+        deviceId: added.id,
+      ),
+      isEmpty,
+    );
+  });
 }
 
 VaconDevice _device(
@@ -158,10 +223,11 @@ VaconDevice _device(
   VaconTelemetry? telemetry,
   VaconModelProfile? profile,
   bool localInterlockSatisfied = true,
+  String facilityId = 'facility-a',
 }) =>
     VaconDevice(
       id: 'device-1',
-      facilityId: 'facility-a',
+      facilityId: facilityId,
       siteId: 'site-1',
       name: 'Simulert pumpe',
       modelProfile:

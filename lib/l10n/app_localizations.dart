@@ -3783,6 +3783,168 @@ abstract class AppLocalizations {
   /// In nb, this message translates to:
   /// **'Lesetilgang og konfigurering følger eksisterende roller. Ingen fysisk kommando sendes fra denne appen.'**
   String get vaconReadOnlySetup;
+
+  /// No description provided for @vaconMonitoringBadge.
+  ///
+  /// In nb, this message translates to:
+  /// **'Skrivebeskyttet overvåking'**
+  String get vaconMonitoringBadge;
+
+  /// No description provided for @vaconAddDevice.
+  ///
+  /// In nb, this message translates to:
+  /// **'Legg til VACON-enhet'**
+  String get vaconAddDevice;
+
+  /// No description provided for @vaconSetup.
+  ///
+  /// In nb, this message translates to:
+  /// **'Oppsett'**
+  String get vaconSetup;
+
+  /// No description provided for @vaconDeviceName.
+  ///
+  /// In nb, this message translates to:
+  /// **'Enhetsnavn'**
+  String get vaconDeviceName;
+
+  /// No description provided for @vaconManufacturer.
+  ///
+  /// In nb, this message translates to:
+  /// **'Produsent'**
+  String get vaconManufacturer;
+
+  /// No description provided for @vaconModel.
+  ///
+  /// In nb, this message translates to:
+  /// **'Modell'**
+  String get vaconModel;
+
+  /// No description provided for @vaconIpAddress.
+  ///
+  /// In nb, this message translates to:
+  /// **'IP-adresse'**
+  String get vaconIpAddress;
+
+  /// No description provided for @vaconSubnetMask.
+  ///
+  /// In nb, this message translates to:
+  /// **'Nettverksmaske'**
+  String get vaconSubnetMask;
+
+  /// No description provided for @vaconGateway.
+  ///
+  /// In nb, this message translates to:
+  /// **'Gateway'**
+  String get vaconGateway;
+
+  /// No description provided for @vaconDns.
+  ///
+  /// In nb, this message translates to:
+  /// **'DNS'**
+  String get vaconDns;
+
+  /// No description provided for @vaconModbusPort.
+  ///
+  /// In nb, this message translates to:
+  /// **'Modbus TCP-port'**
+  String get vaconModbusPort;
+
+  /// No description provided for @vaconFrequencyLimits.
+  ///
+  /// In nb, this message translates to:
+  /// **'Godkjente frekvensgrenser'**
+  String get vaconFrequencyLimits;
+
+  /// No description provided for @vaconMinimumFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Minimum frekvens (Hz)'**
+  String get vaconMinimumFrequency;
+
+  /// No description provided for @vaconMaximumFrequency.
+  ///
+  /// In nb, this message translates to:
+  /// **'Maksimum frekvens (Hz)'**
+  String get vaconMaximumFrequency;
+
+  /// No description provided for @vaconEdgeServer.
+  ///
+  /// In nb, this message translates to:
+  /// **'Lokal Edge-server'**
+  String get vaconEdgeServer;
+
+  /// No description provided for @vaconMonitoringEnabled.
+  ///
+  /// In nb, this message translates to:
+  /// **'Overvåking aktiv'**
+  String get vaconMonitoringEnabled;
+
+  /// No description provided for @vaconTestConnection.
+  ///
+  /// In nb, this message translates to:
+  /// **'Test tilkobling'**
+  String get vaconTestConnection;
+
+  /// No description provided for @vaconConnectionTestUnavailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'Edge-forbindelsen er ikke konfigurert ennå. Ingen Modbus-tilkobling ble forsøkt.'**
+  String get vaconConnectionTestUnavailable;
+
+  /// No description provided for @vaconHistory.
+  ///
+  /// In nb, this message translates to:
+  /// **'Historikk'**
+  String get vaconHistory;
+
+  /// No description provided for @vaconMotorSpeed.
+  ///
+  /// In nb, this message translates to:
+  /// **'Motorhastighet'**
+  String get vaconMotorSpeed;
+
+  /// No description provided for @vaconUnverified.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ikke verifisert'**
+  String get vaconUnverified;
+
+  /// No description provided for @vaconFault.
+  ///
+  /// In nb, this message translates to:
+  /// **'Aktiv feil'**
+  String get vaconFault;
+
+  /// No description provided for @vaconDataUnavailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'Ingen ferske måledata'**
+  String get vaconDataUnavailable;
+
+  /// No description provided for @vaconBackendUnavailable.
+  ///
+  /// In nb, this message translates to:
+  /// **'VACON-tjenesten er ikke tilgjengelig akkurat nå.'**
+  String get vaconBackendUnavailable;
+
+  /// No description provided for @vaconSetupAdminOnly.
+  ///
+  /// In nb, this message translates to:
+  /// **'Bare administratorer kan endre VACON-oppsettet.'**
+  String get vaconSetupAdminOnly;
+
+  /// No description provided for @vaconReadOnlyMonitoring.
+  ///
+  /// In nb, this message translates to:
+  /// **'Fysiske Modbus-kommandoer kan ikke sendes fra Fjellfisk.'**
+  String get vaconReadOnlyMonitoring;
+
+  /// No description provided for @vaconFieldRequired.
+  ///
+  /// In nb, this message translates to:
+  /// **'Feltet må fylles ut.'**
+  String get vaconFieldRequired;
 }
 
 class _AppLocalizationsDelegate

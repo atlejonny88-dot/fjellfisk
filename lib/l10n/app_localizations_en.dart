@@ -2062,4 +2062,89 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get vaconReadOnlySetup =>
       'Read access and configuration follow existing roles. No physical command is sent from this app.';
+
+  @override
+  String get vaconMonitoringBadge => 'Read-only monitoring';
+
+  @override
+  String get vaconAddDevice => 'Add VACON device';
+
+  @override
+  String get vaconSetup => 'Setup';
+
+  @override
+  String get vaconDeviceName => 'Device name';
+
+  @override
+  String get vaconManufacturer => 'Manufacturer';
+
+  @override
+  String get vaconModel => 'Model';
+
+  @override
+  String get vaconIpAddress => 'IP address';
+
+  @override
+  String get vaconSubnetMask => 'Subnet mask';
+
+  @override
+  String get vaconGateway => 'Gateway';
+
+  @override
+  String get vaconDns => 'DNS';
+
+  @override
+  String get vaconModbusPort => 'Modbus TCP port';
+
+  @override
+  String get vaconFrequencyLimits => 'Approved frequency limits';
+
+  @override
+  String get vaconMinimumFrequency => 'Minimum frequency (Hz)';
+
+  @override
+  String get vaconMaximumFrequency => 'Maximum frequency (Hz)';
+
+  @override
+  String get vaconEdgeServer => 'Local Edge server';
+
+  @override
+  String get vaconMonitoringEnabled => 'Monitoring enabled';
+
+  @override
+  String get vaconTestConnection => 'Test connection';
+
+  @override
+  String get vaconConnectionTestUnavailable =>
+      'The Edge connection is not configured yet. No Modbus connection was attempted.';
+
+  @override
+  String get vaconHistory => 'History';
+
+  @override
+  String get vaconMotorSpeed => 'Motor speed';
+
+  @override
+  String get vaconUnverified => 'Not verified';
+
+  @override
+  String get vaconFault => 'Active fault';
+
+  @override
+  String get vaconDataUnavailable => 'No recent measurements';
+
+  @override
+  String get vaconBackendUnavailable =>
+      'The VACON service is currently unavailable.';
+
+  @override
+  String get vaconSetupAdminOnly =>
+      'Only administrators can change the VACON setup.';
+
+  @override
+  String get vaconReadOnlyMonitoring =>
+      'Fjellfisk cannot send physical Modbus commands.';
+
+  @override
+  String get vaconFieldRequired => 'This field is required.';
 }

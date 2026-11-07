@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createChecker } = require('../web/app-update.js');
 const { prepare } = require('./prepare_web_release.cjs');
+const { writeWebBuildConfig } = require('./release_config.cjs');
 const current = 'a'.repeat(64), newer = 'b'.repeat(64);
 
 test('same, malformed and offline releases never prompt', async () => {
@@ -30,6 +31,7 @@ test('build stamp is stable, includes changed assets and matches HTML', () => {
   try {
     fs.writeFileSync(path.join(dir, 'index.html'), '<meta name="fjellfisk-build" content="__FJELLFISK_BUILD_ID__">');
     fs.writeFileSync(path.join(dir, 'main.dart.js'), 'app');
+    writeWebBuildConfig(dir, 'https://api.tosprotein.com');
     const first = prepare(dir);
     assert.equal(prepare(dir), first);
     fs.writeFileSync(path.join(dir, 'image.png'), 'asset');

@@ -23,7 +23,7 @@ function repository(access: Awaited<ReturnType<AuthorityRepository['getAdminAcce
 
 test('read-only member access cannot authorize claim or mapping writes', async () => {
   const repo = repository(null);
-  repo.getMemberAccess = async () => ({organizationId: 'org-1', collectorEntitled: true});
+  repo.getMemberAccess = async () => ({organizationId: 'org-1', collectorEntitled: true, vaconEntitled: true});
   const authorizer = new PostgresAdminAuthorizer(tokenVerifier, repo);
   assert.equal((await authorizer.authorize('Bearer valid-token', 'facility-1', {readOnly: true})).uid, 'test-admin-user');
   await assert.rejects(authorizer.authorize('Bearer valid-token', 'facility-1'));
@@ -32,7 +32,7 @@ test('read-only member access cannot authorize claim or mapping writes', async (
 
 test('PostgreSQL authorizer trusts a verified UID only after active database membership', async () => {
   const authorizer = new PostgresAdminAuthorizer(tokenVerifier, repository({
-    organizationId: 'org-1', collectorEntitled: true,
+    organizationId: 'org-1', collectorEntitled: true, vaconEntitled: true,
   }));
 
   assert.deepEqual(await authorizer.authorize('Bearer valid-token', 'facility-1'), {
@@ -42,7 +42,7 @@ test('PostgreSQL authorizer trusts a verified UID only after active database mem
 
 test('PostgreSQL authorizer rejects missing or invalid identity tokens', async () => {
   const authorizer = new PostgresAdminAuthorizer(tokenVerifier, repository({
-    organizationId: null, collectorEntitled: true,
+    organizationId: null, collectorEntitled: true, vaconEntitled: true,
   }));
 
   for (const authorization of [undefined, 'Basic credentials', 'Bearer invalid-token']) {
@@ -63,10 +63,20 @@ test('PostgreSQL authorizer does not trust a Firebase token without database aut
 
 test('claim authorization requires an active Collector entitlement', async () => {
   const authorizer = new PostgresAdminAuthorizer(tokenVerifier, repository({
-    organizationId: 'org-1', collectorEntitled: false,
+    organizationId: 'org-1', collectorEntitled: false, vaconEntitled: false,
   }));
   await assert.rejects(
     authorizer.authorize('Bearer valid-token', 'facility-1', {requireCollectorEntitlement: true}),
     (error: unknown) => error instanceof PairingError && error.code === 'COLLECTOR_ENTITLEMENT_REQUIRED',
+  );
+});
+
+test('VACON writes require the separate active VACON entitlement', async () => {
+  const authorizer = new PostgresAdminAuthorizer(tokenVerifier, repository({
+    organizationId: 'org-1', collectorEntitled: true, vaconEntitled: false,
+  }));
+  await assert.rejects(
+    authorizer.authorize('Bearer valid-token', 'facility-1', {requireVaconEntitlement: true}),
+    (error: unknown) => error instanceof PairingError && error.code === 'VACON_ENTITLEMENT_REQUIRED',
   );
 });

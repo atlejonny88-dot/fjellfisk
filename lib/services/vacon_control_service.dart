@@ -2,11 +2,17 @@ import 'package:flutter/foundation.dart';
 
 import '../models/vacon_control.dart';
 
-/// Boundary for a future trusted gateway-backed implementation.
+/// Boundary between the local simulator and the protected HTTPS VACON API.
 ///
-/// The V4 implementation intentionally exposes only an in-memory simulator.
-/// It has no Firebase, VPN, TCP, Modbus or production hardware dependency.
+/// Neither implementation opens a VPN, TCP/Modbus socket, or physical drive
+/// control channel. Live telemetry requires a separately authenticated Edge.
 abstract class VaconControlService extends ChangeNotifier {
+  bool get isSimulator;
+
+  String? errorForFacility(String facilityId);
+
+  Future<void> refreshFacility(String facilityId);
+
   List<VaconSite> sitesForFacility(String facilityId);
 
   List<VaconDevice> devicesForFacility(String facilityId);
@@ -14,6 +20,22 @@ abstract class VaconControlService extends ChangeNotifier {
   VaconEntitlement entitlementForFacility(String facilityId);
 
   List<VaconCommandResult> resultsForFacility(String facilityId);
+
+  Future<VaconDevice> saveDevice({
+    required String facilityId,
+    String? deviceId,
+    required VaconDeviceConfiguration configuration,
+  });
+
+  Future<VaconConnectionTestResult> testConnection({
+    required String facilityId,
+    required String deviceId,
+  });
+
+  Future<List<VaconTelemetry>> telemetryHistory({
+    required String facilityId,
+    required String deviceId,
+  });
 
   Future<VaconCommandResult> requestSimulation({
     required VaconAccessContext access,
@@ -62,6 +84,15 @@ class MockVaconControlService extends VaconControlService {
   final List<_StoredResult> _results = [];
   final Set<String> _processedRequestIds = <String>{};
   int _requestSequence = 0;
+
+  @override
+  bool get isSimulator => true;
+
+  @override
+  String? errorForFacility(String facilityId) => null;
+
+  @override
+  Future<void> refreshFacility(String facilityId) async {}
 
   static final List<VaconSite> _defaultSites = [
     const VaconSite(
@@ -153,6 +184,96 @@ class MockVaconControlService extends VaconControlService {
             .where((item) => item.facilityId == facilityId)
             .map((item) => item.result),
       );
+
+  @override
+  Future<VaconDevice> saveDevice({
+    required String facilityId,
+    String? deviceId,
+    required VaconDeviceConfiguration configuration,
+  }) async {
+    final existingIndex = deviceId == null
+        ? -1
+        : _devices.indexWhere(
+            (device) =>
+                device.id == deviceId && device.facilityId == facilityId,
+          );
+    final existing = existingIndex < 0 ? null : _devices[existingIndex];
+    final device = VaconDevice(
+      id: existing?.id ?? 'simulation-device-${_devices.length + 1}',
+      facilityId: facilityId,
+      siteId: configuration.edgeServerId,
+      name: configuration.displayName,
+      modelProfile: VaconModelProfile(
+        id: 'simulation-${configuration.model.toLowerCase().replaceAll(' ', '-')}',
+        name: configuration.model,
+        isDocumented: true,
+        supportsRemoteControl: true,
+      ),
+      endpointLabel: configuration.ipAddress,
+      port: configuration.modbusTcpPort,
+      unitId: configuration.modbusUnitId,
+      minHz: configuration.minFrequencyHz,
+      maxHz: configuration.maxFrequencyHz,
+      pollingInterval: const Duration(seconds: 5),
+      connection: configuration.monitoringEnabled
+          ? VaconConnectionState.online
+          : VaconConnectionState.disabled,
+      controlMode: VaconControlMode.simulationOnly,
+      localInterlockSatisfied: true,
+      telemetry: existing?.telemetry ??
+          VaconTelemetry(
+            measuredAt: _clock(),
+            quality: 'simulated',
+            running: false,
+            statusText: 'Simulert konfigurasjon',
+          ),
+      manufacturer: configuration.manufacturer,
+      subnetMask: configuration.subnetMask,
+      gateway: configuration.gateway,
+      dns: configuration.dns,
+      edgeServerId: configuration.edgeServerId,
+      monitoringEnabled: configuration.monitoringEnabled,
+    );
+    if (existingIndex < 0) {
+      _devices.add(device);
+    } else {
+      _devices[existingIndex] = device;
+    }
+    notifyListeners();
+    return device;
+  }
+
+  @override
+  Future<VaconConnectionTestResult> testConnection({
+    required String facilityId,
+    required String deviceId,
+  }) async {
+    final device = _devices
+        .where(
+          (item) => item.id == deviceId && item.facilityId == facilityId,
+        )
+        .firstOrNull;
+    if (device == null) throw StateError('device-not-found-in-facility');
+    return VaconConnectionTestResult(
+      deviceId: device.id,
+      state: 'SIMULATED',
+      reason: 'SIMULATOR_ONLY',
+      testedAt: _clock(),
+    );
+  }
+
+  @override
+  Future<List<VaconTelemetry>> telemetryHistory({
+    required String facilityId,
+    required String deviceId,
+  }) async {
+    final device = _devices
+        .where(
+          (item) => item.id == deviceId && item.facilityId == facilityId,
+        )
+        .firstOrNull;
+    return device == null ? const [] : [device.telemetry];
+  }
 
   @override
   Future<VaconCommandResult> requestSimulation({

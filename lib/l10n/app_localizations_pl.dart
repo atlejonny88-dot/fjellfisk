@@ -2078,4 +2078,89 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get vaconReadOnlySetup =>
       'Dostęp do odczytu i konfiguracja są zgodne z istniejącymi rolami. Aplikacja nie wysyła fizycznych komend.';
+
+  @override
+  String get vaconMonitoringBadge => 'Monitorowanie tylko do odczytu';
+
+  @override
+  String get vaconAddDevice => 'Dodaj urządzenie VACON';
+
+  @override
+  String get vaconSetup => 'Konfiguracja';
+
+  @override
+  String get vaconDeviceName => 'Nazwa urządzenia';
+
+  @override
+  String get vaconManufacturer => 'Producent';
+
+  @override
+  String get vaconModel => 'Model';
+
+  @override
+  String get vaconIpAddress => 'Adres IP';
+
+  @override
+  String get vaconSubnetMask => 'Maska podsieci';
+
+  @override
+  String get vaconGateway => 'Brama';
+
+  @override
+  String get vaconDns => 'DNS';
+
+  @override
+  String get vaconModbusPort => 'Port Modbus TCP';
+
+  @override
+  String get vaconFrequencyLimits => 'Zatwierdzone granice częstotliwości';
+
+  @override
+  String get vaconMinimumFrequency => 'Minimalna częstotliwość (Hz)';
+
+  @override
+  String get vaconMaximumFrequency => 'Maksymalna częstotliwość (Hz)';
+
+  @override
+  String get vaconEdgeServer => 'Lokalny serwer Edge';
+
+  @override
+  String get vaconMonitoringEnabled => 'Monitorowanie aktywne';
+
+  @override
+  String get vaconTestConnection => 'Testuj połączenie';
+
+  @override
+  String get vaconConnectionTestUnavailable =>
+      'Połączenie Edge nie jest jeszcze skonfigurowane. Nie podjęto próby połączenia Modbus.';
+
+  @override
+  String get vaconHistory => 'Historia';
+
+  @override
+  String get vaconMotorSpeed => 'Prędkość silnika';
+
+  @override
+  String get vaconUnverified => 'Nie zweryfikowano';
+
+  @override
+  String get vaconFault => 'Aktywny błąd';
+
+  @override
+  String get vaconDataUnavailable => 'Brak świeżych pomiarów';
+
+  @override
+  String get vaconBackendUnavailable =>
+      'Usługa VACON jest obecnie niedostępna.';
+
+  @override
+  String get vaconSetupAdminOnly =>
+      'Tylko administratorzy mogą zmienić konfigurację VACON.';
+
+  @override
+  String get vaconReadOnlyMonitoring =>
+      'Fjellfisk nie może wysyłać fizycznych komend Modbus.';
+
+  @override
+  String get vaconFieldRequired => 'To pole jest wymagane.';
 }

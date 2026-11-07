@@ -4,15 +4,19 @@ import {PairingService} from './pairing/service.js';
 import {PostgresAdminAuthorizer} from './postgres_admin_authorizer.js';
 import {PostgresAuthorityRepository} from './postgres_authority_repository.js';
 import {createPostgresPool, PostgresPairingRepository} from './postgres_pairing_repository.js';
+import {PostgresVaconRepository} from './postgres_vacon_repository.js';
 import {readServerConfig} from './config.js';
+import {VaconService} from './vacon/service.js';
 
 const config = readServerConfig();
 const pool = createPostgresPool(config.databaseUrl);
 const pairingService = new PairingService(new PostgresPairingRepository(pool), {
   pepper: config.pairingPepper,
 });
+const vaconService = new VaconService(new PostgresVaconRepository(pool));
 const server = createHttpApi({
   pairingService,
+  vaconService,
   adminAuthorizer: new PostgresAdminAuthorizer(
     new FirebasePublicTokenVerifier(config.firebaseProjectId),
     new PostgresAuthorityRepository(pool),

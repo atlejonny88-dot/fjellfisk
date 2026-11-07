@@ -14,7 +14,10 @@ export type PairingErrorCode =
   | 'PAIRING_CODE_USED'
   | 'PAIRING_RATE_LIMITED'
   | 'SITE_NOT_FOUND'
-  | 'UNAUTHENTICATED';
+  | 'UNAUTHENTICATED'
+  | 'VACON_DEVICE_NOT_FOUND'
+  | 'VACON_EDGE_NOT_CONFIGURED'
+  | 'VACON_ENTITLEMENT_REQUIRED';
 
 export class PairingError extends Error {
   constructor(

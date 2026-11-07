@@ -1,4 +1,4 @@
-enum VaconConnectionState { online, stale, offline }
+enum VaconConnectionState { online, stale, offline, disabled }
 
 enum VaconControlMode {
   /// No control path is available for this device.
@@ -69,6 +69,14 @@ class VaconTelemetry {
     this.powerKw,
     this.statusText,
     this.faultCode,
+    this.motorSpeedRpm,
+    this.motorSpeedVerified = false,
+    this.motorCurrentRaw,
+    this.motorCurrentVerified = false,
+    this.ready,
+    this.fault,
+    this.alarm,
+    this.atReference,
   });
 
   final DateTime measuredAt;
@@ -80,6 +88,14 @@ class VaconTelemetry {
   final double? powerKw;
   final String? statusText;
   final String? faultCode;
+  final double? motorSpeedRpm;
+  final bool motorSpeedVerified;
+  final int? motorCurrentRaw;
+  final bool motorCurrentVerified;
+  final bool? ready;
+  final bool? fault;
+  final bool? alarm;
+  final bool? atReference;
 
   bool isFreshAt(DateTime now) {
     final age = now.difference(measuredAt);
@@ -96,6 +112,14 @@ class VaconTelemetry {
     double? powerKw,
     String? statusText,
     String? faultCode,
+    double? motorSpeedRpm,
+    bool? motorSpeedVerified,
+    int? motorCurrentRaw,
+    bool? motorCurrentVerified,
+    bool? ready,
+    bool? fault,
+    bool? alarm,
+    bool? atReference,
   }) {
     return VaconTelemetry(
       measuredAt: measuredAt ?? this.measuredAt,
@@ -107,6 +131,14 @@ class VaconTelemetry {
       powerKw: powerKw ?? this.powerKw,
       statusText: statusText ?? this.statusText,
       faultCode: faultCode ?? this.faultCode,
+      motorSpeedRpm: motorSpeedRpm ?? this.motorSpeedRpm,
+      motorSpeedVerified: motorSpeedVerified ?? this.motorSpeedVerified,
+      motorCurrentRaw: motorCurrentRaw ?? this.motorCurrentRaw,
+      motorCurrentVerified: motorCurrentVerified ?? this.motorCurrentVerified,
+      ready: ready ?? this.ready,
+      fault: fault ?? this.fault,
+      alarm: alarm ?? this.alarm,
+      atReference: atReference ?? this.atReference,
     );
   }
 }
@@ -128,6 +160,12 @@ class VaconDevice {
     required this.controlMode,
     required this.localInterlockSatisfied,
     required this.telemetry,
+    this.manufacturer = 'Danfoss',
+    this.subnetMask = '',
+    this.gateway = '',
+    this.dns = '',
+    this.edgeServerId = '',
+    this.monitoringEnabled = true,
   });
 
   final String id;
@@ -147,6 +185,12 @@ class VaconDevice {
   final VaconControlMode controlMode;
   final bool localInterlockSatisfied;
   final VaconTelemetry telemetry;
+  final String manufacturer;
+  final String subnetMask;
+  final String gateway;
+  final String dns;
+  final String edgeServerId;
+  final bool monitoringEnabled;
 
   bool canSimulateControlAt(DateTime now) =>
       controlMode == VaconControlMode.simulationOnly &&
@@ -161,26 +205,107 @@ class VaconDevice {
     VaconConnectionState? connection,
     VaconControlMode? controlMode,
     bool? localInterlockSatisfied,
+    VaconModelProfile? modelProfile,
+    String? name,
+    String? endpointLabel,
+    int? port,
+    int? unitId,
+    double? minHz,
+    double? maxHz,
+    String? manufacturer,
+    String? subnetMask,
+    String? gateway,
+    String? dns,
+    String? edgeServerId,
+    bool? monitoringEnabled,
   }) {
     return VaconDevice(
       id: id,
       facilityId: facilityId,
       siteId: siteId,
-      name: name,
-      modelProfile: modelProfile,
-      endpointLabel: endpointLabel,
-      port: port,
-      unitId: unitId,
-      minHz: minHz,
-      maxHz: maxHz,
+      name: name ?? this.name,
+      modelProfile: modelProfile ?? this.modelProfile,
+      endpointLabel: endpointLabel ?? this.endpointLabel,
+      port: port ?? this.port,
+      unitId: unitId ?? this.unitId,
+      minHz: minHz ?? this.minHz,
+      maxHz: maxHz ?? this.maxHz,
       pollingInterval: pollingInterval,
       connection: connection ?? this.connection,
       controlMode: controlMode ?? this.controlMode,
       localInterlockSatisfied:
           localInterlockSatisfied ?? this.localInterlockSatisfied,
       telemetry: telemetry ?? this.telemetry,
+      manufacturer: manufacturer ?? this.manufacturer,
+      subnetMask: subnetMask ?? this.subnetMask,
+      gateway: gateway ?? this.gateway,
+      dns: dns ?? this.dns,
+      edgeServerId: edgeServerId ?? this.edgeServerId,
+      monitoringEnabled: monitoringEnabled ?? this.monitoringEnabled,
     );
   }
+}
+
+class VaconDeviceConfiguration {
+  const VaconDeviceConfiguration({
+    required this.displayName,
+    required this.manufacturer,
+    required this.model,
+    required this.ipAddress,
+    required this.subnetMask,
+    required this.gateway,
+    required this.dns,
+    required this.modbusTcpPort,
+    required this.modbusUnitId,
+    required this.minFrequencyHz,
+    required this.maxFrequencyHz,
+    required this.edgeServerId,
+    required this.monitoringEnabled,
+  });
+
+  final String displayName;
+  final String manufacturer;
+  final String model;
+  final String ipAddress;
+  final String subnetMask;
+  final String gateway;
+  final String dns;
+  final int modbusTcpPort;
+  final int modbusUnitId;
+  final double minFrequencyHz;
+  final double maxFrequencyHz;
+  final String edgeServerId;
+  final bool monitoringEnabled;
+
+  Map<String, Object> toJson() => {
+        'displayName': displayName,
+        'manufacturer': manufacturer,
+        'model': model,
+        'ipAddress': ipAddress,
+        'subnetMask': subnetMask,
+        'gateway': gateway,
+        'dns': dns,
+        'modbusTcpPort': modbusTcpPort,
+        'modbusUnitId': modbusUnitId,
+        'minFrequencyHz': minFrequencyHz,
+        'maxFrequencyHz': maxFrequencyHz,
+        'edgeServerId': edgeServerId,
+        'monitoringEnabled': monitoringEnabled,
+      };
+}
+
+class VaconConnectionTestResult {
+  const VaconConnectionTestResult({
+    required this.deviceId,
+    required this.state,
+    required this.reason,
+    required this.testedAt,
+  });
+
+  final String deviceId;
+  final String state;
+  final String reason;
+  final DateTime testedAt;
 }
 
 class VaconCommandResult {

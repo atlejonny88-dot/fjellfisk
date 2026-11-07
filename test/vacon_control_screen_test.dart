@@ -4,6 +4,7 @@ import 'package:fjellfisk/models/vacon_control.dart';
 import 'package:fjellfisk/screens/addons_screen.dart';
 import 'package:fjellfisk/screens/vacon_control_screen.dart';
 import 'package:fjellfisk/services/addon_service.dart';
+import 'package:fjellfisk/services/vacon_api_control_service.dart';
 import 'package:fjellfisk/services/vacon_control_service.dart';
 import 'package:fjellfisk/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -60,6 +61,28 @@ void main() {
       find.byKey(const ValueKey('vacon-start-simulation-pump-01')),
     );
     expect(start.onPressed, isNull);
+  });
+
+  testWidgets(
+      'API-backed VACON is labelled as read-only monitoring, not simulation',
+      (tester) async {
+    final service = VaconApiControlService(
+      backendUrl: 'https://api.example.test',
+    );
+    await tester.pumpWidget(
+      app(
+        AddOnsScreen(
+          service: MockAddOnService(claimDelay: () async {}),
+          vaconService: service,
+          roleLoader: () async => 'admin',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Skrivebeskyttet overvåking'), findsOneWidget);
+    expect(find.text('Simulert testmodus'), findsNothing);
+    service.dispose();
   });
 
   testWidgets('admin simulation shows confirmation and verified feedback',

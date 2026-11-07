@@ -3,6 +3,7 @@ import {createServer, type IncomingMessage, type Server, type ServerResponse} fr
 import type {AdminAuthorizer} from './admin_authorizer.js';
 import {asPairingError, PairingError} from './pairing/errors.js';
 import type {PairingService} from './pairing/service.js';
+import type {VaconService} from './vacon/service.js';
 
 const maxJsonBytes = 256 * 1024;
 
@@ -92,6 +93,7 @@ class AdminCorsPolicy {
 
 export interface HttpApiOptions {
   pairingService: PairingService;
+  vaconService?: VaconService;
   adminAuthorizer: AdminAuthorizer;
   adminCorsOrigins?: readonly string[];
   log?: (message: string) => void;
@@ -111,7 +113,7 @@ export function createHttpApi(options: HttpApiOptions): Server {
         }
         response.writeHead(204, {
           ...adminResponseHeaders,
-          'access-control-allow-methods': 'GET, POST, OPTIONS',
+          'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
           'access-control-allow-headers': 'authorization, content-type',
           'access-control-max-age': '600',
           'cache-control': 'no-store',
@@ -171,6 +173,55 @@ export function createHttpApi(options: HttpApiOptions): Server {
       }
 
       const parts = pathParts(url.pathname);
+
+      if (method === 'GET' && parts.length === 5 && parts[0] === 'admin' &&
+          parts[1] === 'v1' && parts[2] === 'sites' && parts[4] === 'vacon-devices') {
+        const vacon = requireVaconService(options.vaconService);
+        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, parts[3], {
+          readOnly: true,
+          requireVaconEntitlement: true,
+        });
+        sendJson(response, 200, {devices: await vacon.listDevices(actor, parts[3])}, adminResponseHeaders);
+        return;
+      }
+
+      if (method === 'POST' && parts.length === 5 && parts[0] === 'admin' &&
+          parts[1] === 'v1' && parts[2] === 'sites' && parts[4] === 'vacon-devices') {
+        const vacon = requireVaconService(options.vaconService);
+        const body = await readJson(request);
+        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, parts[3], {
+          requireVaconEntitlement: true,
+        });
+        sendJson(response, 201, await vacon.createDevice(actor, parts[3], body), adminResponseHeaders);
+        return;
+      }
+
+      if (parts.length >= 4 && parts[0] === 'admin' && parts[1] === 'v1' && parts[2] === 'vacon-devices') {
+        const vacon = requireVaconService(options.vaconService);
+        const deviceId = parts[3];
+        const body = method === 'GET' ? null : await readJson(request);
+        const siteId = method === 'GET'
+          ? url.searchParams.get('siteId') ?? ''
+          : typeof body?.siteId === 'string' ? body.siteId : '';
+        const readOnly = method === 'GET';
+        const actor = await options.adminAuthorizer.authorize(request.headers.authorization, siteId, {
+          readOnly,
+          requireVaconEntitlement: true,
+        });
+        if (method === 'GET' && parts.length === 5 && parts[4] === 'history') {
+          sendJson(response, 200, {readings: await vacon.telemetryHistory(actor, siteId, deviceId)}, adminResponseHeaders);
+          return;
+        }
+        if (method === 'POST' && parts.length === 5 && parts[4] === 'test-connection') {
+          sendJson(response, 200, await vacon.testConnection(actor, siteId, deviceId), adminResponseHeaders);
+          return;
+        }
+        if (method === 'PATCH' && parts.length === 4 && body) {
+          sendJson(response, 200, await vacon.updateDevice(actor, siteId, deviceId, body), adminResponseHeaders);
+          return;
+        }
+      }
+
       if (method === 'GET' && parts.length === 7 && parts[0] === 'admin' && parts[1] === 'v1' &&
           parts[2] === 'sites' && parts[4] === 'collectors' && parts[6] === 'sensors') {
         const actor = await options.adminAuthorizer.authorize(request.headers.authorization, parts[3], {readOnly: true});
@@ -210,4 +261,9 @@ export function createHttpApi(options: HttpApiOptions): Server {
       sendJson(response, pairingError.httpStatus, {error: {code: pairingError.code}}, adminResponseHeaders);
     }
   });
+}
+
+function requireVaconService(service: VaconService | undefined): VaconService {
+  if (!service) throw new PairingError('BACKEND_MISCONFIGURED', 503);
+  return service;
 }

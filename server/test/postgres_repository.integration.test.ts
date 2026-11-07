@@ -44,7 +44,7 @@ test('PostgreSQL repository enforces one winning claim', {skip: !databaseUrl}, a
       collectorEntitlement: 'ACTIVE',
     });
     assert.deepEqual(await authority.getAdminAccess('postgres-admin', 'facility-test'), {
-      organizationId: 'org-test', collectorEntitled: true,
+      organizationId: 'org-test', collectorEntitled: true, vaconEntitled: false,
     });
     await pool.query("INSERT INTO collector_users (firebase_uid, status) VALUES ('test-viewer', 'ACTIVE')");
     await pool.query("INSERT INTO collector_facility_memberships (facility_id, firebase_uid, role, status) VALUES ('facility-test', 'test-viewer', 'VIEWER', 'ACTIVE')");
@@ -59,7 +59,7 @@ test('PostgreSQL repository enforces one winning claim', {skip: !databaseUrl}, a
       updatedByUid: 'postgres-admin',
     });
     assert.deepEqual(await authority.getAdminAccess('postgres-admin', 'facility-test'), {
-      organizationId: 'org-test', collectorEntitled: false,
+      organizationId: 'org-test', collectorEntitled: false, vaconEntitled: false,
     });
     await authority.setCollectorEntitlement({
       facilityId: 'facility-test',
@@ -68,7 +68,7 @@ test('PostgreSQL repository enforces one winning claim', {skip: !databaseUrl}, a
       updatedByUid: 'postgres-admin',
     });
     assert.deepEqual(await authority.getAdminAccess('postgres-admin', 'facility-test'), {
-      organizationId: 'org-test', collectorEntitled: true,
+      organizationId: 'org-test', collectorEntitled: true, vaconEntitled: false,
     });
     await assert.rejects(authority.bootstrapInitialAuthority({
       firebaseUid: 'other-admin',

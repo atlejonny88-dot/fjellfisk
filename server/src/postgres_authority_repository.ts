@@ -5,6 +5,7 @@ export type CollectorEntitlementStatus = 'ACTIVE' | 'INACTIVE';
 export interface AuthorityAdminAccess {
   organizationId: string | null;
   collectorEntitled: boolean;
+  vaconEntitled: boolean;
 }
 
 export interface InitialAuthorityBootstrap {
@@ -31,6 +32,7 @@ export interface AuthorityRepository {
 interface AdminAccessRow extends QueryResultRow {
   organization_id: string | null;
   collector_entitled: boolean;
+  vacon_entitled: boolean;
 }
 
 function assertBootstrapInput(input: InitialAuthorityBootstrap): void {
@@ -66,6 +68,14 @@ export class PostgresAuthorityRepository implements AuthorityRepository {
             AND entitlement.status = 'ACTIVE'
             AND (entitlement.expires_at IS NULL OR entitlement.expires_at > NOW())
         ) AS collector_entitled
+        , EXISTS (
+          SELECT 1
+          FROM collector_addon_entitlements entitlement
+          WHERE entitlement.facility_id = facility.facility_id
+            AND entitlement.addon_key = 'vacon'
+            AND entitlement.status = 'ACTIVE'
+            AND (entitlement.expires_at IS NULL OR entitlement.expires_at > NOW())
+        ) AS vacon_entitled
       FROM collector_users account
       JOIN collector_facility_memberships membership
         ON membership.firebase_uid = account.firebase_uid
@@ -81,7 +91,11 @@ export class PostgresAuthorityRepository implements AuthorityRepository {
     );
     const row = result.rows[0];
     return row
-      ? {organizationId: row.organization_id, collectorEntitled: row.collector_entitled}
+      ? {
+          organizationId: row.organization_id,
+          collectorEntitled: row.collector_entitled,
+          vaconEntitled: row.vacon_entitled,
+        }
       : null;
   }
 

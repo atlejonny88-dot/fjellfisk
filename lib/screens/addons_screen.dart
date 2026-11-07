@@ -8,6 +8,7 @@ import '../services/addon_service.dart';
 import '../services/collector_claim_service.dart';
 import '../services/user_service.dart';
 import '../services/vacon_control_service.dart';
+import '../services/vacon_control_service_factory.dart';
 import '../utils/ui_motion.dart';
 import 'collector_setup_screen.dart';
 import 'vacon_control_screen.dart';
@@ -35,6 +36,7 @@ class AddOnsScreen extends StatefulWidget {
 class _AddOnsScreenState extends State<AddOnsScreen> {
   late final AddOnService _service;
   late final CollectorClaimService _claimService;
+  late final VaconControlService _vaconService;
   late final Future<String> _roleFuture;
 
   @override
@@ -43,6 +45,7 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
     _service = widget.service ?? MockAddOnService.shared;
     _claimService =
         widget.claimService ?? CollectorClaimService.fromEnvironment();
+    _vaconService = widget.vaconService ?? createVaconControlService();
     _roleFuture = (widget.roleLoader ?? UserService.getCurrentUserRole)();
     _service.addListener(_onServiceChanged);
   }
@@ -123,7 +126,7 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
         context: context,
         builder: (_) => VaconControlScreen(
           facilityId: widget.facilityId,
-          service: widget.vaconService,
+          service: _vaconService,
           roleLoader: widget.roleLoader,
         ),
       ),
@@ -182,6 +185,7 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
                         padding: const EdgeInsets.only(bottom: 14),
                         child: _VaconAddOnCard(
                           canManage: canManage,
+                          isSimulator: _vaconService.isSimulator,
                           onOpen: _openVaconControl,
                         ),
                       ),
@@ -200,10 +204,12 @@ class _AddOnsScreenState extends State<AddOnsScreen> {
 class _VaconAddOnCard extends StatelessWidget {
   const _VaconAddOnCard({
     required this.canManage,
+    required this.isSimulator,
     required this.onOpen,
   });
 
   final bool canManage;
+  final bool isSimulator;
   final VoidCallback onOpen;
 
   @override
@@ -250,16 +256,22 @@ class _VaconAddOnCard extends StatelessWidget {
                 ),
               ],
             );
-            final simulationBadge = Container(
+            final modeBadge = Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF4E5),
+                color: isSimulator
+                    ? const Color(0xFFFFF4E5)
+                    : const Color(0xFFEAF3FF),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                l10n.vaconSimulationBadge,
-                style: const TextStyle(
-                  color: Color(0xFF9A6700),
+                isSimulator
+                    ? l10n.vaconSimulationBadge
+                    : l10n.vaconMonitoringBadge,
+                style: TextStyle(
+                  color: isSimulator
+                      ? const Color(0xFF9A6700)
+                      : const Color(0xFF0B63E5),
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
@@ -278,7 +290,7 @@ class _VaconAddOnCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      simulationBadge,
+                      modeBadge,
                     ],
                   )
                 : Row(
@@ -288,7 +300,7 @@ class _VaconAddOnCard extends StatelessWidget {
                       const SizedBox(width: 14),
                       Expanded(child: description),
                       const SizedBox(width: 10),
-                      simulationBadge,
+                      modeBadge,
                     ],
                   );
             return Column(

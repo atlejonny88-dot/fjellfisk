@@ -69,3 +69,16 @@ Les [CONTRIBUTING_STUDENTS.md](CONTRIBUTING_STUDENTS.md) for alle reglene.
 - Ikke endre produksjonsdata eller Firestore-regler uten avtale.
 - Ikke rør eller koble til OxyGuard/Vigo.
 - Ikke push direkte til `main` eller merge egne Pull Requests.
+## Beskyttede release-bygg
+
+Produksjonsbygg må bruke den godkjente Collector-API-adressen. Bruk alltid
+release-skriptet, som nekter tomme, lokale, emulator- eller ikke-HTTPS-adresser:
+
+```powershell
+.\tool\build_release.ps1 -Target web
+.\tool\build_release.ps1 -Target appbundle
+```
+
+Webbygget stemples med den validerte konfigurasjonen. Firebase Hosting nekter
+et ustemplet webbygg ved deploy. Dette erstatter ikke lokal utvikling: vanlige
+debug-bygg kan fortsatt kjøres uten produksjonskonfigurasjon.

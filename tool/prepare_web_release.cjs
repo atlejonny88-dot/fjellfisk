@@ -1,8 +1,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const {assertWebBuildConfig} = require('./release_config.cjs');
 
 function prepare(directory) {
+  assertWebBuildConfig(directory);
   const indexPath = path.join(directory, 'index.html');
   let index = fs.readFileSync(indexPath, 'utf8');
   const marker = /(<meta name="fjellfisk-build" content=")[^"]*(">)/;
