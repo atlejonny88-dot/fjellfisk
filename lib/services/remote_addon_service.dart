@@ -123,8 +123,7 @@ class RemoteAddOnService extends AddOnService {
       final snapshots = <String, CollectorSensorSnapshot>{};
       final resolved = <AddOn>[];
       for (final collector in collectors) {
-        if (collector.status == AddOnStatus.connected ||
-            collector.status == AddOnStatus.offline) {
+        if (collector.isConnected || collector.status == AddOnStatus.offline) {
           final snapshot = await api.fetchSensors(
               facilityId: facilityId, collectorId: collector.id);
           snapshots[collector.id] = snapshot;
@@ -209,8 +208,7 @@ class RemoteAddOnService extends AddOnService {
               oxygenMgL: sensor.oxygenMgL,
               oxygenSaturationPct: sensor.oxygenSaturationPct,
               status: DateTime.now().difference(sensor.updatedAt) >
-                          const Duration(minutes: 5) ||
-                      _loadError != null
+                      const Duration(minutes: 5)
                   ? CollectorSensorStatus.offline
                   : DateTime.now().difference(sensor.updatedAt) >
                           const Duration(minutes: 1)

@@ -1,7 +1,9 @@
 {
     "name": "Fjellfisk",
     "short_name": "Fjellfisk",
-    "start_url": ".",
+    "id": "/",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#051F3A",
     "theme_color": "#051F3A",

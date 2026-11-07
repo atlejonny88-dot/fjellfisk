@@ -1,6 +1,7 @@
 {
   "projects": {
-    "default": "trolltungaarctictrout"
+    "default": "trolltungaarctictrout",
+    "staging": "fjellfisk-staging"
   },
   "targets": {
     "trolltungaarctictrout": {

@@ -19,7 +19,7 @@ class AddOnsScreen extends StatefulWidget {
     this.service,
     this.claimService,
     this.roleLoader,
-    this.facilityId = '',
+    this.facilityId = MockCollectorSetupCatalog.facilityId,
   });
 
   final AddOnService? service;
@@ -36,7 +36,6 @@ class _AddOnsScreenState extends State<AddOnsScreen>
   late final AddOnService _service;
   late final CollectorClaimService _claimService;
   late final Future<String> _roleFuture;
-  Timer? _sensorRefresh;
 
   @override
   void initState() {
@@ -53,16 +52,11 @@ class _AddOnsScreenState extends State<AddOnsScreen>
     _roleFuture = (widget.roleLoader ?? UserService.getCurrentUserRole)();
     _service.addListener(_onServiceChanged);
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_refreshIfAdmin());
-    if (_service is RemoteAddOnService) {
-      _sensorRefresh = Timer.periodic(
-          const Duration(seconds: 15), (_) => unawaited(_refreshIfAdmin()));
-    }
+    unawaited(_refreshCollectorStatus());
   }
 
   @override
   void dispose() {
-    _sensorRefresh?.cancel();
     _service.removeListener(_onServiceChanged);
     WidgetsBinding.instance.removeObserver(this);
     if (widget.service == null && _service is RemoteAddOnService) {
@@ -78,19 +72,18 @@ class _AddOnsScreenState extends State<AddOnsScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(_refreshIfAdmin());
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshCollectorStatus());
+    }
   }
 
-  Future<void> _refreshIfAdmin() async {
-    String role;
+  Future<void> _refreshCollectorStatus() async {
     try {
-      role = await _roleFuture;
+      await _roleFuture;
     } catch (_) {
       return;
     }
-    if (mounted && const ['admin', 'ansatt', 'leser'].contains(role)) {
-      await _service.refresh();
-    }
+    if (mounted) await _service.refresh();
   }
 
   String _backendMessage(ClaimCodeResultType? type) =>
@@ -170,7 +163,7 @@ class _AddOnsScreenState extends State<AddOnsScreen>
           IconButton(
             key: const ValueKey('refresh-collector-status'),
             tooltip: context.l10n.refresh,
-            onPressed: _service.isRefreshing ? null : _refreshIfAdmin,
+            onPressed: _service.isRefreshing ? null : _refreshCollectorStatus,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -264,6 +257,7 @@ class _AddOnCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final hasConnectionDetails = addOn.status == AddOnStatus.connected ||
+        addOn.status == AddOnStatus.delayed ||
         addOn.status == AddOnStatus.offline ||
         addOn.status == AddOnStatus.error;
     return Card(
@@ -276,63 +270,74 @@ class _AddOnCard extends StatelessWidget {
                 ? _ConnectionDetails(addOn: addOn)
                 : const SizedBox.shrink();
             final actions = _actions(context);
-            final header = Row(
+            final icon = Container(
+              width: 46,
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF3FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.sensors_outlined,
+                color: Color(0xFF0B63E5),
+                size: 25,
+              ),
+            );
+            final description = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF3FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.sensors_outlined,
-                    color: Color(0xFF0B63E5),
-                    size: 25,
+                Text(
+                  l10n.collectorAddOnName,
+                  style: const TextStyle(
+                    color: Color(0xFF0A1733),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.collectorAddOnName,
-                        style: const TextStyle(
-                          color: Color(0xFF0A1733),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        l10n.collectorAddOnDescription,
-                        style: const TextStyle(
-                          color: Color(0xFF5F7088),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 4),
+                Text(
+                  l10n.collectorAddOnDescription,
+                  style: const TextStyle(
+                    color: Color(0xFF5F7088),
+                    fontSize: 13,
                   ),
                 ),
-                if (constraints.maxWidth >= 400) ...[
-                  const SizedBox(width: 10),
-                  _StatusChip(status: addOn.status),
-                ],
               ],
             );
+            final status = _StatusChip(status: addOn.status);
+            final header = constraints.maxWidth < 420
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          icon,
+                          const SizedBox(width: 14),
+                          Expanded(child: description),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      status,
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      icon,
+                      const SizedBox(width: 14),
+                      Expanded(child: description),
+                      const SizedBox(width: 10),
+                      status,
+                    ],
+                  );
 
             if (constraints.maxWidth < 640) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   header,
-                  if (constraints.maxWidth < 400) ...[
-                    const SizedBox(height: 12),
-                    _StatusChip(status: addOn.status),
-                  ],
                   if (hasConnectionDetails) ...[
                     const SizedBox(height: 18),
                     details,
@@ -391,6 +396,7 @@ class _AddOnCard extends StatelessWidget {
     if (!canManage) return setup;
 
     final collectorAction = addOn.status == AddOnStatus.connected ||
+            addOn.status == AddOnStatus.delayed ||
             addOn.status == AddOnStatus.offline ||
             addOn.status == AddOnStatus.error
         ? OutlinedButton.icon(
@@ -431,6 +437,10 @@ class _StatusChip extends StatelessWidget {
       AddOnStatus.connected => (
           context.l10n.addOnStatusConnected,
           const Color(0xFF15803D),
+        ),
+      AddOnStatus.delayed => (
+          context.l10n.addOnStatusDelayed,
+          const Color(0xFFD97706),
         ),
       AddOnStatus.offline => (
           context.l10n.addOnStatusOffline,
@@ -589,6 +599,8 @@ class _CollectorPairingDialogState extends State<_CollectorPairingDialog> {
       ClaimCodeResultType.busy => context.l10n.connectingCollector,
       ClaimCodeResultType.unauthorized =>
         context.l10n.collectorAuthorizationFailed,
+      ClaimCodeResultType.notEntitled =>
+        context.l10n.collectorEntitlementRequired,
       ClaimCodeResultType.unavailable =>
         context.l10n.collectorBackendUnavailable,
       ClaimCodeResultType.success => '',

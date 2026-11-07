@@ -22,10 +22,27 @@
                                                }
                                   }
                 },
+    "functions": [
+                    {
+                      "source": "functions",
+                      "codebase": "default",
+                      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"],
+                      "ignore": [
+                        "node_modules",
+                        ".git",
+                        "firebase-debug.log",
+                        "firebase-debug.*.log",
+                        "*.local"
+                      ]
+                    }
+                  ],
     "hosting":  [
                     {
                     "target": "legacy",
-                    "predeploy": ["node tool/prepare_web_release.cjs"],
+                    "predeploy": [
+                                   "node tool/verify_production_web_build.cjs",
+                                   "node tool/prepare_web_release.cjs"
+                                 ],
                     "public":  "build/web",
                     "ignore":  [
                                    "firebase.json",
@@ -34,7 +51,14 @@
                                ],
                     "rewrites":  [
                                      {
-                                         "source":  "**",
+                                          "source": "/collector/v1/**",
+                                          "function": {
+                                            "functionId": "collectorApi",
+                                            "region": "europe-west1"
+                                          }
+                                      },
+                                      {
+                                          "source":  "**",
                                          "destination":  "/index.html"
                                      }
                                  ],
@@ -101,7 +125,10 @@
                     },
                     {
                     "target": "fjellfisk",
-                    "predeploy": ["node tool/prepare_web_release.cjs"],
+                    "predeploy": [
+                                   "node tool/verify_production_web_build.cjs",
+                                   "node tool/prepare_web_release.cjs"
+                                 ],
                     "public":  "build/web",
                     "ignore":  [
                                    "firebase.json",
@@ -109,6 +136,13 @@
                                    "**/node_modules/**"
                                ],
                     "rewrites":  [
+                                     {
+                                         "source": "/collector/v1/**",
+                                         "function": {
+                                           "functionId": "collectorApi",
+                                           "region": "europe-west1"
+                                         }
+                                     },
                                      {
                                          "source":  "**",
                                          "destination":  "/index.html"
@@ -176,6 +210,20 @@
                                 ]
                     }
                 ],
+    "emulators": {
+                   "auth": {
+                     "host": "127.0.0.1",
+                     "port": 9099
+                   },
+                   "functions": {
+                     "host": "127.0.0.1",
+                     "port": 5001
+                   },
+                   "firestore": {
+                     "host": "127.0.0.1",
+                     "port": 8787
+                   }
+                 },
     "firestore":  {
                       "rules":  "firestore.rules"
                   }

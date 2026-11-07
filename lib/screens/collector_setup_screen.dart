@@ -408,6 +408,7 @@ class _CollectorConnectionCard extends StatelessWidget {
               label: l10n.collectorSensorsConfigured,
               value: '$configuredCount',
             ),
+            _SensorReadingState(sensors: sensors, collector: collector),
           ],
         ),
       ),
@@ -452,6 +453,78 @@ class _Detail extends StatelessWidget {
   }
 }
 
+class _SensorReadingState extends StatelessWidget {
+  const _SensorReadingState({required this.sensors, required this.collector});
+
+  final List<CollectorSensor> sensors;
+  final AddOn collector;
+
+  @override
+  Widget build(BuildContext context) {
+    final live = sensors
+        .where((sensor) => sensor.status == CollectorSensorStatus.live)
+        .length;
+    final failed = sensors
+        .where((sensor) => sensor.status == CollectorSensorStatus.failed)
+        .length;
+    final l10n = context.l10n;
+    final (label, detail, color) = sensors.isEmpty
+        ? (
+            l10n.collectorSensorReadingNoData,
+            null,
+            const Color(0xFF64748B),
+          )
+        : live == sensors.length
+            ? (
+                l10n.collectorSensorReadingWorking,
+                null,
+                const Color(0xFF15803D),
+              )
+            : failed == sensors.length
+                ? (
+                    l10n.collectorSensorReadingFailed,
+                    collector.isConnected
+                        ? l10n.collectorConnectedSensorReadFailed
+                        : null,
+                    const Color(0xFFB91C1C),
+                  )
+                : (
+                    l10n.collectorSensorReadingPartialFailure,
+                    null,
+                    const Color(0xFFD97706),
+                  );
+    return SizedBox(
+      width: 260,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.collectorSensorReading,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+          if (detail != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              detail,
+              style:
+                  const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _CollectorStateLabel extends StatelessWidget {
   const _CollectorStateLabel({required this.status});
 
@@ -461,7 +534,7 @@ class _CollectorStateLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = status == AddOnStatus.connected
         ? const Color(0xFF15803D)
-        : status == AddOnStatus.offline
+        : status == AddOnStatus.delayed || status == AddOnStatus.offline
             ? const Color(0xFFB7791F)
             : const Color(0xFF64748B);
     return Row(
@@ -472,9 +545,11 @@ class _CollectorStateLabel extends StatelessWidget {
         Text(
           status == AddOnStatus.connected
               ? context.l10n.addOnStatusConnected
-              : status == AddOnStatus.offline
-                  ? context.l10n.addOnStatusOffline
-                  : context.l10n.addOnStatusNotConnected,
+              : status == AddOnStatus.delayed
+                  ? context.l10n.addOnStatusDelayed
+                  : status == AddOnStatus.offline
+                      ? context.l10n.addOnStatusOffline
+                      : context.l10n.addOnStatusNotConnected,
           style: TextStyle(color: color, fontWeight: FontWeight.w700),
         ),
       ],
@@ -795,6 +870,7 @@ class _SensorUpdateLabel extends StatelessWidget {
           : l10n.collectorUpdatedSecondsAgo(difference.inSeconds),
       CollectorSensorStatus.stale =>
         l10n.collectorLastUpdatedMinutesAgo(difference.inMinutes),
+      CollectorSensorStatus.failed => l10n.collectorLastDataAt(timestamp),
       CollectorSensorStatus.offline => l10n.collectorLastDataAt(timestamp),
     };
     return Row(
@@ -875,6 +951,10 @@ class _EmptySensorState extends StatelessWidget {
       CollectorSensorStatus.stale => (
           context.l10n.collectorStale,
           const Color(0xFFD97706)
+        ),
+      CollectorSensorStatus.failed => (
+          context.l10n.collectorSensorFailed,
+          const Color(0xFFB91C1C)
         ),
       CollectorSensorStatus.offline => (
           context.l10n.collectorOffline,

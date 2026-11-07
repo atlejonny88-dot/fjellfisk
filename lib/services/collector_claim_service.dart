@@ -119,9 +119,10 @@ class CollectorClaimService {
         }
 
         final age = clock.difference(date);
-        final status =
-            row['health'] == 'failed' || age > const Duration(minutes: 5)
-                ? CollectorSensorStatus.offline
+        final status = age > const Duration(minutes: 5)
+            ? CollectorSensorStatus.offline
+            : row['health'] == 'failed'
+                ? CollectorSensorStatus.failed
                 : age > const Duration(minutes: 1) ||
                         row['health'] != 'ok' ||
                         age.isNegative
@@ -234,20 +235,25 @@ class CollectorClaimService {
         }
         DateTime? date(String key) =>
             item[key] is String ? DateTime.tryParse(item[key] as String) : null;
+        final lastSeenAt = date('lastSeenAt');
+        final age =
+            lastSeenAt == null ? null : DateTime.now().difference(lastSeenAt);
+        final connectionStatus = state != AddOnStatus.connected
+            ? state
+            : age == null || age.isNegative || age > const Duration(minutes: 5)
+                ? AddOnStatus.offline
+                : age > const Duration(minutes: 1)
+                    ? AddOnStatus.delayed
+                    : AddOnStatus.connected;
         return AddOn(
           id: id,
           type: AddOnType.collector,
           name: 'Fjellfisk Collector',
           description: '',
-          status: state == AddOnStatus.connected &&
-                  date('lastSeenAt') != null &&
-                  DateTime.now().difference(date('lastSeenAt')!) >
-                      const Duration(minutes: 5)
-              ? AddOnStatus.offline
-              : state,
+          status: connectionStatus,
           connectedDeviceId: state == AddOnStatus.connected ? id : null,
           connectedAt: date('pairedAt'),
-          lastSeenAt: date('lastSeenAt'),
+          lastSeenAt: lastSeenAt,
           version: item['collectorVersion'] is String
               ? item['collectorVersion'] as String
               : null,
@@ -371,10 +377,9 @@ class CollectorClaimService {
     }
 
     final code = _errorCode(response.body);
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      return const ClaimCodeResult(ClaimCodeResultType.unauthorized);
-    }
     return switch (code) {
+      'COLLECTOR_ENTITLEMENT_REQUIRED' =>
+        const ClaimCodeResult(ClaimCodeResultType.notEntitled),
       'PAIRING_CODE_EXPIRED' =>
         const ClaimCodeResult(ClaimCodeResultType.expired),
       'PAIRING_CODE_USED' ||
@@ -383,6 +388,8 @@ class CollectorClaimService {
         const ClaimCodeResult(ClaimCodeResultType.alreadyUsed),
       'PAIRING_CODE_INVALID' =>
         const ClaimCodeResult(ClaimCodeResultType.invalid),
+      _ when response.statusCode == 401 || response.statusCode == 403 =>
+        const ClaimCodeResult(ClaimCodeResultType.unauthorized),
       _ => const ClaimCodeResult(ClaimCodeResultType.unavailable),
     };
   }

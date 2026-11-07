@@ -89,6 +89,15 @@ void main() {
     expect(setup.onPressed, isNull);
   });
 
+  testWidgets('production Add-ons does not expose VACON Control',
+      (tester) async {
+    await tester.pumpWidget(app(service: service(), role: 'admin'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('VACON Control'), findsNothing);
+    expect(find.byKey(const ValueKey('open-vacon-control')), findsNothing);
+  });
+
   testWidgets('setup is disabled until a collector is connected',
       (tester) async {
     await tester.pumpWidget(app(service: service(), role: 'admin'));
@@ -122,15 +131,19 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(
-      find.byKey(const ValueKey('collector-setup-section-pacific-01')),
-    );
+    final sectionField =
+        find.byKey(const ValueKey('collector-setup-section-pacific-01'));
+    await tester.ensureVisible(sectionField);
+    await tester.pumpAndSettle();
+    await tester.tap(sectionField);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hovedbygg').last);
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('collector-setup-tank-pacific-01')),
-    );
+    final tankField =
+        find.byKey(const ValueKey('collector-setup-tank-pacific-01'));
+    await tester.ensureVisible(tankField);
+    await tester.pumpAndSettle();
+    await tester.tap(tankField);
     await tester.pumpAndSettle();
     await tester.tap(find.text('K1').last);
     await tester.pumpAndSettle();
@@ -294,7 +307,7 @@ void main() {
     await tester.pumpAndSettle();
     final setupFinder =
         find.byKey(const ValueKey('collector-setup-fjellfisk-collector'));
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -1200));
+    await tester.ensureVisible(setupFinder);
     await tester.pumpAndSettle();
     await tester.tap(setupFinder);
     await tester.pumpAndSettle();
