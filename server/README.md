@@ -43,25 +43,34 @@ Collector-entitlement. Backend leser eller skriver aldri
 
 ## VACON Control Add-on
 
-VACON Control er et separat, anleggsavgrenset Add-on. Migreringen
-`migrations/004_vacon_addon.sql` tilfører `vacon_devices`, historiske
-`vacon_telemetry` og `vacon_audit_events`. Enhetens stabile ID er uavhengig av
-IP-adressen, og konfigurasjon, grenser og overvåking kan oppdateres uten å
-slette historikk. Bare feltnavn logges i audit-sporet; nettverksdetaljer og
-hemmeligheter kopieres ikke til audit-hendelser.
+VACON Control er et separat, anleggsavgrenset Add-on. Migreringene
+`migrations/004_vacon_addon.sql`, `005_vacon_edge.sql` og
+`006_vacon_reference_frequency.sql` tilfører `vacon_devices`, historiske
+`vacon_telemetry`, `vacon_audit_events` og en anleggsbundet VACON Edge. Enhetens
+stabile ID er uavhengig av IP-adressen, og konfigurasjon, grenser og overvåking
+kan oppdateres uten å slette historikk. Bare feltnavn logges i audit-sporet;
+nettverksdetaljer og hemmeligheter kopieres ikke til audit-hendelser.
 
 Flutter kommuniserer bare med denne HTTPS-API-modellen. Verken Flutter eller
 Pelasyn-backenden åpner Modbus TCP, VPN-sokler eller port 502 mot en fysisk
-omformer. Eksisterende Windows-program `tools/fjellfisk_vacon_monitor` er en
-selvstendig, read-only FC04-monitor og ikke en produksjons-Edge.
+omformer. `tools/fjellfisk_vacon_edge` er den eneste anleggslokale komponenten
+som kan gjøre FC04-lesinger. Den bruker per-Edge credential med HMAC,
+enkeltbruks-nonce og fem minutters klokkeavvik, og kobler alltid utgående til
+API-et. Backend lagrer kun krypterte Edge-credentials.
 
-En autentisert facility Edge-protokoll og Edge-identitet finnes ikke ennå.
-Derfor returnerer `Test Connection` eksplisitt
-`EDGE_TRANSPORT_NOT_CONFIGURED`, og det er ingen telemetri-ingest-rute i denne
-revisjonen. Dette er en bevisst sikkerhetsgrense: VACON kan konfigureres og
-vises i simulatoren, men live VACON-telemetri kan ikke erklæres klar eller
-publiseres før en separat, testet Edge-implementasjon sender autentisert,
-read-only telemetri til API-et. Ingen fysisk Modbus-styring er implementert.
+`Test Connection` blir lagt i en kortlevd Edge-kø og er ikke grønn før den
+relevante Edgen har utført én faktisk, skrivebeskyttet lesing. API-et tilbyr
+ingen Modbus-skriveendepunkt, kontrollord, start, stopp, reset eller
+frekvensreferanse. En kommersiell kontrollfunksjon må gjennomgå en egen,
+fremtidig sikkerhets- og commissioningprosess.
+
+Før en Edge kan provisioneres, settes en unik 32-bytes
+`VACON_EDGE_CREDENTIAL_KEY` kun i backendens beskyttede `.env`. Deretter brukes
+`npm run provision:vacon-edge -- --facility <facility-id> --name <edge-navn>
+--api https://api.tosprotein.com --output <beskyttet-edge.json>`. Kommandoen
+skriver credential bare til den angitte filen med `0600` og logger ikke
+credentialet. Se `tools/fjellfisk_vacon_edge/README.md` for den manuelle,
+separate commissioningprosessen. Den kjøres ikke som del av backend-deploy.
 
 ## API
 

@@ -9,10 +9,11 @@
   "scripts": {
     "build": "tsc",
     "check": "tsc --noEmit",
-    "test": "npm run build && node --test dist/test/config.test.js dist/test/firebase_public_token_verifier.test.js dist/test/http_server.test.js dist/test/pairing_service.test.js dist/test/postgres_admin_authorizer.test.js dist/test/postgres_repository.integration.test.js dist/test/vacon_service.test.js",
+    "test": "npm run build && node --test dist/test/config.test.js dist/test/firebase_public_token_verifier.test.js dist/test/http_server.test.js dist/test/pairing_service.test.js dist/test/postgres_admin_authorizer.test.js dist/test/postgres_repository.integration.test.js dist/test/vacon_service.test.js dist/test/vacon_edge_service.test.js dist/test/vacon_edge_provisioning.test.js",
     "test:postgres": "npm run build && node --test dist/test/postgres_repository.integration.test.js",
     "migrate": "npm run build && node dist/src/migrate.js",
     "bootstrap:authority": "npm run build && node dist/src/bootstrap_authority.js",
+    "provision:vacon-edge": "npm run build && node dist/scripts/provision_vacon_edge.js",
     "start": "node dist/src/index.js",
     "start:with-migrations": "node dist/src/migrate.js && node dist/src/index.js"
   },

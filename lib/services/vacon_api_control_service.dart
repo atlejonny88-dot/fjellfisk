@@ -277,6 +277,7 @@ class VaconApiControlService extends VaconControlService {
         quality: _string(json['quality']).toLowerCase(),
         running: _bool(json['running']),
         actualHz: _doubleOrNull(json['actualFrequencyHz']),
+        referenceHz: _doubleOrNull(json['referenceFrequencyHz']),
         currentA: _doubleOrNull(json['motorCurrentA']),
         statusText: _bool(json['fault'])
             ? 'Fault'

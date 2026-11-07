@@ -29,6 +29,8 @@ interface TelemetryRow extends QueryResultRow {
   received_at: Date;
   quality: VaconTelemetryQuality;
   actual_frequency_hz: string | number | null;
+  reference_frequency_hz: string | number | null;
+  reference_frequency_verified: boolean;
   motor_speed_rpm: number | null;
   motor_speed_verified: boolean;
   motor_current_raw: number | null;
@@ -75,6 +77,8 @@ function asTelemetry(row: TelemetryRow): VaconTelemetry {
     receivedAt: row.received_at,
     quality: row.quality,
     actualFrequencyHz: numberOrNull(row.actual_frequency_hz),
+    referenceFrequencyHz: numberOrNull(row.reference_frequency_hz),
+    referenceFrequencyVerified: row.reference_frequency_verified,
     motorSpeedRpm: row.motor_speed_rpm,
     motorSpeedVerified: row.motor_speed_verified,
     motorCurrentRaw: row.motor_current_raw,

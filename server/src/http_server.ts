@@ -4,6 +4,7 @@ import type {AdminAuthorizer} from './admin_authorizer.js';
 import {asPairingError, PairingError} from './pairing/errors.js';
 import type {PairingService} from './pairing/service.js';
 import type {VaconService} from './vacon/service.js';
+import type {VaconEdgeService} from './vacon/edge_service.js';
 
 const maxJsonBytes = 256 * 1024;
 
@@ -25,6 +26,10 @@ function sendJson(
 }
 
 async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+  return (await readRawJson(request)).value;
+}
+
+async function readRawJson(request: IncomingMessage): Promise<{body: Buffer; value: Record<string, unknown>}> {
   let size = 0;
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
@@ -35,13 +40,14 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
     }
     chunks.push(data);
   }
-  if (!chunks.length) return {};
+  const body = Buffer.concat(chunks);
+  if (!chunks.length) return {body, value: {}};
   try {
-    const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    const value: unknown = JSON.parse(body.toString('utf8'));
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       throw new PairingError('INVALID_ARGUMENT', 400);
     }
-    return value as Record<string, unknown>;
+    return {body, value: value as Record<string, unknown>};
   } catch (error) {
     if (error instanceof PairingError) throw error;
     throw new PairingError('INVALID_ARGUMENT', 400);
@@ -94,6 +100,7 @@ class AdminCorsPolicy {
 export interface HttpApiOptions {
   pairingService: PairingService;
   vaconService?: VaconService;
+  vaconEdgeService?: VaconEdgeService;
   adminAuthorizer: AdminAuthorizer;
   adminCorsOrigins?: readonly string[];
   log?: (message: string) => void;
@@ -155,6 +162,45 @@ export function createHttpApi(options: HttpApiOptions): Server {
         return;
       }
 
+      if (url.pathname.startsWith('/edge/v1/')) {
+        const edge = requireVaconEdgeService(options.vaconEdgeService);
+        const requestBody = await readRawJson(request);
+        const authenticatedEdge = await edge.authenticate({
+          edgeId: request.headers['x-fjellfisk-edge-id'] as string | undefined,
+          credentialId: request.headers['x-fjellfisk-edge-credential-id'] as string | undefined,
+          timestamp: request.headers['x-fjellfisk-edge-timestamp'] as string | undefined,
+          nonce: request.headers['x-fjellfisk-edge-nonce'] as string | undefined,
+          signature: request.headers['x-fjellfisk-edge-signature'] as string | undefined,
+        }, method, url.pathname, requestBody.body);
+        if (method === 'GET' && url.pathname === '/edge/v1/config') {
+          sendJson(response, 200, await edge.configuration(authenticatedEdge));
+          return;
+        }
+        if (method === 'POST' && url.pathname === '/edge/v1/telemetry') {
+          sendJson(response, 200, await edge.ingestTelemetry(authenticatedEdge, requestBody.value));
+          return;
+        }
+        if (method === 'GET' && url.pathname === '/edge/v1/commands') {
+          const commands = await edge.takeCommands(authenticatedEdge);
+          sendJson(response, 200, {commands: commands.map((command) => ({
+            commandId: command.commandId,
+            deviceId: command.deviceId,
+            commandType: command.commandType,
+            expiresAt: command.expiresAt,
+          }))});
+          return;
+        }
+        const edgeParts = pathParts(url.pathname);
+        if (method === 'POST' && edgeParts.length === 5 && edgeParts[0] === 'edge' &&
+            edgeParts[1] === 'v1' && edgeParts[2] === 'commands' && edgeParts[4] === 'result') {
+          await edge.completeCommand(authenticatedEdge, edgeParts[3], requestBody.value);
+          sendJson(response, 204, {});
+          return;
+        }
+        sendJson(response, 404, {error: {code: 'COLLECTOR_NOT_FOUND'}});
+        return;
+      }
+
       if (method === 'POST' && url.pathname === '/admin/v1/collectors/claim') {
         const body = await readJson(request);
         const siteId = typeof body.siteId === 'string' ? body.siteId : '';
@@ -213,7 +259,11 @@ export function createHttpApi(options: HttpApiOptions): Server {
           return;
         }
         if (method === 'POST' && parts.length === 5 && parts[4] === 'test-connection') {
-          sendJson(response, 200, await vacon.testConnection(actor, siteId, deviceId), adminResponseHeaders);
+          const edge = options.vaconEdgeService;
+          const result = edge?.isConfigured()
+            ? await edge.requestConnectionTest(actor, siteId, deviceId)
+            : await vacon.testConnection(actor, siteId, deviceId);
+          sendJson(response, 200, result, adminResponseHeaders);
           return;
         }
         if (method === 'PATCH' && parts.length === 4 && body) {
@@ -265,5 +315,10 @@ export function createHttpApi(options: HttpApiOptions): Server {
 
 function requireVaconService(service: VaconService | undefined): VaconService {
   if (!service) throw new PairingError('BACKEND_MISCONFIGURED', 503);
+  return service;
+}
+
+function requireVaconEdgeService(service: VaconEdgeService | undefined): VaconEdgeService {
+  if (!service || !service.isConfigured()) throw new PairingError('VACON_EDGE_NOT_CONFIGURED', 503);
   return service;
 }

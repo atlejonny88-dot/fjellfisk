@@ -3892,6 +3892,12 @@ abstract class AppLocalizations {
   /// **'Edge-forbindelsen er ikke konfigurert ennå. Ingen Modbus-tilkobling ble forsøkt.'**
   String get vaconConnectionTestUnavailable;
 
+  /// No description provided for @vaconConnectionTestRequested.
+  ///
+  /// In nb, this message translates to:
+  /// **'Tilkoblingstest er sendt til Edge. Status oppdateres etter en faktisk, skrivebeskyttet lesing.'**
+  String get vaconConnectionTestRequested;
+
   /// No description provided for @vaconHistory.
   ///
   /// In nb, this message translates to:

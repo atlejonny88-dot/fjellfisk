@@ -4,6 +4,8 @@ import test from 'node:test';
 import {StaticAdminAuthorizer} from '../src/admin_authorizer.js';
 import {createHttpApi} from '../src/http_server.js';
 import {PairingService} from '../src/pairing/service.js';
+import type {VaconEdgeService} from '../src/vacon/edge_service.js';
+import type {VaconEdge} from '../src/vacon/edge_types.js';
 import {InMemoryPairingRepository} from './in_memory_repository.js';
 import {validateSensorBatch, validateSensorMappings} from '../src/pairing/telemetry.js';
 
@@ -179,6 +181,63 @@ test('health endpoint reports database degradation without an internal exception
     const response = await fetch(`http://127.0.0.1:${address.port}/health`);
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), {status: 'degraded', database: 'unavailable'});
+  } finally {
+    await new Promise<void>((resolve, reject) => api.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test('Edge HTTP routes are authenticated, telemetry-only, and expose no control route', async () => {
+  const calls: {pathname: string; body: unknown}[] = [];
+  const edge: VaconEdge = {
+    edgeId: 'edge-01', facilityId: 'facility-01', displayName: 'Pelasyn Edge',
+    enabled: true, lastSeenAt: null, createdAt: new Date(), updatedAt: new Date(),
+  };
+  const edgeService = {
+    isConfigured: () => true,
+    authenticate: async (_headers: unknown, _method: string, pathname: string, body: Buffer) => {
+      calls.push({pathname, body: body.length ? JSON.parse(body.toString('utf8')) : null});
+      return edge;
+    },
+    configuration: async () => ({pollingIntervalSeconds: 5, devices: []}),
+    ingestTelemetry: async (_edge: VaconEdge, body: unknown) => ({accepted: Array.isArray((body as {readings?: unknown[]}).readings) ? 1 : 0}),
+    takeCommands: async () => [],
+    completeCommand: async () => {},
+  } as unknown as VaconEdgeService;
+  const api = createHttpApi({
+    pairingService: new PairingService(new InMemoryPairingRepository(), {
+      pepper: 'test-pepper-that-is-at-least-thirty-two-characters',
+    }),
+    vaconEdgeService: edgeService,
+    adminAuthorizer: new StaticAdminAuthorizer({uid: 'admin', organizationId: null, allowedSiteIds: []}),
+  });
+  await new Promise<void>((resolve) => api.listen(0, '127.0.0.1', resolve));
+  const address = api.address();
+  assert.ok(address && typeof address !== 'string');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const headers = {
+    'x-fjellfisk-edge-id': edge.edgeId,
+    'x-fjellfisk-edge-credential-id': 'credential-01',
+    'x-fjellfisk-edge-timestamp': `${Date.now()}`,
+    'x-fjellfisk-edge-nonce': 'route-test-nonce-01',
+    'x-fjellfisk-edge-signature': 'test-signature',
+  };
+  try {
+    const config = await fetch(`${baseUrl}/edge/v1/config`, {headers});
+    assert.equal(config.status, 200);
+    assert.deepEqual(await config.json(), {pollingIntervalSeconds: 5, devices: []});
+
+    const telemetry = await fetch(`${baseUrl}/edge/v1/telemetry`, {
+      method: 'POST', headers: {...headers, 'content-type': 'application/json'},
+      body: JSON.stringify({readings: [{deviceId: 'device-01'}]}),
+    });
+    assert.equal(telemetry.status, 200);
+    assert.deepEqual(await telemetry.json(), {accepted: 1});
+
+    const control = await fetch(`${baseUrl}/edge/v1/control`, {method: 'POST', headers});
+    assert.equal(control.status, 404);
+    assert.deepEqual(calls.map((call) => call.pathname), [
+      '/edge/v1/config', '/edge/v1/telemetry', '/edge/v1/control',
+    ]);
   } finally {
     await new Promise<void>((resolve, reject) => api.close((error) => error ? reject(error) : resolve()));
   }

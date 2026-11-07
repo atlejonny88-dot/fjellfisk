@@ -679,6 +679,7 @@
   "vaconMonitoringEnabled": "Monitorowanie aktywne",
   "vaconTestConnection": "Testuj połączenie",
   "vaconConnectionTestUnavailable": "Połączenie Edge nie jest jeszcze skonfigurowane. Nie podjęto próby połączenia Modbus.",
+    "vaconConnectionTestRequested": "Test połączenia został wysłany do Edge. Stan zaktualizuje się po rzeczywistym odczycie tylko do odczytu.",
   "vaconHistory": "Historia",
   "vaconMotorSpeed": "Prędkość silnika",
   "vaconUnverified": "Nie zweryfikowano",

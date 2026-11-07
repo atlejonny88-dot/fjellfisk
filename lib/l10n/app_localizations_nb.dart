@@ -2118,6 +2118,10 @@ class AppLocalizationsNb extends AppLocalizations {
       'Edge-forbindelsen er ikke konfigurert ennå. Ingen Modbus-tilkobling ble forsøkt.';
 
   @override
+  String get vaconConnectionTestRequested =>
+      'Tilkoblingstest er sendt til Edge. Status oppdateres etter en faktisk, skrivebeskyttet lesing.';
+
+  @override
   String get vaconHistory => 'Historikk';
 
   @override

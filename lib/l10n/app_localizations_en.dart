@@ -2119,6 +2119,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The Edge connection is not configured yet. No Modbus connection was attempted.';
 
   @override
+  String get vaconConnectionTestRequested =>
+      'The connection test was sent to the Edge. Status updates after an actual read-only measurement.';
+
+  @override
   String get vaconHistory => 'History';
 
   @override

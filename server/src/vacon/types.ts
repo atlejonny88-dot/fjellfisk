@@ -36,6 +36,8 @@ export interface VaconTelemetry {
   receivedAt: Date;
   quality: VaconTelemetryQuality;
   actualFrequencyHz: number | null;
+  referenceFrequencyHz: number | null;
+  referenceFrequencyVerified: boolean;
   // The documented default uses RPM here, but this stays false until the
   // installation's configurable process-data mapping has been confirmed.
   motorSpeedRpm: number | null;

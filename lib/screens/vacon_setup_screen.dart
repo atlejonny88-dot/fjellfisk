@@ -137,13 +137,19 @@ class _VaconSetupScreenState extends State<VaconSetupScreen> {
     if (device == null || _testing) return;
     setState(() => _testing = true);
     try {
-      await widget.service.testConnection(
+      final result = await widget.service.testConnection(
         facilityId: widget.facilityId,
         deviceId: device.id,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.vaconConnectionTestUnavailable)),
+        SnackBar(
+          content: Text(
+            result.state == 'PENDING' && result.reason == 'EDGE_TEST_REQUESTED'
+                ? context.l10n.vaconConnectionTestRequested
+                : context.l10n.vaconConnectionTestUnavailable,
+          ),
+        ),
       );
     } catch (_) {
       if (mounted) _showError();

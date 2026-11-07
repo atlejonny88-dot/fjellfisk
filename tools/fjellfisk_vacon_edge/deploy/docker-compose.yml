@@ -1,0 +1,20 @@
+services:
+  fjellfisk-vacon-edge:
+    build:
+      context: ..
+    restart: unless-stopped
+    # Outbound HTTPS to the Fjellfisk API and outbound FC04 reads to the
+    # facility-local drive are the only network actions. No ports are exposed.
+    environment:
+      FJELLFISK_VACON_EDGE_CONFIG: /run/fjellfisk/edge.json
+      FJELLFISK_VACON_EDGE_LOG_DIR: /var/log/fjellfisk-vacon-edge
+    volumes:
+      - /etc/fjellfisk-vacon-edge/edge.json:/run/fjellfisk/edge.json:ro
+      - /var/log/fjellfisk-vacon-edge:/var/log/fjellfisk-vacon-edge
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp

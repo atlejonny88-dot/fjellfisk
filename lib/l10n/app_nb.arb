@@ -699,6 +699,7 @@
   "vaconMonitoringEnabled": "Overvåking aktiv",
   "vaconTestConnection": "Test tilkobling",
   "vaconConnectionTestUnavailable": "Edge-forbindelsen er ikke konfigurert ennå. Ingen Modbus-tilkobling ble forsøkt.",
+    "vaconConnectionTestRequested": "Tilkoblingstest er sendt til Edge. Status oppdateres etter en faktisk, skrivebeskyttet lesing.",
   "vaconHistory": "Historikk",
   "vaconMotorSpeed": "Motorhastighet",
   "vaconUnverified": "Ikke verifisert",

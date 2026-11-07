@@ -47,6 +47,7 @@ void main() {
                 'receivedAt': '2026-11-07T10:00:01Z',
                 'quality': 'LIVE',
                 'actualFrequencyHz': 13,
+                'referenceFrequencyHz': 15,
                 'motorSpeedRpm': 1300,
                 'motorSpeedVerified': false,
                 'motorCurrentRaw': 17,
@@ -80,6 +81,7 @@ void main() {
     final device = service.devicesForFacility('facility-a').single;
     expect(device.connection, VaconConnectionState.online);
     expect(device.telemetry.actualHz, 13);
+    expect(device.telemetry.referenceHz, 15);
     expect(device.telemetry.motorSpeedVerified, isFalse);
     expect(device.canSimulateControlAt(DateTime.now()), isFalse);
   });

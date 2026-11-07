@@ -2135,6 +2135,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Połączenie Edge nie jest jeszcze skonfigurowane. Nie podjęto próby połączenia Modbus.';
 
   @override
+  String get vaconConnectionTestRequested =>
+      'Test połączenia został wysłany do Edge. Stan zaktualizuje się po rzeczywistym odczycie tylko do odczytu.';
+
+  @override
   String get vaconHistory => 'Historia';
 
   @override
