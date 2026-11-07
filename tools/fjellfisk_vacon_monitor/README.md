@@ -1,4 +1,4 @@
-# Fjellfisk VACON Control v0.3.0
+# Fjellfisk VACON Control v0.4.0
 
 Fjellfisk VACON Control is a separate Windows desktop program for observing a
 VACON 100 FLOW through an already established VPN connection. It is deliberately
@@ -30,11 +30,19 @@ the installation's configured mapping.
 - It does not start, stop, configure, or otherwise affect VACON, the VPN,
   Collector, Vigo, P-NET, Pelasyn, or Fjellfisk production data.
 
-## v0.3.0 command model
+## v0.4.0 drive setup and command model
 
 The application now separates telemetry reading, command modelling, simulator
 execution, safety validation and command-attempt logging.
 
+- The application can hold multiple local VACON connection profiles. Each has a
+  display name, IPv4 address, subnet mask, gateway, Modbus TCP port, Unit ID,
+  frequency range and a documented-limit marker. These values are local monitor
+  metadata only: editing them never changes Windows networking, VPN settings,
+  VACON parameters or a physical drive.
+- One selected drive is monitored at a time so FC04 polling stays serialized.
+  Selecting a different drive is saved locally and requires the operator to
+  explicitly restart the monitor before the new profile is used.
 - The simulator supports target adjustment in `0.1`, `0.5` and `1.0 Hz`
   steps, Apply, Start and Stop. Apply, Start and Stop each require an explicit
   confirmation in the UI.
@@ -42,7 +50,8 @@ execution, safety validation and command-attempt logging.
   resulting simulated state matches the requested action.
 - The documented Fieldbus Control Word (`2001`, PDU `2000`) and Fieldbus Speed
   Reference (`2003`, PDU `2002`) exist only as a simulator command model. No
-  TCP request in this source can write either address.
+  TCP request in this source can write either address, and the live TCP
+  transport exposes no public write/control API.
 - The frequency-reference model converts a configured minimum and maximum
   frequency to the documented `0..10000` normalized reference. It does not
   assume a physical maximum such as `50 Hz`.
@@ -76,8 +85,8 @@ connected, start one of the following from the published folder:
 & '.\publish\Fjellfisk.VaconMonitor.exe' --live
 ```
 
-`--live` uses the compiled, read-only defaults and keeps the complete Frequency
-Control panel disabled:
+`--live` uses the active local connection profile and keeps the complete
+Frequency Control panel disabled. The default profile is:
 
 - Host: `192.168.30.50`
 - TCP port: `502`
@@ -89,17 +98,28 @@ The monitor treats data as stale after 8 seconds without a successful read.
 It keeps the last value visible but labels it as stale; it never presents stale
 data as current.
 
+The profiles are stored without credentials in:
+
+```text
+%LOCALAPPDATA%\Fjellfisk\VaconMonitor\drives.json
+```
+
+An invalid profile file is rejected without being overwritten. A configured
+frequency range constrains the simulator only; it never authorizes physical
+control.
+
 ## Conditions before any real control work
 
-Real VACON control is deliberately blocked in v0.3.0. Before a later version
+Real VACON control is deliberately blocked in v0.4.0. Before a later version
 can implement any write operation, an operator and the responsible electrical /
 process owner must verify and document all of the following:
 
 1. The official VACON 100 FLOW control-word and frequency-reference registers.
 2. The required Modbus write function and exact value scaling.
-3. The active control source and the effects of communication loss.
+3. The active fieldbus control source, including local/remote switching.
 4. Local control, physical emergency stop, pump interlocks and alarm handling.
 5. Approved pump-specific minimum/maximum frequency and acceleration limits.
+6. Communication-loss behaviour and restart behaviour.
 
 No control register or speculative write function is present in this source.
 

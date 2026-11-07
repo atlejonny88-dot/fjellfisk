@@ -53,9 +53,9 @@ public sealed class VaconReadOnlyModbusClient : IVaconReadOnlyClient
             throw new ArgumentException("The Modbus client cannot be created for simulated mode.", nameof(options));
         }
 
-        if (options.UnitId != VaconMonitorOptions.DefaultUnitId)
+        if (options.UnitId == 0)
         {
-            throw new ArgumentException("Only the approved VACON Unit ID is supported.", nameof(options));
+            throw new ArgumentException("Modbus Unit ID 0 is not supported.", nameof(options));
         }
 
         _options = options;
@@ -73,9 +73,9 @@ public sealed class VaconReadOnlyModbusClient : IVaconReadOnlyClient
 
     public static byte[] BuildReadInputRegisterRequest(ushort transactionId, byte unitId)
     {
-        if (unitId != VaconMonitorOptions.DefaultUnitId)
+        if (unitId == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(unitId), "Only the approved VACON Unit ID is supported.");
+            throw new ArgumentOutOfRangeException(nameof(unitId), "Modbus Unit ID 0 is not supported.");
         }
 
         var request = new byte[12];

@@ -16,6 +16,19 @@ internal static class Program
             return;
         }
 
+        VaconDriveConfigurationStore configurationStore = new();
+        VaconDriveConfigurationDocument configuration;
+        try
+        {
+            configuration = configurationStore.Load();
+        }
+        catch (InvalidOperationException exception)
+        {
+            MessageBox.Show(exception.Message, "Fjellfisk VACON Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        options = options.ForDrive(configuration.SelectedDrive);
         var logger = new VaconMonitorLogger();
         logger.LogStartup(options.Simulated);
         SimulatedVaconDrive? simulation = null;
@@ -23,7 +36,7 @@ internal static class Program
         IVaconControlGateway controlGateway;
         if (options.Simulated)
         {
-            simulation = new SimulatedVaconDrive();
+            simulation = new SimulatedVaconDrive(options.Drive.ToControlLimits("local-configuration"));
             client = new SimulatedVaconReadOnlyClient(simulation);
             controlGateway = new SimulatedVaconControlGateway(simulation);
         }
@@ -37,7 +50,7 @@ internal static class Program
 
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        Application.Run(new VaconControlForm(controller, options, simulation));
+        Application.Run(new VaconControlForm(controller, options, simulation, configurationStore, configuration));
     }
 }
 

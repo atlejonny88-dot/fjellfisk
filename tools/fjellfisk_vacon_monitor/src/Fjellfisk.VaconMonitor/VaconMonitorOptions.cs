@@ -23,7 +23,12 @@ public sealed record VaconMonitorOptions(
         DriveId: DefaultDriveId,
         PollInterval: TimeSpan.FromSeconds(2),
         ReadTimeout: TimeSpan.FromSeconds(3),
-        StaleAfter: TimeSpan.FromSeconds(8));
+        StaleAfter: TimeSpan.FromSeconds(8))
+    {
+        Drive = VaconDriveConfiguration.Default,
+    };
+
+    public VaconDriveConfiguration Drive { get; init; } = VaconDriveConfiguration.Default;
 
     public static VaconMonitorOptions Parse(string[] args)
     {
@@ -36,6 +41,19 @@ public sealed record VaconMonitorOptions(
         }
 
         return SimulatedDefaults with { Simulated = !live };
+    }
+
+    public VaconMonitorOptions ForDrive(VaconDriveConfiguration drive)
+    {
+        drive.Validate();
+        return this with
+        {
+            Host = drive.Host,
+            Port = drive.Port,
+            UnitId = drive.UnitId,
+            DriveId = drive.Id,
+            Drive = drive,
+        };
     }
 }
 

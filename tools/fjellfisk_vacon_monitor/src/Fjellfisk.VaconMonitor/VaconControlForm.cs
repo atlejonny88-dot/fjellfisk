@@ -7,6 +7,8 @@ public sealed class VaconControlForm : Form
     private readonly VaconMonitorController _controller;
     private readonly VaconMonitorOptions _options;
     private readonly SimulatedVaconDrive? _simulation;
+    private readonly VaconDriveConfigurationStore _configurationStore;
+    private VaconDriveConfigurationDocument _configuration;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Label _connectionValue = CreateStatusValue();
     private readonly Label _motorValue = CreateStatusValue();
@@ -28,19 +30,25 @@ public sealed class VaconControlForm : Form
     private readonly Button _stopButton = new();
     private readonly Button _faultButton = new();
     private readonly Button _connectionButton = new();
+    private readonly Label _activeDriveValue = CreateStatusValue();
+    private readonly Button _setupButton = new();
     private Task? _runTask;
 
     public VaconControlForm(
         VaconMonitorController controller,
         VaconMonitorOptions options,
-        SimulatedVaconDrive? simulation = null)
+        SimulatedVaconDrive? simulation,
+        VaconDriveConfigurationStore configurationStore,
+        VaconDriveConfigurationDocument configuration)
     {
         _controller = controller;
         _options = options;
         _simulation = simulation;
+        _configurationStore = configurationStore;
+        _configuration = configuration;
         _controller.Updated += Render;
 
-        Text = "Fjellfisk VACON Control v0.3.0";
+        Text = "Fjellfisk VACON Control v0.4.0";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(820, 720);
         Size = new Size(920, 800);
@@ -52,9 +60,10 @@ public sealed class VaconControlForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(28),
             ColumnCount = 1,
-            RowCount = 7,
+            RowCount = 8,
             AutoScroll = true,
         };
+        page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -65,17 +74,18 @@ public sealed class VaconControlForm : Form
 
         page.Controls.Add(CreateHeading(), 0, 0);
         page.Controls.Add(CreateModeNote(), 0, 1);
-        page.Controls.Add(CreateStatusPanel(), 0, 2);
-        page.Controls.Add(CreateMetricsPanel(), 0, 3);
-        page.Controls.Add(CreateControlPanel(), 0, 4);
+        page.Controls.Add(CreateDrivePanel(), 0, 2);
+        page.Controls.Add(CreateStatusPanel(), 0, 3);
+        page.Controls.Add(CreateMetricsPanel(), 0, 4);
+        page.Controls.Add(CreateControlPanel(), 0, 5);
 
         if (_simulation is not null)
         {
-            page.Controls.Add(CreateSimulationPanel(), 0, 5);
+            page.Controls.Add(CreateSimulationPanel(), 0, 6);
         }
 
         _lastReadValue.Margin = new Padding(0, 18, 0, 0);
-        page.Controls.Add(CreateLastReadPanel(), 0, 6);
+        page.Controls.Add(CreateLastReadPanel(), 0, 7);
         Controls.Add(page);
         Shown += OnShown;
         FormClosing += OnClosing;
@@ -127,6 +137,35 @@ public sealed class VaconControlForm : Form
         return panel;
     }
 
+    private Control CreateDrivePanel()
+    {
+        var panel = CreatePanel();
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.Controls.Add(CreateSectionHeading("ACTIVE VACON CONNECTION"), 0, 0);
+        _activeDriveValue.Text = _options.Drive.DisplayLabel;
+        _activeDriveValue.Margin = new Padding(0, 0, 0, 8);
+        layout.Controls.Add(_activeDriveValue, 0, 1);
+        _setupButton.Text = "Setup connections";
+        _setupButton.AutoSize = true;
+        _setupButton.Margin = new Padding(14, 3, 0, 3);
+        _setupButton.Click += OpenConnectionSetup;
+        layout.Controls.Add(_setupButton, 1, 1);
+        var note = new Label
+        {
+            Text = "Only one drive is monitored at a time. Switching the active drive requires an explicit monitor restart and never sends a control command.",
+            AutoSize = true,
+            MaximumSize = new Size(680, 0),
+            ForeColor = Color.FromArgb(78, 92, 110),
+            Margin = new Padding(0, 8, 0, 0),
+        };
+        layout.Controls.Add(note, 0, 2);
+        layout.SetColumnSpan(note, 2);
+        panel.Controls.Add(layout);
+        return panel;
+    }
+
     private Control CreateMetricsPanel()
     {
         var panel = CreatePanel();
@@ -175,15 +214,21 @@ public sealed class VaconControlForm : Form
         _targetInput.Increment = limits?.DefaultStepHz ?? 0.5m;
         _targetInput.Minimum = limits?.MinimumHz ?? 0m;
         _targetInput.Maximum = limits?.MaximumHz ?? 999m;
-        _targetInput.Value = 13m;
+        _targetInput.Value = Math.Min(_targetInput.Maximum, Math.Max(_targetInput.Minimum, 13m));
         _targetInput.ValueChanged += (_, _) => UpdateTargetPreview();
         _targetInput.Width = 100;
         _targetInput.Margin = new Padding(0, 4, 8, 4);
 
         _stepInput.DropDownStyle = ComboBoxStyle.DropDownList;
-        _stepInput.Items.AddRange(new object[] { "0,5 Hz", "1,0 Hz" });
+        _stepInput.Items.AddRange(new object[] { "0,1 Hz", "0,5 Hz", "1,0 Hz" });
         _stepInput.SelectedIndex = 0;
-        _stepInput.SelectedIndexChanged += (_, _) => _targetInput.Increment = _stepInput.SelectedIndex == 0 ? 0.5m : 1m;
+        _targetInput.Increment = 0.1m;
+        _stepInput.SelectedIndexChanged += (_, _) => _targetInput.Increment = _stepInput.SelectedIndex switch
+        {
+            0 => 0.1m,
+            1 => 0.5m,
+            _ => 1m,
+        };
         _stepInput.Width = 86;
 
         _minusButton.Text = "-";
@@ -351,6 +396,36 @@ public sealed class VaconControlForm : Form
         _shutdown.Dispose();
     }
 
+    private void OpenConnectionSetup(object? sender, EventArgs eventArgs)
+    {
+        using var setup = new VaconConnectionSetupForm(_configurationStore, _configuration);
+        setup.ShowDialog(this);
+        if (!setup.Saved)
+        {
+            return;
+        }
+
+        try
+        {
+            _configuration = _configurationStore.Load();
+        }
+        catch (InvalidOperationException exception)
+        {
+            MessageBox.Show(exception.Message, "Connection setup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (MessageBox.Show(
+                "Connection settings were saved. Restart the monitor now to use the selected drive? No physical command will be sent.",
+                "Restart monitoring",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information) == DialogResult.Yes)
+        {
+            Application.Restart();
+            Close();
+        }
+    }
+
     private void ChangeTarget(decimal delta)
     {
         var next = _targetInput.Value + delta;
@@ -489,8 +564,8 @@ public sealed class VaconControlForm : Form
         _startButton.Enabled = controlsEnabled;
         _stopButton.Enabled = controlsEnabled;
         _controlNote.Text = controlsEnabled
-            ? "Simulatorgrenser: 0,00–50,00 Hz. Disse er kun lokale testgrenser, ikke anleggsgodkjente driftsgrenser."
-            : _controller.ControlsDisabledReason;
+            ? $"Simulator limits: {_options.Drive.MinimumFrequencyHz:0.00}–{_options.Drive.MaximumFrequencyHz:0.00} Hz. These only affect the local simulator."
+            : $"{_controller.ControlsDisabledReason} Configured range: {_options.Drive.MinimumFrequencyHz:0.00}–{_options.Drive.MaximumFrequencyHz:0.00} Hz; it does not enable physical control.";
     }
 
     private bool ConfirmSimulationCommand(string message) => MessageBox.Show(

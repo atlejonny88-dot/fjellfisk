@@ -25,7 +25,12 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Controller prevents overlapping polls", ControllerPreventsOverlappingPollsAsync),
     ("Communication log retains safe categories only", CommunicationLogUsesSafeCategoriesAsync),
     ("Command log records only safe command metadata", CommandLogUsesSafeMetadataAsync),
+    ("Multiple VACON connection profiles persist their selected drive", MultipleDriveProfilesPersistAsync),
+    ("Connection profiles reject unsafe network metadata", ConnectionProfilesRejectUnsafeMetadataAsync),
+    ("Configured drive settings feed the read-only Modbus request", ConfiguredDriveFeedsReadOnlyRequestAsync),
+    ("Configured frequency limits constrain only the simulator", ConfiguredLimitsConstrainOnlySimulatorAsync),
     ("Modbus client exposes no write or control API", ModbusClientExposesNoWriteApiAsync),
+    ("Modbus transport exposes no write or control API", ModbusTransportExposesNoWriteApiAsync),
 };
 
 var failures = new List<string>();
@@ -398,6 +403,67 @@ static Task CommandLogUsesSafeMetadataAsync()
     return Task.CompletedTask;
 }
 
+static Task MultipleDriveProfilesPersistAsync()
+{
+    var directory = CreateTestDirectory();
+    var store = new VaconDriveConfigurationStore(directory);
+    var second = VaconDriveConfiguration.Default with
+    {
+        Id = "vacon-secondary",
+        DisplayName = "VACON secondary",
+        Host = "192.168.30.51",
+        UnitId = 17,
+        MinimumFrequencyHz = 8m,
+        MaximumFrequencyHz = 36m,
+        FrequencyLimitsApproved = true,
+    };
+    var document = new VaconDriveConfigurationDocument(second.Id, new[] { VaconDriveConfiguration.Default, second });
+    store.Save(document);
+    var restored = store.Load();
+    Assert(restored.Drives.Count == 2, "Both configured drives must persist.");
+    Assert(restored.SelectedDrive.Id == second.Id, "The selected drive was not preserved.");
+    Assert(restored.SelectedDrive.Host == "192.168.30.51" && restored.SelectedDrive.UnitId == 17,
+        "The secondary drive connection details changed while saving.");
+    DeleteTestDirectory(directory);
+    return Task.CompletedTask;
+}
+
+static Task ConnectionProfilesRejectUnsafeMetadataAsync()
+{
+    AssertThrowsType(() => (VaconDriveConfiguration.Default with { Host = "not-an-ip" }).Validate(), typeof(ArgumentException));
+    AssertThrowsType(() => (VaconDriveConfiguration.Default with { SubnetMask = "255.0.255.0" }).Validate(), typeof(ArgumentException));
+    AssertThrowsType(() => (VaconDriveConfiguration.Default with { Gateway = "999.1.1.1" }).Validate(), typeof(ArgumentException));
+    AssertThrowsType(() => (VaconDriveConfiguration.Default with { Port = 0 }).Validate(), typeof(ArgumentOutOfRangeException));
+    AssertThrowsType(() => (VaconDriveConfiguration.Default with { UnitId = 0 }).Validate(), typeof(ArgumentOutOfRangeException));
+    return Task.CompletedTask;
+}
+
+static Task ConfiguredDriveFeedsReadOnlyRequestAsync()
+{
+    var drive = VaconDriveConfiguration.Default with { Id = "vacon-17", Host = "192.168.30.51", UnitId = 17 };
+    var options = VaconMonitorOptions.SimulatedDefaults with { Simulated = false };
+    var configured = options.ForDrive(drive);
+    var request = VaconReadOnlyModbusClient.BuildReadInputRegisterRequest(0x1234, configured.UnitId);
+    Assert(configured.Host == "192.168.30.51" && configured.Port == 502, "Drive host or port did not reach monitor options.");
+    Assert(request[6] == 17 && request[7] == 0x04, "Configured Unit ID did not produce a FC04 request.");
+    Assert(ReadUInt16(request, 8) == 2100, "Configured drives must retain the approved FC04 PDU start.");
+    return Task.CompletedTask;
+}
+
+static async Task ConfiguredLimitsConstrainOnlySimulatorAsync()
+{
+    var limits = new VaconControlLimits(8m, 36m, 0.5m, true, "test-profile");
+    var drive = new SimulatedVaconDrive(limits);
+    var simulator = new SimulatedVaconControlGateway(drive);
+    var rejected = await simulator.ExecuteAsync(VaconControlCommand.SetFrequency, 37m, CancellationToken.None);
+    var accepted = await simulator.ExecuteAsync(VaconControlCommand.SetFrequency, 36m, CancellationToken.None);
+    Assert(!rejected.Accepted && rejected.ResultCode == "target-out-of-range", "Configured simulator limit was not enforced.");
+    Assert(accepted.Accepted && drive.TargetFrequencyHz == 36m, "Valid configured simulator target was not accepted.");
+    var live = new BlockedLiveVaconControlGateway();
+    var liveAttempt = await live.ExecuteAsync(VaconControlCommand.SetFrequency, 36m, CancellationToken.None);
+    Assert(!liveAttempt.Accepted && liveAttempt.ResultCode == "live-control-blocked", "Configured limits must never enable physical control.");
+}
+
 static Task ModbusClientExposesNoWriteApiAsync()
 {
     var unsafeMethods = typeof(VaconReadOnlyModbusClient)
@@ -409,6 +475,20 @@ static Task ModbusClientExposesNoWriteApiAsync()
         .Select(method => method.Name)
         .ToArray();
     Assert(unsafeMethods.Length == 0, "The Modbus client must expose no write or control API.");
+    return Task.CompletedTask;
+}
+
+static Task ModbusTransportExposesNoWriteApiAsync()
+{
+    var unsafeMethods = typeof(TcpVaconModbusTransport)
+        .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+        .Where(method => !method.IsSpecialName)
+        .Where(method => method.Name.Contains("write", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Contains("set", StringComparison.OrdinalIgnoreCase)
+            || method.Name.Contains("control", StringComparison.OrdinalIgnoreCase))
+        .Select(method => method.Name)
+        .ToArray();
+    Assert(unsafeMethods.Length == 0, "The TCP transport must expose no write or control API.");
     return Task.CompletedTask;
 }
 
