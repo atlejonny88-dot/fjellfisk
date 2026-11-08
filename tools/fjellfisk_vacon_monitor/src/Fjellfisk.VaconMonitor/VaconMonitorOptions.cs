@@ -83,7 +83,7 @@ public static class VaconReadOnlyRegisterMap
 
 public static class VaconControlRegisterMap
 {
-    // These are documented for modelling and test coverage only. v0.5.1 has
+    // These are documented for modelling and test coverage only. v0.5.2 has
     // no Modbus write transport and never transmits these addresses.
     public const ushort FieldbusControlWordDocumentedRegister = 2001;
     public const ushort FieldbusControlWordPduAddress = FieldbusControlWordDocumentedRegister - 1;

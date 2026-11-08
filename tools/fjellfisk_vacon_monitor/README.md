@@ -1,4 +1,4 @@
-# Fjellfisk VACON Control v0.5.1
+# Fjellfisk VACON Control v0.5.2
 
 Fjellfisk VACON Control er et separat Windows-program for direkte,
 skrivebeskyttet overvåking av VACON 100 FLOW over en allerede etablert VPN.
@@ -6,7 +6,7 @@ Programmet er uavhengig av Pelasyn, Fjellfisk-appen og Collector.
 
 ## Sikkerhetsgrense
 
-v0.5.1 er **kun overvåking**.
+v0.5.2 er **kun overvåking**.
 
 - Programmet oppretter bare Modbus TCP `FC04`-forespørsler (Read Input
   Registers).
@@ -43,10 +43,11 @@ Standardprofilen brukes bare når operatøren eksplisitt velger **Koble til**:
 Dokumentert output-frekvens er register `2104`, som leses med nullbasert
 PDU-adresse `2103` (`0x0837`) og deles på `100` før den vises i Hz.
 
-Motorhastighet (`2105`) og motorstrøm (`2106`) vises som rå prosessdata til
-skalering og lokal registermapping er verifisert for den aktuelle omformeren.
-De presenteres derfor ikke som verifisert RPM eller ampere. Statusord og aktiv
-feilkode vises, men ingen uverifisert feilkodebeskrivelse blir oppfunnet.
+Motorhastighet (`2105`) og motorstrøm (`2106`) vises synlig i hovedbildet som
+rå prosessdata til skalering og lokal registermapping er verifisert for den
+aktuelle omformeren. De presenteres derfor ikke som verifisert RPM eller
+ampere. Statusord og aktiv feilkode vises, men ingen uverifisert
+feilkodebeskrivelse blir oppfunnet.
 
 Hvis kommunikasjonen feiler, beholdes siste vellykkede måling synlig med en
 tydelig status for utdaterte data. Programmet krasjer ikke og gjør ingen

@@ -55,7 +55,7 @@ public sealed class VaconControlForm : Form
             _options.Drive.FrequencyLimitsApproved);
         _controller.Updated += Render;
 
-        Text = "Fjellfisk VACON Control v0.5.1";
+        Text = "Fjellfisk VACON Control v0.5.2";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(VaconUiLayout.MinimumWindowWidth, VaconUiLayout.MinimumWindowHeight);
         Size = new Size(VaconUiLayout.DefaultWindowWidth, VaconUiLayout.DefaultWindowHeight);
@@ -189,8 +189,12 @@ public sealed class VaconControlForm : Form
     private Control CreateMetricsPanel()
     {
         var panel = CreatePanel();
-        var content = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
-        content.Controls.Add(CreateSectionHeading("AKTUELL FREKVENS"), 0, 0);
+        var content = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, AutoSize = true };
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+        content.Controls.Add(CreateSectionHeading("AKTUELL DRIFT"), 0, 0);
+        content.SetColumnSpan(content.GetControlFromPosition(0, 0)!, 3);
 
         _frequencyValue.AutoSize = true;
         _frequencyValue.Name = "ActualFrequencyValue";
@@ -198,7 +202,11 @@ public sealed class VaconControlForm : Form
         _frequencyValue.Font = new Font("Segoe UI Semibold", 30F);
         _frequencyValue.ForeColor = Color.FromArgb(4, 79, 122);
         _frequencyValue.Margin = new Padding(0, 0, 0, 2);
-        content.Controls.Add(_frequencyValue, 0, 1);
+        _rpmValue.Name = "MotorSpeedRawValue";
+        _currentValue.Name = "MotorCurrentRawValue";
+        content.Controls.Add(CreateMetricBlock("Frekvens", _frequencyValue), 0, 1);
+        content.Controls.Add(CreateMetricBlock("Motorhastighet (rå)", _rpmValue), 1, 1);
+        content.Controls.Add(CreateMetricBlock("Motorstrøm (rå)", _currentValue), 2, 1);
         panel.Controls.Add(content);
         return panel;
     }
@@ -312,15 +320,13 @@ public sealed class VaconControlForm : Form
         content.Controls.Add(CreateStatusBlock("Kommunikasjon", _communicationValue), 1, 1);
         content.Controls.Add(CreateStatusBlock("Siste maling", _lastReadValue), 0, 2);
         content.Controls.Add(CreateStatusBlock("Statusord", _statusWordValue), 1, 2);
-        content.Controls.Add(CreateStatusBlock("Motorhastighet (radata)", _rpmValue), 0, 3);
-        content.Controls.Add(CreateStatusBlock("Motorstrom (radata)", _currentValue), 1, 3);
         _commandResult.AutoSize = true;
         _commandResult.ForeColor = Color.FromArgb(78, 92, 110);
         _commandResult.Margin = new Padding(0, 4, 0, 0);
-        content.Controls.Add(CreateStatusBlock("Siste kommando", _commandResult), 0, 4);
+        content.Controls.Add(CreateStatusBlock("Siste kommando", _commandResult), 0, 3);
+        content.SetColumnSpan(content.GetControlFromPosition(0, 3)!, 2);
+        content.Controls.Add(CreateSectionHeading("MOTORKONTROLL"), 0, 4);
         content.SetColumnSpan(content.GetControlFromPosition(0, 4)!, 2);
-        content.Controls.Add(CreateSectionHeading("MOTORKONTROLL"), 0, 5);
-        content.SetColumnSpan(content.GetControlFromPosition(0, 5)!, 2);
         ConfigureBlockedMotorControls();
         var motorActions = new FlowLayoutPanel
         {
@@ -331,7 +337,7 @@ public sealed class VaconControlForm : Form
         };
         motorActions.Controls.Add(_startButton);
         motorActions.Controls.Add(_stopButton);
-        content.Controls.Add(motorActions, 0, 6);
+        content.Controls.Add(motorActions, 0, 5);
         content.SetColumnSpan(motorActions, 2);
         content.Controls.Add(new Label
         {
@@ -340,8 +346,8 @@ public sealed class VaconControlForm : Form
             MaximumSize = new Size(VaconUiLayout.PrimaryContentMaximumWidth - 28, 0),
             ForeColor = Color.FromArgb(110, 85, 20),
             Margin = new Padding(0, 0, 0, 0),
-        }, 0, 7);
-        content.SetColumnSpan(content.GetControlFromPosition(0, 7)!, 2);
+        }, 0, 6);
+        content.SetColumnSpan(content.GetControlFromPosition(0, 6)!, 2);
         _detailsPanel.Controls.Add(content);
         return _detailsPanel;
     }

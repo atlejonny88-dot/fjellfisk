@@ -323,6 +323,8 @@ static Task PrimaryWinFormsLayoutFitsAtSupportedDisplayScalingAsync() => RunOnSt
             var motor = FindControl<Label>(form, "MotorStatusValue");
             var fault = FindControl<Label>(form, "ActiveFaultValue");
             var actual = FindControl<Label>(form, "ActualFrequencyValue");
+            var speed = FindControl<Label>(form, "MotorSpeedRawValue");
+            var current = FindControl<Label>(form, "MotorCurrentRawValue");
             var decrease = FindControl<Button>(form, "DecreaseFrequencyButton");
             var pending = FindControl<Label>(form, "PendingFrequencyValue");
             var increase = FindControl<Button>(form, "IncreaseFrequencyButton");
@@ -333,6 +335,8 @@ static Task PrimaryWinFormsLayoutFitsAtSupportedDisplayScalingAsync() => RunOnSt
             AssertIsVisibleInsideForm(form, motor, $"Motor status at {scale * 100:0}% scaling");
             AssertIsVisibleInsideForm(form, fault, $"Active fault at {scale * 100:0}% scaling");
             AssertIsVisibleInsideForm(form, actual, $"Actual frequency at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, speed, $"Motor speed raw value at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, current, $"Motor current raw value at {scale * 100:0}% scaling");
             AssertIsVisibleInsideForm(form, decrease, $"Decrease button at {scale * 100:0}% scaling");
             AssertIsVisibleInsideForm(form, pending, $"Pending target at {scale * 100:0}% scaling");
             AssertIsVisibleInsideForm(form, increase, $"Increase button at {scale * 100:0}% scaling");
