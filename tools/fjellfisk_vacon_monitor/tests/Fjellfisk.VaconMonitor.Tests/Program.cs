@@ -17,6 +17,10 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Drive profiles persist locally and retain the selection", MultipleDriveProfilesPersistAsync),
     ("Drive profiles reject invalid network metadata", ConnectionProfilesRejectUnsafeMetadataAsync),
     ("Configured drive data feeds the FC04 request", ConfiguredDriveFeedsReadOnlyRequestAsync),
+    ("Pending target starts from a fresh physical reading", PendingTargetInitializesFromFreshReadingAsync),
+    ("Pending target moves in exact whole-Hz steps", PendingTargetMovesInWholeHzStepsAsync),
+    ("Unapproved limits never permit target adjustment", UnapprovedLimitsKeepTargetReadOnlyAsync),
+    ("Compact control-panel dimensions remain fixed", CompactControlPanelDimensionsAsync),
     ("All physical control commands remain blocked", LiveControlRemainsBlockedAsync),
     ("Control preparation remains blocked before commissioning", CommissioningBoundaryRemainsBlockedAsync),
     ("Modbus client exposes no write or control API", ModbusClientExposesNoWriteApiAsync),
@@ -233,6 +237,48 @@ static async Task ConfiguredDriveFeedsReadOnlyRequestAsync()
     await client.ReadAsync(CancellationToken.None);
     Assert(transport.LastRequest is not null && transport.LastRequest[6] == 42, "Configured Unit ID did not feed the FC04 request.");
     Assert(transport.LastRequest?[7] == 0x04, "Configured connections must remain FC04-only.");
+}
+
+static Task PendingTargetInitializesFromFreshReadingAsync()
+{
+    var target = new VaconPendingFrequencyTarget(8m, 20m, limitsApproved: true);
+    Assert(target.ValueHz is null, "A target must not exist before a fresh read.");
+    Assert(target.TryInitializeFromFreshActual(13.00m), "A fresh actual frequency should initialise the target.");
+    Assert(target.ValueHz == 13m, "The target must use the nearest whole Hz, not a hardcoded default.");
+    target.Clear();
+    Assert(target.ValueHz is null, "Disconnecting must cancel the pending target.");
+    return Task.CompletedTask;
+}
+
+static Task PendingTargetMovesInWholeHzStepsAsync()
+{
+    var target = new VaconPendingFrequencyTarget(8m, 20m, limitsApproved: true);
+    target.TryInitializeFromFreshActual(13.49m);
+    Assert(target.ValueHz == 13m, "A 13.49 Hz measurement must initialise to 13 Hz.");
+    Assert(target.MoveByOneHz(1) && target.ValueHz == 14m, "Plus must change only the pending target by exactly 1 Hz.");
+    Assert(target.MoveByOneHz(1) && target.ValueHz == 15m, "Each plus press must add exactly 1 Hz.");
+    Assert(target.MoveByOneHz(-1) && target.ValueHz == 14m, "Minus must change only the pending target by exactly 1 Hz.");
+    Assert(VaconDriveConfiguration.Default.ToControlLimits("test").DefaultStepHz == 1m, "The control model must expose only a 1 Hz default step.");
+    return Task.CompletedTask;
+}
+
+static Task UnapprovedLimitsKeepTargetReadOnlyAsync()
+{
+    var target = new VaconPendingFrequencyTarget(8m, 20m, limitsApproved: false);
+    Assert(target.TryInitializeFromFreshActual(13m), "A fresh actual frequency may be displayed even when limits are not approved.");
+    Assert(target.ValueHz == 13m, "The displayed pending target must come from the actual reading.");
+    Assert(!target.CanAdjust, "Unapproved limits must prevent target adjustment.");
+    Assert(!target.MoveByOneHz(1) && target.ValueHz == 13m, "A blocked adjustment must not mutate the pending target.");
+    return Task.CompletedTask;
+}
+
+static Task CompactControlPanelDimensionsAsync()
+{
+    Assert(VaconUiLayout.DefaultWindowWidth == 700 && VaconUiLayout.DefaultWindowHeight == 700,
+        "The compact default window must be 700 by 700 pixels.");
+    Assert(VaconUiLayout.MinimumWindowWidth >= 700 && VaconUiLayout.MinimumWindowHeight >= 620,
+        "The compact layout must keep a usable minimum size.");
+    return Task.CompletedTask;
 }
 
 static async Task LiveControlRemainsBlockedAsync()

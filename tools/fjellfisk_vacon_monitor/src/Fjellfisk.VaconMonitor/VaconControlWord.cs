@@ -3,7 +3,7 @@ namespace Fjellfisk.VaconMonitor;
 /// <summary>
 /// Documented representation of the fixed control-word bit 0 for a future,
 /// separately commissioned control implementation. No live transport accepts
-/// or sends this value in v0.4.0.
+/// or sends this value in v0.5.0.
 /// </summary>
 public static class VaconControlWord
 {

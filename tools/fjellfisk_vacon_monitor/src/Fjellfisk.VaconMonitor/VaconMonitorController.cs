@@ -246,13 +246,13 @@ public sealed class VaconMonitorController : IDisposable
         VaconControlCommand command,
         decimal? targetHz,
         VaconInputRegisterSnapshot readback) => command switch
-    {
-        VaconControlCommand.SetFrequency => targetHz is decimal target &&
-            readback.TargetFrequencyHz is decimal actualTarget && actualTarget == target,
-        VaconControlCommand.StartMotor => readback.DriveStatus == VaconDriveStatus.Running,
-        VaconControlCommand.StopMotor => readback.DriveStatus == VaconDriveStatus.Stopped,
-        _ => false,
-    };
+        {
+            VaconControlCommand.SetFrequency => targetHz is decimal target &&
+                readback.TargetFrequencyHz is decimal actualTarget && actualTarget == target,
+            VaconControlCommand.StartMotor => readback.DriveStatus == VaconDriveStatus.Running,
+            VaconControlCommand.StopMotor => readback.DriveStatus == VaconDriveStatus.Stopped,
+            _ => false,
+        };
 
     private void ThrowIfDisposed()
     {

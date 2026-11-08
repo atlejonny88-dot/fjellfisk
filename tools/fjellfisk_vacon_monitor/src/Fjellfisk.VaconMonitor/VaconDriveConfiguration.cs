@@ -38,7 +38,7 @@ public sealed record VaconDriveConfiguration(
     public VaconControlLimits ToControlLimits(string source) => new(
         MinimumFrequencyHz,
         MaximumFrequencyHz,
-        0.5m,
+        1m,
         FrequencyLimitsApproved,
         source);
 

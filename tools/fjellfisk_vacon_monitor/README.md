@@ -1,4 +1,4 @@
-# Fjellfisk VACON Control v0.4.0
+# Fjellfisk VACON Control v0.5.0
 
 Fjellfisk VACON Control er et separat Windows-program for direkte,
 skrivebeskyttet overvåking av VACON 100 FLOW over en allerede etablert VPN.
@@ -6,7 +6,7 @@ Programmet er uavhengig av Pelasyn, Fjellfisk-appen og Collector.
 
 ## Sikkerhetsgrense
 
-v0.4.0 er **kun overvåking**.
+v0.5.0 er **kun overvåking**.
 
 - Programmet oppretter bare Modbus TCP `FC04`-forespørsler (Read Input
   Registers).
@@ -17,8 +17,16 @@ v0.4.0 er **kun overvåking**.
 - Det endrer ikke VACON-parameter, VPN, Windows-nettverk, Collector, Vigo,
   P-NET, Pelasyn eller Fjellfisk-data.
 
-Frekvenskontroll og start/stopp vises som en fremtidig arbeidsflate, men alle
-tilhørende kontroller er deaktivert. De kan ikke sende en fysisk kommando.
+Frekvenskontroll og start/stopp vises som en fremtidig arbeidsflate, men
+**Bruk frekvens**, **Start motor** og **Stopp motor** er deaktivert. De kan
+ikke sende en fysisk kommando.
+
+Målverdien er alltid lokal og usendt. Den initialiseres fra nærmeste hele Hz
+fra en **fersk** FC04-måling etter manuell tilkobling. `- 1 Hz` og `+ 1 Hz`
+endrer bare denne lokale målverdien, nøyaktig én Hz per trykk. Justering er
+kun mulig når frekvensgrensene i den valgte profilen er dokumentert som
+godkjent. Målverdien slettes ved frakobling eller bytte av drive, og kan aldri
+endre den fysiske pumpen i denne versjonen.
 
 ## Faktisk overvåking
 
