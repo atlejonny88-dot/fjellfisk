@@ -22,6 +22,7 @@ public sealed class VaconControlForm : Form
     private readonly Label _lastReadValue = CreateStatusValue();
     private readonly Label _controlNote = new();
     private readonly Label _commandResult = new();
+    private readonly Label _modeNote = new();
     private readonly Button _minusButton = new();
     private readonly Button _plusButton = new();
     private readonly Button _applyButton = new();
@@ -54,7 +55,7 @@ public sealed class VaconControlForm : Form
             _options.Drive.FrequencyLimitsApproved);
         _controller.Updated += Render;
 
-        Text = "Fjellfisk VACON Control v0.5.0";
+        Text = "Fjellfisk VACON Control v0.5.1";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(VaconUiLayout.MinimumWindowWidth, VaconUiLayout.MinimumWindowHeight);
         Size = new Size(VaconUiLayout.DefaultWindowWidth, VaconUiLayout.DefaultWindowHeight);
@@ -64,12 +65,15 @@ public sealed class VaconControlForm : Form
 
         var page = new TableLayoutPanel
         {
+            Name = "MainPage",
             Dock = DockStyle.Fill,
-            Padding = new Padding(16),
+            Padding = new Padding(VaconUiLayout.PagePadding),
             ColumnCount = 1,
             RowCount = 8,
             AutoScroll = true,
+            GrowStyle = TableLayoutPanelGrowStyle.FixedSize,
         };
+        page.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         page.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -97,7 +101,13 @@ public sealed class VaconControlForm : Form
 
     private Control CreateHeading()
     {
-        var panel = new Panel { AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 4) };
+        var panel = new Panel
+        {
+            AutoSize = true,
+            Dock = DockStyle.Top,
+            Margin = new Padding(0, 0, 0, 4),
+            MaximumSize = new Size(VaconUiLayout.PrimaryContentMaximumWidth, 0),
+        };
         panel.Controls.Add(new Label
         {
             AutoSize = true,
@@ -110,13 +120,12 @@ public sealed class VaconControlForm : Form
 
     private Control CreateModeNote()
     {
-        return new Label
-        {
-            AutoSize = true,
-            Margin = new Padding(0, 0, 0, 8),
-            ForeColor = Color.FromArgb(104, 48, 40),
-            Text = "LIVE READ-ONLY: FC04-overvaking. Fysisk styring er sperret til idriftsettelsen er dokumentert.",
-        };
+        _modeNote.AutoSize = true;
+        _modeNote.MaximumSize = new Size(VaconUiLayout.PrimaryContentMaximumWidth, 0);
+        _modeNote.Margin = new Padding(0, 0, 0, 6);
+        _modeNote.ForeColor = Color.FromArgb(104, 48, 40);
+        _modeNote.Text = "LIVE READ-ONLY: FC04-overvaking. Fysisk styring er sperret.";
+        return _modeNote;
     }
 
     private Control CreateStatusPanel()
@@ -124,16 +133,16 @@ public sealed class VaconControlForm : Form
         var panel = CreatePanel();
         var content = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
         content.Controls.Add(CreateSectionHeading("SYSTEM STATUS"), 0, 0);
-        var grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2, AutoSize = true };
+        var grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, AutoSize = true };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+        _connectionValue.Name = "ConnectionStatusValue";
+        _motorValue.Name = "MotorStatusValue";
+        _faultValue.Name = "ActiveFaultValue";
         grid.Controls.Add(CreateStatusBlock("Tilkobling", _connectionValue), 0, 0);
         grid.Controls.Add(CreateStatusBlock("Motor", _motorValue), 1, 0);
-        grid.Controls.Add(CreateStatusBlock("Klar", _readyValue), 2, 0);
-        grid.Controls.Add(CreateStatusBlock("Aktiv feil", _faultValue), 0, 1);
-        grid.Controls.Add(CreateStatusBlock("Siste maling", _lastReadValue), 1, 1);
-        grid.Controls.Add(CreateStatusBlock("Kommunikasjon", _communicationValue), 2, 1);
+        grid.Controls.Add(CreateStatusBlock("Aktiv feil", _faultValue), 2, 0);
         content.Controls.Add(grid, 0, 1);
         panel.Controls.Add(content);
         return panel;
@@ -142,14 +151,21 @@ public sealed class VaconControlForm : Form
     private Control CreateDrivePanel()
     {
         var panel = CreatePanel();
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         layout.Controls.Add(CreateSectionHeading("ACTIVE VACON CONNECTION"), 0, 0);
         _activeDriveValue.Text = _options.Drive.DisplayLabel;
+        _activeDriveValue.MaximumSize = new Size(VaconUiLayout.PrimaryContentMaximumWidth - 28, 0);
         _activeDriveValue.Margin = new Padding(0, 0, 0, 4);
         layout.Controls.Add(_activeDriveValue, 0, 1);
-        var actions = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+        var actions = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Margin = new Padding(0, 4, 0, 0),
+        };
         _setupButton.Text = "Oppsett";
         _setupButton.AutoSize = true;
         _setupButton.Margin = new Padding(8, 3, 0, 3);
@@ -165,7 +181,7 @@ public sealed class VaconControlForm : Form
         actions.Controls.Add(_setupButton);
         actions.Controls.Add(_disconnectButton);
         actions.Controls.Add(_connectButton);
-        layout.Controls.Add(actions, 1, 1);
+        layout.Controls.Add(actions, 0, 2);
         panel.Controls.Add(layout);
         return panel;
     }
@@ -177,8 +193,9 @@ public sealed class VaconControlForm : Form
         content.Controls.Add(CreateSectionHeading("AKTUELL FREKVENS"), 0, 0);
 
         _frequencyValue.AutoSize = true;
+        _frequencyValue.Name = "ActualFrequencyValue";
         _frequencyValue.Text = "-- Hz";
-        _frequencyValue.Font = new Font("Segoe UI Semibold", 34F);
+        _frequencyValue.Font = new Font("Segoe UI Semibold", 30F);
         _frequencyValue.ForeColor = Color.FromArgb(4, 79, 122);
         _frequencyValue.Margin = new Padding(0, 0, 0, 2);
         content.Controls.Add(_frequencyValue, 0, 1);
@@ -189,7 +206,14 @@ public sealed class VaconControlForm : Form
     private Control CreateControlPanel()
     {
         var panel = CreatePanel();
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 7, AutoSize = true };
+        var layout = new TableLayoutPanel
+        {
+            Name = "FrequencyControlsLayout",
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 5,
+            AutoSize = true,
+        };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
@@ -200,18 +224,24 @@ public sealed class VaconControlForm : Form
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 12F),
             ForeColor = Color.FromArgb(5, 55, 91),
-            Margin = new Padding(0, 0, 0, 12),
+            Margin = new Padding(0, 0, 0, 6),
         }, 0, 0);
         layout.SetColumnSpan(layout.GetControlFromPosition(0, 0)!, 3);
 
         _minusButton.Text = "- 1 Hz";
+        _minusButton.Name = "DecreaseFrequencyButton";
         _minusButton.Dock = DockStyle.Fill;
+        _minusButton.MinimumSize = new Size(0, 36);
         _minusButton.Click += (_, _) => ChangeTarget(-1);
         _plusButton.Text = "+ 1 Hz";
+        _plusButton.Name = "IncreaseFrequencyButton";
         _plusButton.Dock = DockStyle.Fill;
+        _plusButton.MinimumSize = new Size(0, 36);
         _plusButton.Click += (_, _) => ChangeTarget(1);
         _applyButton.Text = "BRUK FREKVENS";
+        _applyButton.Name = "ApplyFrequencyButton";
         _applyButton.Dock = DockStyle.Fill;
+        _applyButton.MinimumSize = new Size(0, 36);
         _applyButton.BackColor = Color.FromArgb(0, 100, 190);
         _applyButton.ForeColor = Color.White;
         _applyButton.FlatStyle = FlatStyle.Flat;
@@ -229,42 +259,22 @@ public sealed class VaconControlForm : Form
         layout.SetColumnSpan(targetHeading, 3);
 
         layout.Controls.Add(_minusButton, 0, 2);
+        _targetValue.Name = "PendingFrequencyValue";
+        _targetValue.AutoSize = false;
+        _targetValue.AutoEllipsis = true;
+        _targetValue.Dock = DockStyle.Fill;
+        _targetValue.TextAlign = ContentAlignment.MiddleCenter;
+        _targetValue.MinimumSize = new Size(0, 36);
         layout.Controls.Add(_targetValue, 1, 2);
         layout.Controls.Add(_plusButton, 2, 2);
         layout.Controls.Add(_applyButton, 0, 3);
         layout.SetColumnSpan(_applyButton, 3);
 
-        layout.Controls.Add(new Label
-        {
-            Text = "MOTORKONTROLL",
-            AutoSize = true,
-            Font = new Font("Segoe UI Semibold", 12F),
-            ForeColor = Color.FromArgb(5, 55, 91),
-            Margin = new Padding(0, 16, 0, 8),
-        }, 0, 4);
-        layout.SetColumnSpan(layout.GetControlFromPosition(0, 4)!, 3);
-
-        _startButton.Text = "START MOTOR";
-        _startButton.BackColor = Color.FromArgb(0, 123, 76);
-        _startButton.ForeColor = Color.White;
-        _startButton.FlatStyle = FlatStyle.Flat;
-        _startButton.AutoSize = true;
-        _startButton.Click += (_, _) => ShowCommissioningRequired();
-        _stopButton.Text = "STOP MOTOR";
-        _stopButton.BackColor = Color.FromArgb(176, 38, 45);
-        _stopButton.ForeColor = Color.White;
-        _stopButton.FlatStyle = FlatStyle.Flat;
-        _stopButton.AutoSize = true;
-        _stopButton.Margin = new Padding(12, 8, 0, 8);
-        _stopButton.Click += (_, _) => ShowCommissioningRequired();
-        layout.Controls.Add(_startButton, 0, 5);
-        layout.Controls.Add(_stopButton, 1, 5);
-        layout.SetColumnSpan(_stopButton, 2);
-
         _controlNote.AutoSize = true;
+        _controlNote.MaximumSize = new Size(VaconUiLayout.PrimaryContentMaximumWidth - 28, 0);
         _controlNote.ForeColor = Color.FromArgb(110, 85, 20);
-        _controlNote.Margin = new Padding(0, 8, 0, 0);
-        layout.Controls.Add(_controlNote, 0, 6);
+        _controlNote.Margin = new Padding(0, 6, 0, 0);
+        layout.Controls.Add(_controlNote, 0, 4);
         layout.SetColumnSpan(_controlNote, 3);
         panel.Controls.Add(layout);
         return panel;
@@ -272,19 +282,20 @@ public sealed class VaconControlForm : Form
 
     private Control CreateLastReadPanel()
     {
-        var panel = new Panel { AutoSize = true, Dock = DockStyle.Top };
+        var panel = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 2 };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         panel.Controls.Add(new Label
         {
             Text = "Siste vellykkede måling",
             AutoSize = true,
             ForeColor = Color.FromArgb(78, 92, 110),
-            Location = new Point(0, 0),
-        });
+            Anchor = AnchorStyles.Left,
+        }, 0, 0);
         _detailsButton.Text = "Vis detaljer";
         _detailsButton.AutoSize = true;
-        _detailsButton.Location = new Point(210, 0);
         _detailsButton.Click += (_, _) => ToggleDetails();
-        panel.Controls.Add(_detailsButton);
+        panel.Controls.Add(_detailsButton, 1, 0);
         return panel;
     }
 
@@ -297,40 +308,93 @@ public sealed class VaconControlForm : Form
         content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
         content.Controls.Add(CreateSectionHeading("AVANSERT OVERVAKING"), 0, 0);
         content.SetColumnSpan(content.GetControlFromPosition(0, 0)!, 2);
-        content.Controls.Add(CreateStatusBlock("Motorhastighet (radata)", _rpmValue), 0, 1);
-        content.Controls.Add(CreateStatusBlock("Motorstrom (radata)", _currentValue), 1, 1);
-        content.Controls.Add(CreateStatusBlock("Statusord", _statusWordValue), 0, 2);
+        content.Controls.Add(CreateStatusBlock("Klar", _readyValue), 0, 1);
+        content.Controls.Add(CreateStatusBlock("Kommunikasjon", _communicationValue), 1, 1);
+        content.Controls.Add(CreateStatusBlock("Siste maling", _lastReadValue), 0, 2);
+        content.Controls.Add(CreateStatusBlock("Statusord", _statusWordValue), 1, 2);
+        content.Controls.Add(CreateStatusBlock("Motorhastighet (radata)", _rpmValue), 0, 3);
+        content.Controls.Add(CreateStatusBlock("Motorstrom (radata)", _currentValue), 1, 3);
         _commandResult.AutoSize = true;
         _commandResult.ForeColor = Color.FromArgb(78, 92, 110);
         _commandResult.Margin = new Padding(0, 4, 0, 0);
-        content.Controls.Add(CreateStatusBlock("Siste kommando", _commandResult), 1, 2);
+        content.Controls.Add(CreateStatusBlock("Siste kommando", _commandResult), 0, 4);
+        content.SetColumnSpan(content.GetControlFromPosition(0, 4)!, 2);
+        content.Controls.Add(CreateSectionHeading("MOTORKONTROLL"), 0, 5);
+        content.SetColumnSpan(content.GetControlFromPosition(0, 5)!, 2);
+        ConfigureBlockedMotorControls();
+        var motorActions = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(0, 0, 0, 4),
+        };
+        motorActions.Controls.Add(_startButton);
+        motorActions.Controls.Add(_stopButton);
+        content.Controls.Add(motorActions, 0, 6);
+        content.SetColumnSpan(motorActions, 2);
+        content.Controls.Add(new Label
+        {
+            Text = "Kommandoer er sperret til kontrollkilde, lokal/fjern-valg, grenser, interlocks, nodstopp og restartatferd er dokumentert.",
+            AutoSize = true,
+            MaximumSize = new Size(VaconUiLayout.PrimaryContentMaximumWidth - 28, 0),
+            ForeColor = Color.FromArgb(110, 85, 20),
+            Margin = new Padding(0, 0, 0, 0),
+        }, 0, 7);
+        content.SetColumnSpan(content.GetControlFromPosition(0, 7)!, 2);
         _detailsPanel.Controls.Add(content);
         return _detailsPanel;
+    }
+
+    private void ConfigureBlockedMotorControls()
+    {
+        _startButton.Text = "START MOTOR";
+        _startButton.BackColor = Color.FromArgb(0, 123, 76);
+        _startButton.ForeColor = Color.White;
+        _startButton.FlatStyle = FlatStyle.Flat;
+        _startButton.AutoSize = true;
+        _startButton.Click += (_, _) => ShowCommissioningRequired();
+        _stopButton.Text = "STOP MOTOR";
+        _stopButton.BackColor = Color.FromArgb(176, 38, 45);
+        _stopButton.ForeColor = Color.White;
+        _stopButton.FlatStyle = FlatStyle.Flat;
+        _stopButton.AutoSize = true;
+        _stopButton.Margin = new Padding(12, 3, 0, 3);
+        _stopButton.Click += (_, _) => ShowCommissioningRequired();
     }
 
     private static Panel CreatePanel() => new()
     {
         AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink,
         Dock = DockStyle.Top,
+        MaximumSize = new Size(VaconUiLayout.PrimaryContentMaximumWidth, 0),
         BackColor = Color.White,
         BorderStyle = BorderStyle.FixedSingle,
-        Padding = new Padding(14),
-        Margin = new Padding(0, 0, 0, 8),
+        Padding = new Padding(10),
+        Margin = new Padding(0, 0, 0, 6),
     };
 
     private static Label CreateSectionHeading(string text) => new()
     {
         Text = text,
         AutoSize = true,
-        Font = new Font("Segoe UI Semibold", 12F),
+        Font = new Font("Segoe UI Semibold", 11F),
         ForeColor = Color.FromArgb(5, 55, 91),
-        Margin = new Padding(0, 0, 0, 12),
+        Margin = new Padding(0, 0, 0, 6),
     };
 
     private static Control CreateStatusBlock(string caption, Label value)
     {
         var block = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, RowCount = 2 };
-        block.Controls.Add(new Label { Text = caption, AutoSize = true, ForeColor = Color.FromArgb(78, 92, 110) }, 0, 0);
+        block.Controls.Add(new Label
+        {
+            Text = caption,
+            AutoSize = true,
+            MaximumSize = new Size(VaconUiLayout.StatusValueMaximumWidth, 0),
+            ForeColor = Color.FromArgb(78, 92, 110),
+        }, 0, 0);
+        value.MaximumSize = new Size(VaconUiLayout.StatusValueMaximumWidth, 0);
         block.Controls.Add(value, 0, 1);
         return block;
     }
@@ -346,9 +410,9 @@ public sealed class VaconControlForm : Form
     private static Label CreateStatusValue() => new()
     {
         AutoSize = true,
-        Font = new Font("Segoe UI Semibold", 11F),
+        Font = new Font("Segoe UI Semibold", 10F),
         ForeColor = Color.FromArgb(6, 83, 128),
-        Margin = new Padding(0, 6, 0, 0),
+        Margin = new Padding(0, 2, 0, 0),
     };
 
     private static Label CreateMetricValue() => new()
@@ -556,13 +620,13 @@ public sealed class VaconControlForm : Form
         _connectButton.Enabled = _connectionShutdown is null;
         _disconnectButton.Enabled = _connectionShutdown is not null;
         _controlNote.Text = _options.Drive.FrequencyLimitsApproved
-            ? $"{_controller.ControlsDisabledReason} Dokumentert omrade: {_options.Drive.MinimumFrequencyHz:0.00}-{_options.Drive.MaximumFrequencyHz:0.00} Hz."
-            : "Malfrekvens kan ikke justeres for frekvensgrensene er dokumentert og godkjent.";
+            ? $"Fysisk bruk er sperret. Dokumentert omrade: {_options.Drive.MinimumFrequencyHz:0.00}-{_options.Drive.MaximumFrequencyHz:0.00} Hz."
+            : "Malfrekvens kan ikke justeres for frekvensgrensene er godkjent.";
     }
 
     private void UpdateTargetPreview()
     {
-        _targetValue.Text = _pendingTarget.ValueHz is decimal target ? $"{target:0} Hz (ikke sendt)" : "Venter pa fersk maling";
+        _targetValue.Text = _pendingTarget.ValueHz is decimal target ? $"{target:0} Hz (ikke sendt)" : "-- Hz";
     }
 
     private void ToggleDetails()

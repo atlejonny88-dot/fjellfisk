@@ -1,4 +1,4 @@
-# Fjellfisk VACON Control v0.5.0
+# Fjellfisk VACON Control v0.5.1
 
 Fjellfisk VACON Control er et separat Windows-program for direkte,
 skrivebeskyttet overvåking av VACON 100 FLOW over en allerede etablert VPN.
@@ -6,7 +6,7 @@ Programmet er uavhengig av Pelasyn, Fjellfisk-appen og Collector.
 
 ## Sikkerhetsgrense
 
-v0.5.0 er **kun overvåking**.
+v0.5.1 er **kun overvåking**.
 
 - Programmet oppretter bare Modbus TCP `FC04`-forespørsler (Read Input
   Registers).

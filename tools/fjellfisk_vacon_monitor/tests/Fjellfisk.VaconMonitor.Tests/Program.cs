@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Drawing;
+using System.Windows.Forms;
 using Fjellfisk.VaconMonitor;
 
 var tests = new (string Name, Func<Task> Run)[]
@@ -21,6 +23,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("Pending target moves in exact whole-Hz steps", PendingTargetMovesInWholeHzStepsAsync),
     ("Unapproved limits never permit target adjustment", UnapprovedLimitsKeepTargetReadOnlyAsync),
     ("Compact control-panel dimensions remain fixed", CompactControlPanelDimensionsAsync),
+    ("Primary WinForms layout fits at supported display scaling", PrimaryWinFormsLayoutFitsAtSupportedDisplayScalingAsync),
     ("All physical control commands remain blocked", LiveControlRemainsBlockedAsync),
     ("Control preparation remains blocked before commissioning", CommissioningBoundaryRemainsBlockedAsync),
     ("Modbus client exposes no write or control API", ModbusClientExposesNoWriteApiAsync),
@@ -281,6 +284,71 @@ static Task CompactControlPanelDimensionsAsync()
     return Task.CompletedTask;
 }
 
+static Task PrimaryWinFormsLayoutFitsAtSupportedDisplayScalingAsync() => RunOnSta(() =>
+{
+    Application.EnableVisualStyles();
+
+    foreach (var scale in new[] { 1F, 1.25F, 1.5F })
+    {
+        var directory = CreateTestDirectory();
+        try
+        {
+            var drive = VaconDriveConfiguration.Default with
+            {
+                MinimumFrequencyHz = 8m,
+                MaximumFrequencyHz = 20m,
+                FrequencyLimitsApproved = true,
+            };
+            var options = VaconMonitorOptions.LiveDefaults.ForDrive(drive);
+            using var controller = new VaconMonitorController(new SequenceClient(), options, new VaconMonitorLogger(directory));
+            using var form = new VaconControlForm(
+                controller,
+                options,
+                new VaconDriveConfigurationStore(directory),
+                VaconDriveConfigurationStore.CreateDefault());
+
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new Point(-32000, -32000);
+            form.Show();
+            if (scale != 1F)
+            {
+                form.Scale(new SizeF(scale, scale));
+            }
+
+            form.PerformLayout();
+            Application.DoEvents();
+
+            var page = FindControl<TableLayoutPanel>(form, "MainPage");
+            var connection = FindControl<Label>(form, "ConnectionStatusValue");
+            var motor = FindControl<Label>(form, "MotorStatusValue");
+            var fault = FindControl<Label>(form, "ActiveFaultValue");
+            var actual = FindControl<Label>(form, "ActualFrequencyValue");
+            var decrease = FindControl<Button>(form, "DecreaseFrequencyButton");
+            var pending = FindControl<Label>(form, "PendingFrequencyValue");
+            var increase = FindControl<Button>(form, "IncreaseFrequencyButton");
+            var apply = FindControl<Button>(form, "ApplyFrequencyButton");
+
+            Assert(!page.HorizontalScroll.Visible, $"The main page showed a horizontal scrollbar at {scale * 100:0}% scaling.");
+            AssertIsVisibleInsideForm(form, connection, $"Connection status at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, motor, $"Motor status at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, fault, $"Active fault at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, actual, $"Actual frequency at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, decrease, $"Decrease button at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, pending, $"Pending target at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, increase, $"Increase button at {scale * 100:0}% scaling");
+            AssertIsVisibleInsideForm(form, apply, $"Apply button at {scale * 100:0}% scaling");
+            Assert(decrease.Right <= pending.Left && pending.Right <= increase.Left,
+                $"The three frequency controls did not remain in order at {scale * 100:0}% scaling.");
+            Assert(apply.Top >= decrease.Bottom, $"Apply Frequency was not below the target row at {scale * 100:0}% scaling.");
+            form.Close();
+        }
+        finally
+        {
+            DeleteTestDirectory(directory);
+        }
+    }
+});
+
 static async Task LiveControlRemainsBlockedAsync()
 {
     var gateway = new BlockedLiveVaconControlGateway();
@@ -389,6 +457,45 @@ static void AssertThrows<TException>(Action action, string message) where TExcep
 static void Assert(bool condition, string message)
 {
     if (!condition) throw new InvalidOperationException(message);
+}
+
+static Task RunOnSta(Action action)
+{
+    var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            action();
+            completion.SetResult();
+        }
+        catch (Exception exception)
+        {
+            completion.SetException(exception);
+        }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    return completion.Task;
+}
+
+static TControl FindControl<TControl>(Control root, string name) where TControl : Control
+{
+    var control = root.Controls.Find(name, searchAllChildren: true).OfType<TControl>().SingleOrDefault();
+    if (control is null)
+    {
+        throw new InvalidOperationException($"Required {typeof(TControl).Name} '{name}' was not found.");
+    }
+
+    return control;
+}
+
+static void AssertIsVisibleInsideForm(Form form, Control control, string description)
+{
+    var topLeft = form.PointToClient(control.PointToScreen(Point.Empty));
+    var bounds = new Rectangle(topLeft, control.Size);
+    Assert(control.Visible && bounds.Left >= 0 && bounds.Right <= form.ClientSize.Width && bounds.Top >= 0 && bounds.Bottom <= form.ClientSize.Height,
+        $"{description} was outside the visible 700 px window.");
 }
 
 sealed class FixedResponseTransport : IVaconModbusTransport
